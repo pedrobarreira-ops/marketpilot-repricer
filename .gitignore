@@ -1,0 +1,35 @@
+.env
+.env.local
+.env.production
+.env.*.local
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store
+.mcp.json
+*.db
+*.db-shm
+*.db-wal
+
+# Local dev state — not shared across machines
+.worktrees/
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
+.claude/bad-statusline.sh
+skills-lock.json
+
+# BAD skill runtime copy — canonical source lives in .agents/skills/bad/
+.claude/skills/bad/
+
+# BMAD per-user config — canonical module files stay in _bmad/
+_bmad/config.user.yaml
+_bmad/module-help.csv
+
+# Playwright E2E artifacts — regenerated on each run
+playwright-report/
+test-results/
+playwright/.cache/
+
+# Local preview/export artifacts — not served by the app
+_artifacts/
+public/*-standalone.html

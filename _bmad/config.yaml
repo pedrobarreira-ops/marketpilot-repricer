@@ -1,0 +1,21 @@
+document_output_language: English
+bad:
+  name: BMad Autonomous Development
+  description: Orchestrates parallel BMad story implementation pipelines — automatically
+    runs bmad-create-story, bmad-dev-story, bmad-code-review, and commit/PR in batches,
+    driven by the sprint backlog and dependency graph
+  version: 1.2.0
+  max_parallel_stories: '3'
+  worktree_base_path: .worktrees
+  auto_pr_merge: false
+  run_ci_locally: true
+  wait_timer_seconds: '3600'
+  retro_timer_seconds: '600'
+  context_compaction_threshold: '80'
+  stale_timeout_minutes: '60'
+  timer_support: true
+  monitor_support: true
+  model_standard: sonnet
+  model_quality: opus
+  api_five_hour_threshold: '80'
+  api_seven_day_threshold: '95'
