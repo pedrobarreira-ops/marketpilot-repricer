@@ -10,20 +10,23 @@
 <link href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,1,0&display=block" rel="stylesheet">
 <!--
   CONTENT STUB — Story 4.3 / FR10
-  PT walk-through + 3 screenshot placeholders for the "Como gerar a chave Worten?"
-  modal opened from /onboarding/key.
+  PT walk-through for the "Como gerar a chave Worten?" modal opened from
+  /onboarding/key.
 
-  Verify before customer #1:
-  - Worten Seller Center URL (drafted as sellercenter.worten.pt — confirm)
-  - Menu path to API section (drafted as: account menu → Definições → API)
-  - Key-generation button label (drafted as: "Gerar nova chave API")
-  - Whether the key is shown once or persists in UI (drafted as: shown once)
-  - Whether admin permissions are required (drafted as: yes)
+  Status: Worten Seller Center specifics VERIFIED by Pedro 2026-04-30.
+  - URL: marketplace.worten.pt
+  - Path: avatar (canto superior direito) → Definições pessoais → Chave de API tab
+  - Button: Ações → Gerar nova chave de API
+  - Behavior: key persists in UI; regen invalidates the previous one
 
-  Add 3 PNG screenshots to ./assets/onboarding-key-help/:
-  - step-1.png · login screen
-  - step-2.png · API settings menu navigation
-  - step-3.png · key generation + copy
+  Pending: 2 PNG screenshots in ./assets/onboarding-key-help/:
+  - step-2.png · avatar dropdown with "Definições pessoais" item
+  - step-3.png · Chave de API tab with key + Copiar + Ações
+  Login (step-1) is text-only — no screenshot needed.
+
+  Pedro must REDACT the live API key before saving any screenshot to disk.
+  Suggested redaction: replace the visible key with xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  (matches UUID format) so the layout reads correctly without leaking the secret.
 -->
 <style>
   :root {
@@ -132,8 +135,6 @@
     border: 1px solid var(--mp-line);
     border-radius: 8px;
     background: var(--mp-line-soft);
-    aspect-ratio: 16 / 9;
-    object-fit: cover;
   }
   .img-placeholder {
     display: flex;
@@ -155,6 +156,15 @@
     padding: 2px 6px;
     border-radius: 4px;
     font-size: 12px;
+  }
+  .note {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: var(--mp-warn-soft);
+    border-left: 3px solid var(--mp-warn);
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--mp-ink);
   }
   .trust-echo {
     margin-top: 8px;
@@ -206,40 +216,41 @@
 <main>
 
   <div class="stub-banner">
-    <strong>Content stub · pre-customer-#1.</strong> Worten Seller Center specifics drafted with sensible defaults — Pedro to verify URL, menu path, button label, and drop in 3 screenshots at <code>./assets/onboarding-key-help/step-{1,2,3}.png</code> before this content ships to a customer.
+    <strong>Content stub · pre-customer-#1.</strong> Worten Seller Center flow verified by Pedro on 2026-04-30. Two redacted PNG screenshots still pending — drop into <code>./assets/onboarding-key-help/step-2.png</code> and <code>./assets/onboarding-key-help/step-3.png</code> before customer #1.
   </div>
 
   <p class="eyebrow">Onboarding · Passo 1 de 4 · Ajuda</p>
   <h1>Como gerar a tua chave Worten</h1>
-  <p class="lede">2 minutos · 3 passos. Vais precisar de uma conta Worten Seller Center com permissões de administrador.</p>
+  <p class="lede">2 minutos. 3 passos. Tudo dentro do teu Worten Seller Center.</p>
 
   <section class="step">
     <div class="step-number">1</div>
     <div class="step-body">
-      <h2>Inicia sessão no Worten Seller Center</h2>
-      <p class="meta">URL: <code>sellercenter.worten.pt</code></p>
-      <p>Abre o Seller Center num separador novo e inicia sessão com as credenciais habituais. Se ainda não tens conta com permissões para gerar chaves API, contacta o admin da tua conta Worten antes de continuar.</p>
-      <div class="img-placeholder">step-1.png · ecrã de login do Seller Center</div>
+      <h2>Abre o Worten Seller Center</h2>
+      <p class="meta">URL: <code>marketplace.worten.pt</code></p>
+      <p>Vai a <code>marketplace.worten.pt</code> num separador novo e inicia sessão com as credenciais que usas habitualmente para gerir a tua loja.</p>
     </div>
   </section>
 
   <section class="step">
     <div class="step-number">2</div>
     <div class="step-body">
-      <h2>Abre as definições de API</h2>
-      <p class="meta">Caminho: menu da conta (canto superior direito) → <strong>Definições</strong> → <strong>API</strong></p>
-      <p>No menu da conta, abre <strong>Definições</strong> e depois <strong>API</strong>. Vais ver a lista de chaves activas na tua conta — provavelmente vazia se ainda não geraste nenhuma.</p>
-      <div class="img-placeholder">step-2.png · navegação até à secção API</div>
+      <h2>Abre as Definições pessoais</h2>
+      <p class="meta">Caminho: avatar (canto superior direito) → <strong>Definições pessoais</strong></p>
+      <p>No canto superior direito do Seller Center, clica no avatar. No menu que aparece, clica em <strong>Definições pessoais</strong>.</p>
+      <div class="img-placeholder">step-2.png · menu do avatar com &quot;Definições pessoais&quot;</div>
     </div>
   </section>
 
   <section class="step">
     <div class="step-number">3</div>
     <div class="step-body">
-      <h2>Gera a chave e copia-a</h2>
-      <p class="meta">Botão: <strong>Gerar nova chave API</strong></p>
-      <p>Clica em <strong>Gerar nova chave API</strong>. Dá-lhe um nome — recomendamos <code>MarketPilot</code> para saberes facilmente para que serve. A chave vai aparecer <strong>uma única vez</strong>: copia-a imediatamente e cola-a no MarketPilot. Se a perderes, terás de gerar uma nova.</p>
-      <div class="img-placeholder">step-3.png · ecrã com chave gerada e botão copiar</div>
+      <h2>Abre o separador Chave de API e copia</h2>
+      <p class="meta">Separador: <strong>Chave de API</strong> · Botão (se ainda não houver chave): <strong>Ações → Gerar nova chave de API</strong></p>
+      <p>Dentro de <strong>Definições pessoais</strong>, o primeiro separador é <strong>Chave de API</strong>. Se já tens uma chave gerada, clica em <strong>Copiar chave API</strong> e cola-a no MarketPilot.</p>
+      <p>Se ainda não tens chave, abre o menu <strong>Ações</strong> (canto superior direito do cartão) e escolhe <strong>Gerar nova chave de API</strong>. A chave aparece logo abaixo, pronta para copiar.</p>
+      <div class="note"><strong>Atenção:</strong> gerar uma nova chave invalida a anterior. Se já tens uma chave em uso noutro sistema, gerar uma nova vai parti-lo. Confirma antes de regenerar.</div>
+      <div class="img-placeholder">step-3.png · separador Chave de API com chave gerada + botão Copiar</div>
     </div>
   </section>
 
