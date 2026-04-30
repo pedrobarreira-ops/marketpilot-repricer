@@ -1,0 +1,65 @@
+:root {
+  --mp-bg: #f5f7fa;
+  --mp-surface: #ffffff;
+  --mp-surface-alt: #eef1f5;
+  --mp-ink: #0a1230;
+  --mp-ink-2: #3a4560;
+  --mp-ink-3: #6b7896;
+  --mp-line: #e1e5ec;
+  --mp-line-soft: #edf0f5;
+  --mp-primary: #00113a;
+  --mp-primary-2: #002366;
+  --mp-primary-tint: #dbe1ff;
+  --mp-win: oklch(58% 0.14 155);
+  --mp-win-soft: oklch(95% 0.04 155);
+  --mp-loss: oklch(58% 0.19 25);
+  --mp-loss-soft: oklch(96% 0.04 25);
+  --mp-warn: oklch(72% 0.16 80);
+  --mp-warn-soft: oklch(96% 0.06 85);
+  --mp-info: oklch(58% 0.14 240);
+  --mp-info-soft: oklch(96% 0.03 240);
+  --mp-radius: 12px;
+  --mp-radius-sm: 8px;
+  --mp-radius-lg: 18px;
+  --mp-shadow-sm: 0 1px 2px rgba(10, 18, 48, 0.04), 0 1px 1px rgba(10, 18, 48, 0.02);
+  --mp-shadow-md: 0 4px 12px rgba(10, 18, 48, 0.05), 0 2px 4px rgba(10, 18, 48, 0.03);
+  --mp-shadow-lg: 0 24px 48px rgba(10, 18, 48, 0.08), 0 8px 16px rgba(10, 18, 48, 0.04);
+  --mp-font-display: 'Manrope', system-ui, sans-serif;
+  --mp-font-body: 'Inter', system-ui, sans-serif;
+  --mp-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--mp-font-body);
+  background: var(--mp-bg);
+  color: var(--mp-ink);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv11", "ss01";
+}
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  user-select: none;
+}
+.msym-fill { font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24; }
+.font-display { font-family: var(--mp-font-display); letter-spacing: -0.02em; }
+.font-mono { font-family: var(--mp-font-mono); }
+.tabular { font-variant-numeric: tabular-nums; }
+button { font-family: inherit; }
+input { font-family: inherit; outline: none; }
+
+@keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+@keyframes pulseDot { 0%, 100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 1; transform: scale(1.15); } }
+@keyframes skeletonPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+.skel {
+  background: linear-gradient(90deg, var(--mp-line-soft) 0%, var(--mp-line) 50%, var(--mp-line-soft) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+  border-radius: 6px;
+}
+.mp-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.mp-scroll::-webkit-scrollbar-thumb { background: var(--mp-line); border-radius: 4px; }

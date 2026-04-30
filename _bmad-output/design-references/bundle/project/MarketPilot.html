@@ -1,0 +1,1725 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MarketPilot — Relatório de Competitividade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  :root {
+    --mp-bg: #f5f7fa;
+    --mp-surface: #ffffff;
+    --mp-surface-alt: #eef1f5;
+    --mp-ink: #0a1230;
+    --mp-ink-2: #3a4560;
+    --mp-ink-3: #6b7896;
+    --mp-line: #e1e5ec;
+    --mp-line-soft: #edf0f5;
+    --mp-primary: #00113a;
+    --mp-primary-2: #002366;
+    --mp-primary-tint: #dbe1ff;
+    --mp-win: oklch(58% 0.14 155);
+    --mp-win-soft: oklch(95% 0.04 155);
+    --mp-loss: oklch(58% 0.19 25);
+    --mp-loss-soft: oklch(96% 0.04 25);
+    --mp-neutral: oklch(58% 0.14 240);
+    --mp-neutral-soft: oklch(96% 0.03 240);
+    --mp-radius: 12px;
+    --mp-radius-sm: 8px;
+    --mp-radius-lg: 18px;
+    --mp-shadow-sm: 0 1px 2px rgba(10, 18, 48, 0.04), 0 1px 1px rgba(10, 18, 48, 0.02);
+    --mp-shadow-md: 0 4px 12px rgba(10, 18, 48, 0.05), 0 2px 4px rgba(10, 18, 48, 0.03);
+    --mp-shadow-lg: 0 24px 48px rgba(10, 18, 48, 0.08), 0 8px 16px rgba(10, 18, 48, 0.04);
+    --mp-font-display: 'Manrope', system-ui, sans-serif;
+    --mp-font-body: 'Inter', system-ui, sans-serif;
+    --mp-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--mp-font-body);
+    background: var(--mp-bg);
+    color: var(--mp-ink);
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    user-select: none;
+  }
+  .msym-fill { font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24; }
+  .font-display { font-family: var(--mp-font-display); letter-spacing: -0.02em; }
+  .font-mono { font-family: var(--mp-font-mono); }
+  .tabular { font-variant-numeric: tabular-nums; }
+  button { font-family: inherit; }
+  input { font-family: inherit; }
+  input:focus { outline: none; }
+  .mp-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+  .mp-scroll::-webkit-scrollbar-thumb { background: var(--mp-line); border-radius: 4px; }
+
+  /* keyframes */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+  @keyframes pulseDot {
+    0%, 100% { opacity: 0.4; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.15); }
+  }
+  @keyframes progressBar {
+    0% { width: 8%; }
+    100% { width: 92%; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<template id="__bundler_thumbnail" data-bg-color="#00113a">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#00113a"/>
+    <g transform="translate(600 400)">
+      <rect x="-80" y="-80" width="160" height="160" rx="20" fill="#ffffff"/>
+      <polygon points="0,-40 48,48 -48,48" fill="#00113a" transform="rotate(15)"/>
+    </g>
+    <text x="600" y="620" font-family="system-ui, sans-serif" font-size="56" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="-1.5">MarketPilot</text>
+  </svg>
+</template>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef, useMemo } = React;
+
+// ═════════════════════════════════════════════════════════════════════
+// TWEAKS — persisted defaults
+// ═════════════════════════════════════════════════════════════════════
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "accent": "navy",
+  "radius": "medium",
+  "trustStyle": "subtle",
+  "heroLayout": "left",
+  "startScreen": "form",
+  "reachStyle": "navy"
+}/*EDITMODE-END*/;
+
+const ACCENT_MAP = {
+  navy:   { primary: "#00113a", primary2: "#002366", tint: "#dbe1ff" },
+  indigo: { primary: "#1e1b4b", primary2: "#3730a3", tint: "#e0e7ff" },
+  slate:  { primary: "#0f172a", primary2: "#1e293b", tint: "#e2e8f0" },
+  ocean:  { primary: "#082f49", primary2: "#0c4a6e", tint: "#e0f2fe" },
+};
+const RADIUS_MAP = {
+  sharp:  { r: "4px", rSm: "2px", rLg: "8px" },
+  medium: { r: "12px", rSm: "8px", rLg: "18px" },
+  round:  { r: "20px", rSm: "14px", rLg: "28px" },
+};
+
+// ═════════════════════════════════════════════════════════════════════
+// DATA
+// ═════════════════════════════════════════════════════════════════════
+const REPORT_DATA = {
+  pt: {
+    winning: 4821,
+    winningValue: 248500,
+    losing: 1340,
+    losingValue: 184200,
+    exclusive: 756,
+    exclusiveValue: 41300,
+    reach: 2400,
+    reachValue: 71800,
+    opportunities: [
+      { name: "Sony Bravia XR-55A80L OLED 55\"", cat: "TV", yours: 799.00, leader: 792.50, score: 974 },
+      { name: "Canon EOS R6 Mark II Body", cat: "Câmara", yours: 2499.00, leader: 2485.00, score: 912 },
+      { name: "Dyson V15 Detect Absolute", cat: "Aspirador", yours: 749.00, leader: 738.90, score: 887 },
+      { name: "Apple MacBook Air M3 13\" 256GB", cat: "Portátil", yours: 1299.00, leader: 1289.00, score: 864 },
+      { name: "Samsung Galaxy S24 Ultra 256GB", cat: "Smartphone", yours: 1329.00, leader: 1319.00, score: 851 },
+      { name: "Bose QuietComfort Ultra Headphones", cat: "Áudio", yours: 449.00, leader: 444.90, score: 823 },
+      { name: "LG OLED evo G4 65\"", cat: "TV", yours: 2899.00, leader: 2875.00, score: 798 },
+      { name: "iPad Pro M4 11\" 256GB Wi-Fi", cat: "Tablet", yours: 1199.00, leader: 1189.00, score: 774 },
+      { name: "Sony WH-1000XM5", cat: "Áudio", yours: 379.00, leader: 369.00, score: 751 },
+      { name: "Garmin Fenix 7X Solar Sapphire", cat: "Wearable", yours: 949.00, leader: 939.00, score: 728 },
+      { name: "Nintendo Switch OLED + Mario Kart 8", cat: "Gaming", yours: 349.00, leader: 344.00, score: 702 },
+      { name: "DJI Mini 4 Pro Fly More Combo", cat: "Drone", yours: 1099.00, leader: 1089.00, score: 688 },
+    ],
+    quickWins: [
+      { name: "Apple AirPods Pro 2 USB-C", yours: 249.00, leader: 246.90, score: 92 },
+      { name: "Logitech MX Master 3S", yours: 99.00, leader: 97.50, score: 88 },
+      { name: "Philips Hue White+Color E27 4-pack", yours: 179.00, leader: 176.50, score: 85 },
+      { name: "Anker 737 Power Bank 24K mAh", yours: 149.90, leader: 147.90, score: 82 },
+      { name: "Kindle Paperwhite 16GB 2024", yours: 169.00, leader: 166.50, score: 79 },
+      { name: "Sonos Era 100", yours: 259.00, leader: 255.00, score: 76 },
+      { name: "Xiaomi Redmi Note 13 Pro 256GB", yours: 329.00, leader: 324.90, score: 73 },
+      { name: "JBL Charge 5", yours: 159.00, leader: 156.90, score: 70 },
+    ],
+    marginGains: [
+      { name: "Dyson V15 Detect Absolute", yours: 749.00, runnerUp: 789.00 },
+      { name: "iRobot Roomba Combo j9+", yours: 999.00, runnerUp: 1049.00 },
+      { name: "Bosch Serie 6 Máquina Café", yours: 599.00, runnerUp: 629.90 },
+      { name: "Samsung Galaxy Tab S9 256GB", yours: 849.00, runnerUp: 889.00 },
+      { name: "Garmin Fenix 7 Pro Solar", yours: 779.00, runnerUp: 819.00 },
+      { name: "Philips Air Fryer XXL HD9870", yours: 219.00, runnerUp: 234.50 },
+      { name: "Bose QuietComfort Ultra", yours: 449.00, runnerUp: 469.90 },
+      { name: "Tefal Optigrill Elite XL", yours: 199.00, runnerUp: 214.90 },
+    ],
+  },
+  es: {
+    winning: 3108,
+    winningValue: 192400,
+    losing: 2104,
+    losingValue: 263100,
+    exclusive: 412,
+    exclusiveValue: 28700,
+    reach: 1820,
+    reachValue: 58300,
+    opportunities: [
+      { name: "Samsung Galaxy S24 Ultra 512GB", cat: "Smartphone", yours: 1429.00, leader: 1418.00, score: 968 },
+      { name: "LG OLED C4 55\"", cat: "TV", yours: 1599.00, leader: 1585.00, score: 921 },
+      { name: "MacBook Pro M3 14\" 512GB", cat: "Portátil", yours: 2299.00, leader: 2279.00, score: 894 },
+      { name: "Sony PlayStation 5 Slim", cat: "Gaming", yours: 499.00, leader: 489.00, score: 856 },
+      { name: "iPhone 15 Pro 256GB", cat: "Smartphone", yours: 1319.00, leader: 1309.00, score: 832 },
+      { name: "Bose Soundbar 900", cat: "Áudio", yours: 899.00, leader: 889.00, score: 807 },
+      { name: "Dell XPS 13 Plus i7", cat: "Portátil", yours: 1599.00, leader: 1585.00, score: 782 },
+      { name: "Canon PowerShot V10", cat: "Cámara", yours: 449.00, leader: 444.00, score: 758 },
+      { name: "Apple Watch Series 9 45mm", cat: "Wearable", yours: 459.00, leader: 454.00, score: 734 },
+      { name: "Roomba j7+", cat: "Aspirador", yours: 799.00, leader: 789.00, score: 711 },
+      { name: "Meta Quest 3 128GB", cat: "VR", yours: 549.00, leader: 544.00, score: 689 },
+      { name: "Nespresso Vertuo Next", cat: "Café", yours: 149.00, leader: 146.90, score: 665 },
+    ],
+    quickWins: [
+      { name: "AirPods Max USB-C", yours: 579.00, leader: 574.00, score: 89 },
+      { name: "Kindle Scribe 32GB", yours: 419.00, leader: 414.50, score: 86 },
+      { name: "Echo Dot 5ª Gen", yours: 59.99, leader: 58.50, score: 83 },
+      { name: "Fitbit Charge 6", yours: 159.95, leader: 157.50, score: 80 },
+      { name: "Ring Video Doorbell 4", yours: 199.00, leader: 196.50, score: 77 },
+      { name: "GoPro HERO12 Black", yours: 399.00, leader: 394.90, score: 74 },
+    ],
+    marginGains: [
+      { name: "Sony WH-1000XM5", yours: 329.00, runnerUp: 348.00 },
+      { name: "Apple iPad Air M2 256GB", yours: 879.00, runnerUp: 919.00 },
+      { name: "Nintendo Switch OLED Mario Bundle", yours: 339.00, runnerUp: 359.90 },
+      { name: "Lenovo Legion Pro 5 RTX 4070", yours: 1499.00, runnerUp: 1579.00 },
+      { name: "Tineco Floor One S5 Pro", yours: 379.00, runnerUp: 399.00 },
+      { name: "Cecotec Conga 11090 Spin Revolution", yours: 449.00, runnerUp: 479.00 },
+    ],
+  },
+};
+
+const PROGRESS_PHASES = [
+  { label: "A obter catálogo", total: 31179, duration: 3200 },
+  { label: "A analisar concorrência", total: 28440, duration: 3000 },
+  { label: "A calcular oportunidades", total: 12500, duration: 2000 },
+  { label: "A gerar relatório", total: 100, duration: 1000 },
+];
+
+// ═════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═════════════════════════════════════════════════════════════════════
+const fmtEur = (n) => new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2 }).format(n);
+const fmtCurrency = (n) => new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
+const fmtNum = (n) => new Intl.NumberFormat('pt-PT').format(n);
+const diffPct = (y, l) => (((y - l) / y) * 100);
+
+function useCountUp(target, duration = 1000, start = 0) {
+  const [val, setVal] = useState(start);
+  useEffect(() => {
+    let raf; const t0 = performance.now();
+    const tick = (t) => {
+      const p = Math.min(1, (t - t0) / duration);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setVal(Math.round(start + (target - start) * eased));
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+  return val;
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// SHARED COMPONENTS
+// ═════════════════════════════════════════════════════════════════════
+function Icon({ name, fill, style, className = '' }) {
+  return (
+    <span
+      className={`material-symbols-outlined${fill ? ' msym-fill' : ''} ${className}`}
+      style={style}
+    >{name}</span>
+  );
+}
+
+function Logo({ size = 'md' }) {
+  const sizes = { sm: 18, md: 22, lg: 28 };
+  const px = sizes[size];
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{
+        width: px + 6, height: px + 6,
+        background: 'var(--mp-primary)',
+        borderRadius: 'calc(var(--mp-radius-sm) - 2px)',
+        display: 'grid', placeItems: 'center',
+        position: 'relative',
+      }}>
+        <div style={{
+          width: Math.round((px+6)*0.42), height: Math.round((px+6)*0.42),
+          background: '#fff', clipPath: 'polygon(50% 0, 100% 100%, 0 100%)',
+          transform: 'rotate(15deg)',
+        }} />
+      </div>
+      <span className="font-display" style={{
+        fontWeight: 800, fontSize: px, color: 'var(--mp-primary)',
+        letterSpacing: '-0.03em',
+      }}>MarketPilot</span>
+    </div>
+  );
+}
+
+function Header({ right, screen }) {
+  return (
+    <header style={{
+      position: 'sticky', top: 0, zIndex: 40,
+      background: 'rgba(245, 247, 250, 0.85)',
+      backdropFilter: 'blur(12px)',
+      borderBottom: '1px solid var(--mp-line-soft)',
+    }}>
+      <div style={{
+        maxWidth: 1400, margin: '0 auto',
+        padding: '18px 32px',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+          <Logo />
+          {screen === 'form' && (
+            <>
+              <div style={{ width: 1, height: 20, background: 'var(--mp-line)' }} />
+              <span style={{ fontSize: 13, color: 'var(--mp-ink-3)', fontWeight: 500 }}>
+                Descobre onde estás a perder vendas no Worten
+              </span>
+            </>
+          )}
+        </div>
+        {right}
+      </div>
+    </header>
+  );
+}
+
+function Footer() {
+  return (
+    <footer style={{
+      borderTop: '1px solid var(--mp-line-soft)',
+      padding: '32px',
+      marginTop: 'auto',
+    }}>
+      <div style={{
+        maxWidth: 1400, margin: '0 auto',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        gap: 24, flexWrap: 'wrap',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--mp-primary)' }}>MarketPilot © 2026</span>
+          <span style={{ width: 3, height: 3, borderRadius: '50%', background: 'var(--mp-line)' }} />
+          <span style={{ fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--mp-ink-3)', fontWeight: 600 }}>
+            Inteligência competitiva para sellers Worten
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: 28 }}>
+          {['Política de privacidade', 'Termos', 'Contacto'].map(t => (
+            <a key={t} href="#" style={{
+              fontSize: 12, fontWeight: 500, color: 'var(--mp-ink-3)',
+              textDecoration: 'none', letterSpacing: '0.02em',
+            }}>{t}</a>
+          ))}
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// SCREEN 1 — FORM
+// ═════════════════════════════════════════════════════════════════════
+function FormScreen({ onSubmit, tweaks }) {
+  const [apiKey, setApiKey] = useState('');
+  const [email, setEmail] = useState('');
+  const [showKey, setShowKey] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+
+  const validate = () => {
+    const e = {};
+    if (!apiKey || apiKey.length < 16) e.apiKey = 'A chave parece curta demais. Verifica no painel Worten.';
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = 'Introduz um email válido.';
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const handleSubmit = (ev) => {
+    ev.preventDefault();
+    if (!validate()) return;
+    setSubmitting(true);
+    setTimeout(() => onSubmit({ apiKey, email }), 600);
+  };
+
+  const heroLayout = tweaks.heroLayout;
+  const trustProminent = tweaks.trustStyle === 'prominent';
+
+  return (
+    <>
+      <Header screen="form" right={
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+          <a href="#" style={{ fontSize: 13, color: 'var(--mp-ink-2)', textDecoration: 'none', fontWeight: 500 }}>Como funciona</a>
+          <a href="#" style={{ fontSize: 13, color: 'var(--mp-ink-2)', textDecoration: 'none', fontWeight: 500 }}>Preços</a>
+          <button style={{
+            padding: '8px 16px', background: 'transparent',
+            border: '1px solid var(--mp-line)', borderRadius: 'var(--mp-radius-sm)',
+            fontSize: 13, fontWeight: 600, color: 'var(--mp-primary)', cursor: 'pointer',
+          }}>Entrar</button>
+        </div>
+      } />
+      <main style={{
+        flex: 1, display: 'flex', flexDirection: 'column',
+        alignItems: 'center', padding: '64px 24px 80px',
+        position: 'relative', overflow: 'hidden',
+      }}>
+        {/* Ambient tonal wash */}
+        <div style={{
+          position: 'absolute', top: -200, right: -200,
+          width: 600, height: 600,
+          background: 'radial-gradient(circle, color-mix(in oklch, var(--mp-primary) 6%, transparent), transparent 70%)',
+          pointerEvents: 'none', zIndex: 0,
+        }} />
+        <div style={{
+          position: 'absolute', bottom: -100, left: -100,
+          width: 400, height: 400,
+          background: 'radial-gradient(circle, color-mix(in oklch, var(--mp-primary) 4%, transparent), transparent 70%)',
+          pointerEvents: 'none', zIndex: 0,
+        }} />
+
+        {/* Hero */}
+        <section style={{
+          maxWidth: heroLayout === 'wide' ? 860 : 720,
+          textAlign: heroLayout === 'left' ? 'left' : 'center',
+          width: '100%',
+          zIndex: 1,
+          marginBottom: 40,
+          animation: 'fadeUp 0.6s ease-out',
+        }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            padding: '6px 12px', marginBottom: 20,
+            background: 'var(--mp-surface)', border: '1px solid var(--mp-line)',
+            borderRadius: 999, fontSize: 11, fontWeight: 700,
+            letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--mp-ink-2)',
+          }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--mp-win)', animation: 'pulseDot 2s ease-in-out infinite' }} />
+            Relatório gratuito · 3 minutos
+          </div>
+          <h1 className="font-display" style={{
+            fontSize: 'clamp(36px, 5vw, 56px)',
+            fontWeight: 800, color: 'var(--mp-primary)',
+            lineHeight: 1.05, margin: '0 0 20px',
+            textWrap: 'balance',
+          }}>
+            O teu relatório gratuito de competitividade
+          </h1>
+          <p style={{
+            fontSize: 18, lineHeight: 1.55, color: 'var(--mp-ink-2)',
+            margin: heroLayout === 'left' ? '0 0 0' : '0 auto',
+            maxWidth: 580, fontWeight: 500,
+            textWrap: 'pretty',
+          }}>
+            Liga o teu catálogo Worten e vê em <strong style={{ color: 'var(--mp-primary)' }}>3 minutos</strong> quais os produtos onde estás a perder a primeira posição — e por quanto.
+          </p>
+        </section>
+
+        {/* Form card */}
+        <section style={{ width: '100%', maxWidth: 480, zIndex: 1, animation: 'fadeUp 0.7s ease-out 0.1s both' }}>
+          <form onSubmit={handleSubmit} style={{
+            background: 'var(--mp-surface)',
+            border: '1px solid var(--mp-line-soft)',
+            borderRadius: 'var(--mp-radius-lg)',
+            padding: 36,
+            boxShadow: 'var(--mp-shadow-lg)',
+          }}>
+            {/* API Key */}
+            <div style={{ marginBottom: 20 }}>
+              <label htmlFor="apiKey" style={{
+                display: 'block', fontSize: 12, fontWeight: 700,
+                letterSpacing: '0.08em', textTransform: 'uppercase',
+                color: 'var(--mp-ink-2)', marginBottom: 8,
+              }}>Shop API Key</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  id="apiKey"
+                  type={showKey ? 'text' : 'password'}
+                  value={apiKey}
+                  onChange={(e) => { setApiKey(e.target.value); if (errors.apiKey) setErrors({ ...errors, apiKey: null }); }}
+                  placeholder="Cola aqui a tua chave API do Worten"
+                  className="font-mono"
+                  style={{
+                    width: '100%', padding: '14px 80px 14px 14px',
+                    background: 'var(--mp-bg)',
+                    border: `1px solid ${errors.apiKey ? 'var(--mp-loss)' : 'var(--mp-line)'}`,
+                    borderRadius: 'var(--mp-radius-sm)',
+                    fontSize: 14, fontWeight: 500,
+                    color: 'var(--mp-primary)',
+                    transition: 'border-color 0.15s, box-shadow 0.15s',
+                  }}
+                  onFocus={(e) => e.target.style.boxShadow = `0 0 0 3px color-mix(in oklch, var(--mp-primary) 12%, transparent)`}
+                  onBlur={(e) => e.target.style.boxShadow = 'none'}
+                />
+                <div style={{
+                  position: 'absolute', right: 10, top: '50%',
+                  transform: 'translateY(-50%)',
+                  display: 'flex', gap: 4,
+                }}>
+                  <button type="button" onClick={() => setShowKey(!showKey)} title={showKey ? 'Esconder' : 'Mostrar'} style={{
+                    width: 32, height: 32, background: 'transparent', border: 'none',
+                    cursor: 'pointer', color: 'var(--mp-ink-3)',
+                    display: 'grid', placeItems: 'center', borderRadius: 6,
+                  }}>
+                    <Icon name={showKey ? 'visibility_off' : 'visibility'} style={{ fontSize: 18 }} />
+                  </button>
+                </div>
+              </div>
+              {errors.apiKey && (
+                <p style={{ fontSize: 12, color: 'var(--mp-loss)', margin: '6px 0 0', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Icon name="error" style={{ fontSize: 14 }} />
+                  {errors.apiKey}
+                </p>
+              )}
+            </div>
+
+            {/* Email */}
+            <div style={{ marginBottom: 24 }}>
+              <label htmlFor="email" style={{
+                display: 'block', fontSize: 12, fontWeight: 700,
+                letterSpacing: '0.08em', textTransform: 'uppercase',
+                color: 'var(--mp-ink-2)', marginBottom: 8,
+              }}>Email</label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => { setEmail(e.target.value); if (errors.email) setErrors({ ...errors, email: null }); }}
+                placeholder="O relatório será enviado para este email"
+                style={{
+                  width: '100%', padding: '14px',
+                  background: 'var(--mp-bg)',
+                  border: `1px solid ${errors.email ? 'var(--mp-loss)' : 'var(--mp-line)'}`,
+                  borderRadius: 'var(--mp-radius-sm)',
+                  fontSize: 14, fontWeight: 500, color: 'var(--mp-primary)',
+                  transition: 'border-color 0.15s, box-shadow 0.15s',
+                }}
+                onFocus={(e) => e.target.style.boxShadow = `0 0 0 3px color-mix(in oklch, var(--mp-primary) 12%, transparent)`}
+                onBlur={(e) => e.target.style.boxShadow = 'none'}
+              />
+              {errors.email && (
+                <p style={{ fontSize: 12, color: 'var(--mp-loss)', margin: '6px 0 0', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Icon name="error" style={{ fontSize: 14 }} />
+                  {errors.email}
+                </p>
+              )}
+            </div>
+
+            {/* CTA */}
+            <button type="submit" disabled={submitting} style={{
+              width: '100%', padding: '16px 20px',
+              background: submitting
+                ? 'var(--mp-ink-2)'
+                : 'linear-gradient(135deg, var(--mp-primary), var(--mp-primary-2))',
+              color: '#fff', border: 'none',
+              borderRadius: 'var(--mp-radius-sm)',
+              fontSize: 15, fontWeight: 700,
+              fontFamily: 'var(--mp-font-display)', letterSpacing: '-0.01em',
+              cursor: submitting ? 'wait' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              boxShadow: '0 8px 16px color-mix(in oklch, var(--mp-primary) 25%, transparent)',
+              transition: 'transform 0.1s',
+            }}
+            onMouseDown={(e) => !submitting && (e.currentTarget.style.transform = 'scale(0.98)')}
+            onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+            onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}>
+              {submitting ? (
+                <>
+                  <Icon name="progress_activity" style={{ animation: 'spin 1s linear infinite' }} />
+                  A iniciar análise...
+                </>
+              ) : (
+                <>
+                  Gerar o meu relatório
+                  <Icon name="arrow_forward" style={{ fontSize: 20 }} />
+                </>
+              )}
+            </button>
+
+            {/* Trust — prominent variant */}
+            {trustProminent ? (
+              <div style={{
+                marginTop: 20,
+                padding: '14px 16px',
+                background: 'var(--mp-win-soft)',
+                border: '1px solid color-mix(in oklch, var(--mp-win) 25%, transparent)',
+                borderRadius: 'var(--mp-radius-sm)',
+                display: 'flex', gap: 12, alignItems: 'flex-start',
+              }}>
+                <Icon name="lock" fill style={{ color: 'var(--mp-win)', fontSize: 20, marginTop: 1 }} />
+                <div>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: 'var(--mp-ink)', lineHeight: 1.5 }}>
+                    A tua chave é usada <strong>uma única vez</strong> para gerar este relatório e <strong>nunca fica armazenada</strong>.
+                  </p>
+                  <a href="#" style={{
+                    display: 'inline-block', marginTop: 6,
+                    fontSize: 12, fontWeight: 700, color: 'var(--mp-primary)',
+                    textDecoration: 'none', letterSpacing: '0.01em',
+                  }}>
+                    Política de privacidade →
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <div style={{ marginTop: 20, display: 'flex', gap: 10, alignItems: 'center' }}>
+                <Icon name="lock" style={{ color: 'var(--mp-ink-3)', fontSize: 14 }} />
+                <p style={{ margin: 0, fontSize: 12, color: 'var(--mp-ink-3)' }}>
+                  Chave usada uma vez, nunca armazenada. <a href="#" style={{ color: 'var(--mp-primary)' }}>Privacidade</a>
+                </p>
+              </div>
+            )}
+          </form>
+
+          {/* Social proof strip */}
+          <div style={{
+            marginTop: 32, textAlign: 'center',
+          }}>
+            <p style={{
+              fontSize: 10, fontWeight: 700, letterSpacing: '0.2em',
+              textTransform: 'uppercase', color: 'var(--mp-ink-3)', margin: '0 0 14px',
+            }}>Já usado por sellers em</p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 24, alignItems: 'center', flexWrap: 'wrap', opacity: 0.55 }}>
+              {['Electrónica Ibérica', 'TecnoPro', 'Casa & Lar PT', 'HomeTech'].map((brand, i) => (
+                <span key={i} className="font-display" style={{
+                  fontSize: 13, fontWeight: 700, color: 'var(--mp-ink-2)',
+                  letterSpacing: '-0.01em',
+                }}>{brand}</span>
+              ))}
+            </div>
+          </div>
+        </section>
+      </main>
+      <Footer />
+    </>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// SCREEN 2 — PROGRESS
+// ═════════════════════════════════════════════════════════════════════
+function ProgressScreen({ onDone, email }) {
+  const [phaseIdx, setPhaseIdx] = useState(0);
+  const [count, setCount] = useState(0);
+  const [copied, setCopied] = useState(false);
+  const reportUrl = "https://marketpilot.pt/report/abc-123-xy-9f";
+
+  useEffect(() => {
+    const phase = PROGRESS_PHASES[phaseIdx];
+    if (!phase) { onDone(); return; }
+    const start = performance.now();
+    let raf;
+    const tick = (t) => {
+      const p = Math.min(1, (t - start) / phase.duration);
+      const eased = 1 - Math.pow(1 - p, 2);
+      setCount(Math.round(phase.total * eased));
+      if (p < 1) raf = requestAnimationFrame(tick);
+      else {
+        setTimeout(() => {
+          if (phaseIdx < PROGRESS_PHASES.length - 1) {
+            setPhaseIdx(phaseIdx + 1);
+            setCount(0);
+          } else {
+            setTimeout(onDone, 600);
+          }
+        }, 200);
+      }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [phaseIdx]);
+
+  const handleCopy = async () => {
+    try { await navigator.clipboard.writeText(reportUrl); } catch {}
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  };
+
+  const overallPct = ((phaseIdx + (count / (PROGRESS_PHASES[phaseIdx]?.total || 1))) / PROGRESS_PHASES.length) * 100;
+
+  return (
+    <>
+      <Header screen="progress" />
+      <main style={{
+        flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '48px 24px 64px',
+      }}>
+        <div style={{ width: '100%', maxWidth: 560, animation: 'fadeUp 0.5s ease-out' }}>
+          {/* Glyph */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 28 }}>
+            <div style={{
+              position: 'relative',
+              width: 80, height: 80, borderRadius: '50%',
+              background: 'var(--mp-surface)',
+              border: '1px solid var(--mp-line-soft)',
+              display: 'grid', placeItems: 'center',
+              boxShadow: 'var(--mp-shadow-md)',
+            }}>
+              <Icon name="radar" fill style={{ color: 'var(--mp-primary)', fontSize: 36, animation: 'pulseDot 2.4s ease-in-out infinite' }} />
+              <svg style={{ position: 'absolute', inset: -4 }} viewBox="0 0 88 88">
+                <circle cx="44" cy="44" r="40"
+                  fill="none" stroke="var(--mp-line)" strokeWidth="2" />
+                <circle cx="44" cy="44" r="40"
+                  fill="none" stroke="var(--mp-primary)" strokeWidth="2"
+                  strokeDasharray={2 * Math.PI * 40}
+                  strokeDashoffset={(2 * Math.PI * 40) * (1 - overallPct/100)}
+                  strokeLinecap="round"
+                  transform="rotate(-90 44 44)"
+                  style={{ transition: 'stroke-dashoffset 0.2s linear' }} />
+              </svg>
+            </div>
+          </div>
+
+          {/* Card */}
+          <div style={{
+            background: 'var(--mp-surface)',
+            border: '1px solid var(--mp-line-soft)',
+            borderRadius: 'var(--mp-radius-lg)',
+            padding: 40,
+            boxShadow: 'var(--mp-shadow-lg)',
+          }}>
+            <h1 className="font-display" style={{
+              fontSize: 28, fontWeight: 800, color: 'var(--mp-primary)',
+              margin: '0 0 6px', textAlign: 'center',
+            }}>A gerar o teu relatório...</h1>
+            <p style={{
+              margin: '0 0 28px', textAlign: 'center',
+              color: 'var(--mp-ink-3)', fontSize: 14,
+            }}>Podes fechar esta página — enviamos um email quando estiver pronto.</p>
+
+            {/* Progress bar */}
+            <div style={{
+              height: 6, background: 'var(--mp-line-soft)',
+              borderRadius: 999, overflow: 'hidden', marginBottom: 16,
+              position: 'relative',
+            }}>
+              <div style={{
+                height: '100%', width: `${overallPct}%`,
+                background: 'linear-gradient(90deg, var(--mp-primary), var(--mp-primary-2))',
+                borderRadius: 999,
+                transition: 'width 0.2s linear',
+                position: 'relative', overflow: 'hidden',
+              }}>
+                <div style={{
+                  position: 'absolute', inset: 0,
+                  background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent)',
+                  animation: 'shimmer 1.8s ease-in-out infinite',
+                }} />
+              </div>
+            </div>
+
+            {/* Phase list */}
+            <div style={{ marginBottom: 28 }}>
+              {PROGRESS_PHASES.map((p, i) => {
+                const isDone = i < phaseIdx;
+                const isActive = i === phaseIdx;
+                return (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '10px 0',
+                    borderBottom: i < PROGRESS_PHASES.length - 1 ? '1px solid var(--mp-line-soft)' : 'none',
+                    opacity: isActive || isDone ? 1 : 0.4,
+                    transition: 'opacity 0.3s',
+                  }}>
+                    <div style={{
+                      width: 22, height: 22, borderRadius: '50%',
+                      display: 'grid', placeItems: 'center',
+                      background: isDone ? 'var(--mp-win)' : isActive ? 'var(--mp-primary)' : 'var(--mp-line)',
+                      color: '#fff', flexShrink: 0,
+                    }}>
+                      {isDone ? (
+                        <Icon name="check" style={{ fontSize: 14 }} />
+                      ) : isActive ? (
+                        <Icon name="progress_activity" style={{ fontSize: 14, animation: 'spin 1s linear infinite' }} />
+                      ) : (
+                        <span style={{ fontSize: 11, fontWeight: 700 }}>{i + 1}</span>
+                      )}
+                    </div>
+                    <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12 }}>
+                      <span style={{
+                        fontSize: 14, fontWeight: isActive ? 600 : 500,
+                        color: isActive ? 'var(--mp-primary)' : 'var(--mp-ink-2)',
+                      }}>{p.label}</span>
+                      {isActive && (
+                        <span className="tabular" style={{ fontSize: 13, color: 'var(--mp-ink-3)', fontWeight: 500 }}>
+                          {fmtNum(count)} / {fmtNum(p.total)}
+                        </span>
+                      )}
+                      {isDone && (
+                        <span className="tabular" style={{ fontSize: 12, color: 'var(--mp-win)', fontWeight: 600 }}>
+                          ✓ {fmtNum(p.total)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Link box */}
+            <div style={{
+              background: 'var(--mp-bg)',
+              border: '1px solid var(--mp-line-soft)',
+              borderRadius: 'var(--mp-radius-sm)',
+              padding: 16,
+            }}>
+              <p style={{
+                margin: '0 0 10px', fontSize: 11, fontWeight: 700,
+                letterSpacing: '0.08em', textTransform: 'uppercase',
+                color: 'var(--mp-primary)',
+              }}>Guarda este link — disponível 48 horas</p>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                background: 'var(--mp-surface)',
+                border: '1px solid var(--mp-line)',
+                borderRadius: 'var(--mp-radius-sm)',
+                padding: '10px 12px',
+              }}>
+                <code className="font-mono" style={{
+                  flex: 1, fontSize: 13, color: 'var(--mp-primary)',
+                  fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>{reportUrl}</code>
+                <button onClick={handleCopy} style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '6px 10px', background: copied ? 'var(--mp-win-soft)' : 'var(--mp-bg)',
+                  border: `1px solid ${copied ? 'var(--mp-win)' : 'var(--mp-line)'}`,
+                  borderRadius: 6, cursor: 'pointer',
+                  fontSize: 12, fontWeight: 600,
+                  color: copied ? 'var(--mp-win)' : 'var(--mp-primary)',
+                  transition: 'all 0.15s',
+                }}>
+                  <Icon name={copied ? 'check' : 'content_copy'} style={{ fontSize: 14 }} />
+                  {copied ? 'Copiado' : 'Copiar'}
+                </button>
+              </div>
+            </div>
+
+            <p style={{
+              margin: '20px 0 0', fontSize: 12, color: 'var(--mp-ink-3)',
+              textAlign: 'center', lineHeight: 1.5,
+            }}>
+              <Icon name="mail" style={{ fontSize: 14, verticalAlign: -2, marginRight: 4 }} />
+              Vais receber também um email {email ? <>em <strong style={{ color: 'var(--mp-ink-2)' }}>{email}</strong></> : 'com o link'} quando estiver pronto.
+            </p>
+          </div>
+        </div>
+      </main>
+      <Footer />
+    </>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// SCREEN 3 — REPORT
+// ═════════════════════════════════════════════════════════════════════
+function StatCard({ label, value, valueLine, icon, tone, subtitle, delay, variant }) {
+  const count = useCountUp(value, 1400);
+  const toneMap = {
+    win: { bg: 'var(--mp-win-soft)', fg: 'var(--mp-win)', border: 'color-mix(in oklch, var(--mp-win) 20%, transparent)' },
+    loss: { bg: 'var(--mp-loss-soft)', fg: 'var(--mp-loss)', border: 'color-mix(in oklch, var(--mp-loss) 20%, transparent)' },
+    neutral: { bg: 'var(--mp-neutral-soft)', fg: 'var(--mp-neutral)', border: 'color-mix(in oklch, var(--mp-neutral) 20%, transparent)' },
+    reach: { bg: 'var(--mp-win-soft)', fg: 'var(--mp-win)', border: 'color-mix(in oklch, var(--mp-win) 20%, transparent)' },
+  };
+  const t = toneMap[tone];
+
+  // Reach card has two visual variants
+  const isReachNavy = tone === 'reach' && variant === 'navy';
+  const isReachGreen = tone === 'reach' && variant === 'green';
+
+  const cardBg = isReachNavy
+    ? 'linear-gradient(135deg, var(--mp-primary), var(--mp-primary-2))'
+    : isReachGreen
+      ? 'color-mix(in oklch, var(--mp-win) 10%, var(--mp-surface))'
+      : 'var(--mp-surface)';
+
+  const cardBorder = isReachNavy
+    ? 'transparent'
+    : isReachGreen
+      ? 'color-mix(in oklch, var(--mp-win) 35%, transparent)'
+      : 'var(--mp-line-soft)';
+
+  const labelColor = isReachNavy ? 'color-mix(in oklch, var(--mp-primary-tint) 80%, white)' : isReachGreen ? 'var(--mp-win)' : 'var(--mp-ink-3)';
+  const numColor = isReachNavy ? '#fff' : isReachGreen ? 'var(--mp-primary)' : 'var(--mp-primary)';
+  const subColor = isReachNavy ? 'color-mix(in oklch, var(--mp-primary-tint) 90%, white)' : 'var(--mp-ink-2)';
+  const valueLineColor = isReachNavy ? '#fff' : isReachGreen ? 'var(--mp-win)' : 'var(--mp-ink-2)';
+
+  return (
+    <div style={{
+      background: cardBg,
+      border: `1px solid ${cardBorder}`,
+      borderRadius: 'var(--mp-radius-lg)',
+      padding: 24,
+      position: 'relative', overflow: 'hidden',
+      animation: `fadeUp 0.5s ease-out ${delay}s both`,
+      transition: 'transform 0.2s, box-shadow 0.2s',
+      boxShadow: isReachNavy ? '0 8px 24px color-mix(in oklch, var(--mp-primary) 20%, transparent)' : 'none',
+    }}
+    onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = isReachNavy ? '0 12px 32px color-mix(in oklch, var(--mp-primary) 30%, transparent)' : 'var(--mp-shadow-md)'; }}
+    onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = isReachNavy ? '0 8px 24px color-mix(in oklch, var(--mp-primary) 20%, transparent)' : 'none'; }}>
+      {/* Decorative wash for navy variant */}
+      {isReachNavy && (
+        <div style={{
+          position: 'absolute', right: -40, bottom: -40,
+          width: 140, height: 140, borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(255,255,255,0.08), transparent 70%)',
+          pointerEvents: 'none',
+        }} />
+      )}
+
+      <div style={{
+        position: 'absolute', top: 18, right: 18,
+        width: 32, height: 32, borderRadius: 8,
+        background: isReachNavy ? 'rgba(255,255,255,0.15)' : t.bg,
+        color: isReachNavy ? '#fff' : t.fg,
+        border: isReachNavy ? '1px solid rgba(255,255,255,0.2)' : `1px solid ${t.border}`,
+        display: 'grid', placeItems: 'center',
+      }}>
+        <Icon name={icon} fill style={{ fontSize: 18 }} />
+      </div>
+      <p style={{
+        margin: '0 0 10px', fontSize: 10, fontWeight: 700,
+        letterSpacing: '0.12em', textTransform: 'uppercase',
+        color: labelColor,
+      }}>{label}</p>
+      <div className="tabular font-display" style={{
+        fontSize: 44, fontWeight: 800, color: numColor,
+        lineHeight: 1, letterSpacing: '-0.03em', margin: '0 0 4px',
+        position: 'relative', zIndex: 1,
+      }}>{fmtNum(count)}</div>
+      <p style={{ margin: '0 0 8px', fontSize: 12, color: subColor, fontWeight: 500, position: 'relative', zIndex: 1 }}>{subtitle}</p>
+      {valueLine && (
+        <div style={{
+          paddingTop: 10, marginTop: 4,
+          borderTop: `1px solid ${isReachNavy ? 'rgba(255,255,255,0.15)' : 'var(--mp-line-soft)'}`,
+          position: 'relative', zIndex: 1,
+        }}>
+          <div className="tabular" style={{
+            fontSize: 14, fontWeight: 700, color: valueLineColor,
+            letterSpacing: '-0.01em',
+          }}>{valueLine.value}</div>
+          <div style={{
+            fontSize: valueLine.sentenceCase ? 11 : 10,
+            fontWeight: valueLine.sentenceCase ? 500 : 600,
+            letterSpacing: valueLine.sentenceCase ? '0' : '0.08em',
+            textTransform: valueLine.sentenceCase ? 'none' : 'uppercase',
+            color: isReachNavy ? 'color-mix(in oklch, var(--mp-primary-tint) 80%, white)' : 'var(--mp-ink-3)',
+            marginTop: 2,
+          }}>{valueLine.label}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReachHeroCard({ data, variant, channel }) {
+  const count = useCountUp(data.reach, 1400);
+  const isNavy = variant === 'navy';
+
+  const bg = isNavy
+    ? 'linear-gradient(135deg, var(--mp-primary), var(--mp-primary-2))'
+    : 'color-mix(in oklch, var(--mp-win) 10%, var(--mp-surface))';
+  const borderColor = isNavy
+    ? 'transparent'
+    : 'color-mix(in oklch, var(--mp-win) 35%, transparent)';
+  const labelColor = isNavy ? 'color-mix(in oklch, var(--mp-primary-tint) 80%, white)' : 'var(--mp-win)';
+  const numColor = isNavy ? '#fff' : 'var(--mp-primary)';
+  const subColor = isNavy ? 'color-mix(in oklch, var(--mp-primary-tint) 90%, white)' : 'var(--mp-ink-2)';
+  const dividerColor = isNavy ? 'rgba(255,255,255,0.18)' : 'color-mix(in oklch, var(--mp-win) 25%, transparent)';
+
+  return (
+    <section key={channel + '-hero'} style={{
+      background: bg,
+      border: `1px solid ${borderColor}`,
+      borderRadius: 'var(--mp-radius-lg)',
+      padding: '28px 36px',
+      position: 'relative', overflow: 'hidden',
+      marginBottom: 64,
+      animation: 'fadeUp 0.5s ease-out 0.32s both',
+      boxShadow: isNavy ? '0 12px 32px color-mix(in oklch, var(--mp-primary) 22%, transparent)' : 'none',
+    }}>
+      {/* Decorative wash for navy variant */}
+      {isNavy && (
+        <>
+          <div style={{
+            position: 'absolute', right: -80, top: -80,
+            width: 280, height: 280, borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(255,255,255,0.07), transparent 70%)',
+            pointerEvents: 'none',
+          }} />
+          <div style={{
+            position: 'absolute', left: '40%', bottom: -120,
+            width: 240, height: 240, borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(255,255,255,0.04), transparent 70%)',
+            pointerEvents: 'none',
+          }} />
+        </>
+      )}
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'auto 1fr auto',
+        alignItems: 'center',
+        gap: 36,
+        position: 'relative', zIndex: 1,
+      }}>
+        {/* Left: icon + label + number */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+          <div style={{
+            width: 56, height: 56, borderRadius: 14,
+            background: isNavy ? 'rgba(255,255,255,0.14)' : 'color-mix(in oklch, var(--mp-win) 18%, transparent)',
+            border: isNavy ? '1px solid rgba(255,255,255,0.22)' : '1px solid color-mix(in oklch, var(--mp-win) 30%, transparent)',
+            color: isNavy ? '#fff' : 'var(--mp-win)',
+            display: 'grid', placeItems: 'center',
+            flexShrink: 0,
+          }}>
+            <Icon name="rocket_launch" fill style={{ fontSize: 28 }} />
+          </div>
+          <div>
+            <p style={{
+              margin: '0 0 6px', fontSize: 11, fontWeight: 700,
+              letterSpacing: '0.12em', textTransform: 'uppercase',
+              color: labelColor,
+            }}>A um passo do 1.º</p>
+            <div className="tabular font-display" style={{
+              fontSize: 56, fontWeight: 800, color: numColor,
+              lineHeight: 0.95, letterSpacing: '-0.03em', marginBottom: 6,
+            }}>{fmtNum(count)}</div>
+            <p style={{ margin: 0, fontSize: 13, color: subColor, fontWeight: 500 }}>
+              SKUs a &lt; 5% do 1.º lugar
+            </p>
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div style={{
+          height: 80, width: 1, background: dividerColor,
+          justifySelf: 'center',
+        }} />
+
+        {/* Right: potential gain */}
+        <div style={{ minWidth: 220, textAlign: 'right' }}>
+          <p style={{
+            margin: '0 0 8px', fontSize: 12, fontWeight: 500,
+            color: subColor, letterSpacing: '-0.01em',
+          }}>Ganho potencial com a MarketPilot</p>
+          <div className="tabular font-display" style={{
+            fontSize: 44, fontWeight: 800, color: numColor,
+            lineHeight: 1, letterSpacing: '-0.02em',
+          }}>{fmtCurrency(data.reachValue)}</div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function OpportunityRow({ item, isTop, idx }) {
+  const diff = item.yours - item.leader;
+  const diffP = diffPct(item.yours, item.leader);
+  return (
+    <tr style={{
+      background: isTop ? 'color-mix(in oklch, var(--mp-primary) 3%, var(--mp-surface))' : 'var(--mp-surface)',
+      transition: 'background 0.15s',
+    }}
+    onMouseEnter={(e) => !isTop && (e.currentTarget.style.background = 'var(--mp-bg)')}
+    onMouseLeave={(e) => !isTop && (e.currentTarget.style.background = 'var(--mp-surface)')}>
+      <td style={{
+        padding: '16px 20px',
+        borderLeft: isTop ? '3px solid var(--mp-primary)' : '3px solid transparent',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: 8,
+            background: `repeating-linear-gradient(45deg, var(--mp-line-soft) 0 6px, var(--mp-bg) 6px 12px)`,
+            display: 'grid', placeItems: 'center', flexShrink: 0,
+            border: '1px solid var(--mp-line-soft)',
+          }}>
+            <Icon name="inventory_2" style={{ fontSize: 18, color: 'var(--mp-ink-3)' }} />
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{
+              fontSize: 14, fontWeight: 600, color: 'var(--mp-primary)',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              maxWidth: 280,
+            }}>{item.name}</div>
+            <div style={{
+              fontSize: 11, fontWeight: 500, color: 'var(--mp-ink-3)',
+              letterSpacing: '0.02em', marginTop: 2,
+            }}>{item.cat}</div>
+          </div>
+        </div>
+      </td>
+      <td className="tabular" style={{ padding: '16px 20px', fontSize: 14, color: 'var(--mp-ink-2)', fontWeight: 500 }}>
+        {fmtEur(item.yours)}
+      </td>
+      <td className="tabular" style={{ padding: '16px 20px', fontSize: 14, color: 'var(--mp-primary)', fontWeight: 700 }}>
+        {fmtEur(item.leader)}
+      </td>
+      <td className="tabular" style={{ padding: '16px 20px', fontSize: 14, color: 'var(--mp-loss)', fontWeight: 600 }}>
+        -{fmtEur(diff)}
+      </td>
+      <td style={{ padding: '16px 20px' }}>
+        <span className="tabular" style={{
+          display: 'inline-block', padding: '3px 8px',
+          background: 'var(--mp-loss-soft)',
+          color: 'var(--mp-loss)',
+          borderRadius: 6, fontSize: 12, fontWeight: 600,
+        }}>{diffP.toFixed(1)}%</span>
+      </td>
+      <td style={{ padding: '16px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div className="tabular font-display" style={{
+            fontSize: 18, fontWeight: 800, color: 'var(--mp-primary)',
+            minWidth: 40,
+          }}>{item.score}</div>
+          <div style={{
+            width: 60, height: 4, background: 'var(--mp-line-soft)',
+            borderRadius: 999, overflow: 'hidden',
+          }}>
+            <div style={{
+              height: '100%', width: `${(item.score / 1000) * 100}%`,
+              background: 'var(--mp-primary)',
+              borderRadius: 999,
+            }} />
+          </div>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function MarginGainRow({ item }) {
+  const margin = item.runnerUp - item.yours;
+  const marginP = ((item.runnerUp - item.yours) / item.yours) * 100;
+  return (
+    <tr style={{ borderBottom: '1px solid var(--mp-line-soft)', transition: 'background 0.15s' }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--mp-bg)')}
+      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
+      <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 600, color: 'var(--mp-primary)' }}>{item.name}</td>
+      <td className="tabular" style={{ padding: '14px 20px', fontSize: 13, color: 'var(--mp-ink-2)' }}>{fmtEur(item.yours)}</td>
+      <td className="tabular" style={{ padding: '14px 20px', fontSize: 13, color: 'var(--mp-primary)', fontWeight: 600 }}>{fmtEur(item.runnerUp)}</td>
+      <td className="tabular" style={{ padding: '14px 20px', fontSize: 13, color: 'var(--mp-win)', fontWeight: 700 }}>+{fmtEur(margin)}</td>
+      <td style={{ padding: '14px 20px' }}>
+        <span className="tabular" style={{ fontSize: 12, fontWeight: 700, color: 'var(--mp-win)' }}>
+          +{marginP.toFixed(1)}%
+        </span>
+      </td>
+      <td style={{ padding: '14px 20px' }}>
+        <a href="#" onClick={(e) => e.preventDefault()} style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          fontSize: 12, fontWeight: 600, color: 'var(--mp-primary)',
+          textDecoration: 'none',
+          padding: '6px 10px',
+          border: '1px solid var(--mp-line)',
+          borderRadius: 'var(--mp-radius-sm)',
+          transition: 'all 0.15s',
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--mp-bg)'; e.currentTarget.style.borderColor = 'var(--mp-primary)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'var(--mp-line)'; }}>
+          Ver no Worten
+          <Icon name="open_in_new" style={{ fontSize: 14 }} />
+        </a>
+      </td>
+    </tr>
+  );
+}
+
+function QuickWinRow({ item }) {
+  const diff = item.yours - item.leader;
+  const diffP = diffPct(item.yours, item.leader);
+  return (
+    <tr style={{ borderBottom: '1px solid var(--mp-line-soft)', transition: 'background 0.15s' }}
+      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--mp-bg)')}
+      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
+      <td style={{ padding: '14px 20px', fontSize: 14, fontWeight: 600, color: 'var(--mp-primary)' }}>{item.name}</td>
+      <td className="tabular" style={{ padding: '14px 20px', fontSize: 13, color: 'var(--mp-ink-2)' }}>{fmtEur(item.yours)}</td>
+      <td className="tabular" style={{ padding: '14px 20px', fontSize: 13, color: 'var(--mp-primary)', fontWeight: 600 }}>{fmtEur(item.leader)}</td>
+      <td className="tabular" style={{ padding: '14px 20px', fontSize: 13, color: 'var(--mp-loss)', fontWeight: 600 }}>-{fmtEur(diff)}</td>
+      <td style={{ padding: '14px 20px' }}>
+        <span className="tabular" style={{
+          fontSize: 12, fontWeight: 600,
+          color: diffP <= 2 ? 'var(--mp-win)' : 'var(--mp-ink-2)',
+        }}>{diffP.toFixed(1)}%</span>
+      </td>
+      <td style={{ padding: '14px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{
+            width: 80, height: 4, background: 'var(--mp-line-soft)',
+            borderRadius: 999, overflow: 'hidden',
+          }}>
+            <div style={{
+              height: '100%', width: `${item.score}%`,
+              background: 'var(--mp-win)', borderRadius: 999,
+            }} />
+          </div>
+          <span className="tabular" style={{ fontSize: 12, fontWeight: 600, color: 'var(--mp-win)', minWidth: 28 }}>
+            {item.score}
+          </span>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function ReportScreen({ onRestart, reachStyle = 'navy' }) {
+  const [channel, setChannel] = useState('pt');
+  const data = REPORT_DATA[channel];
+
+  return (
+    <>
+      <Header screen="report" right={
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <span style={{ fontSize: 12, color: 'var(--mp-ink-3)', fontWeight: 500 }}>
+            <Icon name="event" style={{ fontSize: 14, verticalAlign: -2, marginRight: 4 }} />
+            Relatório gerado em 14 Abril 2026
+          </span>
+          <button onClick={onRestart} style={{
+            padding: '8px 14px', background: 'transparent',
+            border: '1px solid var(--mp-line)', borderRadius: 'var(--mp-radius-sm)',
+            fontSize: 12, fontWeight: 600, color: 'var(--mp-primary)', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <Icon name="refresh" style={{ fontSize: 14 }} />
+            Novo relatório
+          </button>
+        </div>
+      } />
+
+      <main style={{ maxWidth: 1240, margin: '0 auto', padding: '48px 32px 64px', width: '100%' }}>
+        {/* Title + channel tabs */}
+        <section style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
+          gap: 24, marginBottom: 48, flexWrap: 'wrap',
+          animation: 'fadeUp 0.5s ease-out',
+        }}>
+          <div style={{ maxWidth: 680 }}>
+            <p style={{
+              margin: '0 0 10px', fontSize: 11, fontWeight: 700,
+              letterSpacing: '0.15em', textTransform: 'uppercase',
+              color: 'var(--mp-primary)',
+            }}>Análise competitiva · Worten Marketplace</p>
+            <h1 className="font-display" style={{
+              fontSize: 44, fontWeight: 800, color: 'var(--mp-primary)',
+              margin: '0 0 12px', lineHeight: 1.05, letterSpacing: '-0.03em',
+            }}>A tua posição agora</h1>
+            <p style={{ margin: 0, fontSize: 15, color: 'var(--mp-ink-2)', lineHeight: 1.55, textWrap: 'pretty' }}>
+              Onde ganhas, onde perdes, e o que podes mudar hoje. Dados recolhidos às <strong>14:32 de 14 Abril 2026</strong>.
+            </p>
+          </div>
+          <div style={{
+            display: 'flex', background: 'var(--mp-surface)',
+            border: '1px solid var(--mp-line-soft)',
+            borderRadius: 'var(--mp-radius-sm)', padding: 4,
+          }}>
+            {[
+              { id: 'pt', label: 'Portugal', flag: '🇵🇹' },
+              { id: 'es', label: 'Espanha', flag: '🇪🇸' },
+            ].map(t => (
+              <button key={t.id} onClick={() => setChannel(t.id)} style={{
+                padding: '8px 18px', border: 'none', cursor: 'pointer',
+                background: channel === t.id ? 'var(--mp-primary)' : 'transparent',
+                color: channel === t.id ? '#fff' : 'var(--mp-ink-2)',
+                fontWeight: 600, fontSize: 13,
+                borderRadius: 'calc(var(--mp-radius-sm) - 2px)',
+                transition: 'all 0.15s',
+                fontFamily: 'var(--mp-font-display)',
+                letterSpacing: '-0.01em',
+              }}>{t.label}</button>
+            ))}
+          </div>
+        </section>
+
+        {/* Stat cards — 3 status metrics */}
+        <section key={channel + '-stats'} style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+          gap: 16, marginBottom: 16,
+        }}>
+          <StatCard label="Em 1.º lugar" value={data.winning} icon="trending_up" tone="win"
+            subtitle="SKUs onde dominas a Buy Box"
+            valueLine={{ value: fmtCurrency(data.winningValue), label: 'Catálogo a vencer' }}
+            delay={0.05} />
+          <StatCard label="A perder posição" value={data.losing} icon="trending_down" tone="loss"
+            subtitle="Produtos ultrapassados hoje"
+            valueLine={{ value: fmtCurrency(data.losingValue), label: 'Catálogo exposto' }}
+            delay={0.12} />
+          <StatCard label="Sem concorrência" value={data.exclusive} icon="verified" tone="neutral"
+            subtitle="Itens exclusivos no teu catálogo"
+            valueLine={{ value: fmtCurrency(data.exclusiveValue), label: 'Catálogo exclusivo' }}
+            delay={0.19} />
+        </section>
+
+        {/* Hero opportunity card — full width below status row */}
+        <ReachHeroCard data={data} variant={reachStyle} channel={channel} />
+
+        {/* Opportunities */}
+        <section key={channel + '-opp'} style={{
+          background: 'var(--mp-surface)',
+          border: '1px solid var(--mp-line-soft)',
+          borderRadius: 'var(--mp-radius-lg)',
+          padding: 32, marginBottom: 40,
+          animation: 'fadeUp 0.5s ease-out 0.1s both',
+        }}>
+          <div style={{ marginBottom: 28 }}>
+            <h2 className="font-display" style={{
+              margin: '0 0 6px', fontSize: 28, fontWeight: 800,
+              color: 'var(--mp-primary)', letterSpacing: '-0.02em',
+            }}>Maiores oportunidades</h2>
+            <p style={{ margin: 0, fontSize: 14, color: 'var(--mp-ink-2)', lineHeight: 1.5 }}>
+              Os produtos de maior valor onde estás a perder a primeira posição por uma pequena margem.
+            </p>
+          </div>
+
+          <div className="mp-scroll" style={{ overflowX: 'auto', margin: '0 -32px', padding: '0 32px' }}>
+            <table style={{ width: '100%', minWidth: 880, borderCollapse: 'separate', borderSpacing: 0 }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--mp-line)' }}>
+                  {['Produto', 'O teu preço', '1.º lugar €', 'Δ €', 'Δ %', 'Pontuação'].map((h, i) => (
+                    <th key={i} style={{
+                      textAlign: 'left', padding: '12px 20px 14px',
+                      fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
+                      textTransform: 'uppercase', color: 'var(--mp-ink-3)',
+                      borderBottom: '1px solid var(--mp-line-soft)',
+                      whiteSpace: 'nowrap',
+                    }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.opportunities.map((item, i) => (
+                  <OpportunityRow key={i} item={item} isTop={i === 0} idx={i} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* Margem para subir — gain on existing wins */}
+        <section key={channel + '-margin'} style={{
+          background: 'var(--mp-surface)',
+          border: '1px solid var(--mp-line-soft)',
+          borderRadius: 'var(--mp-radius-lg)',
+          padding: 32, marginBottom: 40,
+          animation: 'fadeUp 0.5s ease-out 0.15s both',
+        }}>
+          <div style={{ marginBottom: 28 }}>
+            <h2 className="font-display" style={{
+              margin: '0 0 6px', fontSize: 28, fontWeight: 800,
+              color: 'var(--mp-primary)', letterSpacing: '-0.02em',
+            }}>Margem para subir</h2>
+            <p style={{ margin: 0, fontSize: 14, color: 'var(--mp-ink-2)', lineHeight: 1.5, maxWidth: 640 }}>
+              Produtos onde estás em 1.º lugar com folga. Podes subir o preço sem perder a posição.
+            </p>
+          </div>
+
+          <div className="mp-scroll" style={{ overflowX: 'auto', margin: '0 -32px', padding: '0 32px' }}>
+            <table style={{ width: '100%', minWidth: 880, borderCollapse: 'separate', borderSpacing: 0 }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--mp-line)' }}>
+                  {['Produto', 'O teu preço', 'Próximo concorrente', 'Margem extra €', 'Margem extra %', ''].map((h, i) => (
+                    <th key={i} style={{
+                      textAlign: 'left', padding: '12px 20px 14px',
+                      fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
+                      textTransform: 'uppercase', color: 'var(--mp-ink-3)',
+                      borderBottom: '1px solid var(--mp-line-soft)',
+                      whiteSpace: 'nowrap',
+                    }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.marginGains.map((item, i) => (
+                  <MarginGainRow key={i} item={item} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* Quick wins */}
+        <section key={channel + '-qw'} style={{
+          background: 'var(--mp-surface)',
+          border: '1px solid var(--mp-line-soft)',
+          borderRadius: 'var(--mp-radius-lg)',
+          padding: 32, marginBottom: 40,
+          animation: 'fadeUp 0.5s ease-out 0.2s both',
+        }}>
+          <div style={{
+            display: 'flex', justifyContent: 'space-between',
+            alignItems: 'flex-end', gap: 24, flexWrap: 'wrap', marginBottom: 24,
+          }}>
+            <div>
+              <h2 className="font-display" style={{
+                margin: '0 0 6px', fontSize: 28, fontWeight: 800,
+                color: 'var(--mp-primary)', letterSpacing: '-0.02em',
+              }}>Vitórias rápidas</h2>
+              <p style={{ margin: 0, fontSize: 14, color: 'var(--mp-ink-2)', lineHeight: 1.5, maxWidth: 540 }}>
+                Produtos onde uma redução de preço de ≤2% te coloca em primeiro lugar.
+              </p>
+            </div>
+            <button style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '10px 16px', background: 'var(--mp-surface)',
+              border: '1px solid var(--mp-line)',
+              borderRadius: 'var(--mp-radius-sm)', cursor: 'pointer',
+              fontSize: 13, fontWeight: 600, color: 'var(--mp-primary)',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--mp-bg)'; e.currentTarget.style.borderColor = 'var(--mp-primary)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--mp-surface)'; e.currentTarget.style.borderColor = 'var(--mp-line)'; }}>
+              <Icon name="download" style={{ fontSize: 16 }} />
+              Descarregar relatório completo (CSV)
+            </button>
+          </div>
+
+          <div className="mp-scroll" style={{ overflowX: 'auto', margin: '0 -32px', padding: '0 32px' }}>
+            <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--mp-line)' }}>
+                  {['Produto', 'O teu preço', '1.º lugar €', 'Δ €', 'Δ %', 'Score WOW'].map((h, i) => (
+                    <th key={i} style={{
+                      textAlign: 'left', padding: '0 20px 12px',
+                      fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
+                      textTransform: 'uppercase', color: 'var(--mp-ink-3)',
+                      whiteSpace: 'nowrap',
+                    }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.quickWins.map((item, i) => (
+                  <QuickWinRow key={i} item={item} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* CTA */}
+        <section style={{
+          position: 'relative', overflow: 'hidden',
+          background: 'linear-gradient(135deg, var(--mp-primary), var(--mp-primary-2))',
+          borderRadius: 'var(--mp-radius-lg)',
+          padding: '48px 40px',
+          animation: 'fadeUp 0.5s ease-out 0.3s both',
+        }}>
+          {/* Decorative blobs */}
+          <div style={{
+            position: 'absolute', right: -100, top: -100,
+            width: 360, height: 360, borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(255,255,255,0.08), transparent 70%)',
+          }} />
+          <div style={{
+            position: 'absolute', right: 60, bottom: -60,
+            width: 200, height: 200, borderRadius: '50%',
+            background: 'radial-gradient(circle, color-mix(in oklch, var(--mp-primary-tint) 40%, transparent), transparent 70%)',
+          }} />
+          <div style={{
+            display: 'flex', justifyContent: 'space-between',
+            alignItems: 'center', gap: 32, flexWrap: 'wrap',
+            position: 'relative', zIndex: 1,
+          }}>
+            <div style={{ maxWidth: 560 }}>
+              <p style={{
+                margin: '0 0 10px', fontSize: 11, fontWeight: 700,
+                letterSpacing: '0.15em', textTransform: 'uppercase',
+                color: 'var(--mp-primary-tint)',
+              }}>Automatização</p>
+              <h3 className="font-display" style={{
+                margin: '0 0 10px', fontSize: 32, fontWeight: 800,
+                color: '#fff', letterSpacing: '-0.02em', lineHeight: 1.1,
+              }}>Quer que isto aconteça automaticamente?</h3>
+              <p style={{ margin: 0, fontSize: 15, color: 'var(--mp-primary-tint)', lineHeight: 1.55, fontWeight: 500 }}>
+                Ativa o repricing dinâmico e mantém-te em 1.º lugar 24/7, sem tocar numa folha de cálculo.
+              </p>
+            </div>
+            <button style={{
+              padding: '16px 28px', background: '#fff',
+              color: 'var(--mp-primary)', border: 'none',
+              borderRadius: 'var(--mp-radius-sm)', cursor: 'pointer',
+              fontSize: 15, fontWeight: 700,
+              fontFamily: 'var(--mp-font-display)',
+              letterSpacing: '-0.01em',
+              display: 'flex', alignItems: 'center', gap: 10,
+              boxShadow: '0 12px 24px rgba(0,0,0,0.15)',
+              transition: 'transform 0.15s',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
+            onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}>
+              Começar a automatizar
+              <Icon name="arrow_forward" style={{ fontSize: 20 }} />
+            </button>
+          </div>
+        </section>
+      </main>
+      <Footer />
+    </>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// TWEAKS PANEL
+// ═════════════════════════════════════════════════════════════════════
+function TweaksPanel({ tweaks, setTweaks, visible, onClose, onJumpScreen, screen }) {
+  if (!visible) return null;
+  const update = (k, v) => {
+    const next = { ...tweaks, [k]: v };
+    setTweaks(next);
+    window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { [k]: v } }, '*');
+  };
+
+  const OptionRow = ({ label, children }) => (
+    <div style={{ marginBottom: 18 }}>
+      <label style={{
+        display: 'block', fontSize: 10, fontWeight: 700,
+        letterSpacing: '0.12em', textTransform: 'uppercase',
+        color: 'var(--mp-ink-3)', marginBottom: 8,
+      }}>{label}</label>
+      {children}
+    </div>
+  );
+
+  const Segment = ({ value, options, onChange }) => (
+    <div style={{
+      display: 'flex', background: 'var(--mp-bg)',
+      border: '1px solid var(--mp-line-soft)',
+      borderRadius: 6, padding: 3, gap: 2,
+    }}>
+      {options.map(o => (
+        <button key={o.value} onClick={() => onChange(o.value)} style={{
+          flex: 1, padding: '6px 10px',
+          background: value === o.value ? 'var(--mp-primary)' : 'transparent',
+          color: value === o.value ? '#fff' : 'var(--mp-ink-2)',
+          border: 'none', cursor: 'pointer',
+          fontSize: 11, fontWeight: 600, borderRadius: 4,
+          transition: 'all 0.12s',
+        }}>{o.label}</button>
+      ))}
+    </div>
+  );
+
+  return (
+    <div style={{
+      position: 'fixed', bottom: 20, right: 20, zIndex: 100,
+      width: 300, background: 'var(--mp-surface)',
+      border: '1px solid var(--mp-line)',
+      borderRadius: 14, padding: 20,
+      boxShadow: '0 20px 50px rgba(10,18,48,0.18)',
+      animation: 'fadeUp 0.25s ease-out',
+      fontFamily: 'var(--mp-font-body)',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h3 className="font-display" style={{ margin: 0, fontSize: 14, fontWeight: 800, color: 'var(--mp-primary)', letterSpacing: '-0.01em' }}>Tweaks</h3>
+        <button onClick={onClose} style={{
+          width: 26, height: 26, background: 'var(--mp-bg)',
+          border: 'none', borderRadius: 6, cursor: 'pointer',
+          display: 'grid', placeItems: 'center', color: 'var(--mp-ink-3)',
+        }}>
+          <Icon name="close" style={{ fontSize: 16 }} />
+        </button>
+      </div>
+
+      <OptionRow label="Jump to screen">
+        <Segment
+          value={screen}
+          options={[
+            { value: 'form', label: '1. Form' },
+            { value: 'progress', label: '2. Progress' },
+            { value: 'report', label: '3. Report' },
+          ]}
+          onChange={onJumpScreen}
+        />
+      </OptionRow>
+
+      <OptionRow label="Accent">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+          {Object.entries(ACCENT_MAP).map(([key, val]) => (
+            <button key={key} onClick={() => update('accent', key)} title={key} style={{
+              height: 32, border: tweaks.accent === key ? '2px solid var(--mp-primary)' : '1px solid var(--mp-line)',
+              borderRadius: 6, cursor: 'pointer', padding: 0, overflow: 'hidden',
+              background: val.primary,
+              position: 'relative',
+            }}>
+              <span style={{
+                position: 'absolute', inset: 0,
+                display: 'grid', placeItems: 'center',
+                color: '#fff', fontSize: 9, fontWeight: 700,
+                letterSpacing: '0.08em', textTransform: 'uppercase',
+              }}>{key}</span>
+            </button>
+          ))}
+        </div>
+      </OptionRow>
+
+      <OptionRow label="Corner radius">
+        <Segment
+          value={tweaks.radius}
+          options={[
+            { value: 'sharp', label: 'Sharp' },
+            { value: 'medium', label: 'Medium' },
+            { value: 'round', label: 'Round' },
+          ]}
+          onChange={(v) => update('radius', v)}
+        />
+      </OptionRow>
+
+      <OptionRow label="Trust message (form)">
+        <Segment
+          value={tweaks.trustStyle}
+          options={[
+            { value: 'subtle', label: 'Subtle' },
+            { value: 'prominent', label: 'Prominent' },
+          ]}
+          onChange={(v) => update('trustStyle', v)}
+        />
+      </OptionRow>
+
+      <OptionRow label="“A um passo do 1.º” card (report)">
+        <Segment
+          value={tweaks.reachStyle}
+          options={[
+            { value: 'navy', label: 'Navy fill' },
+            { value: 'green', label: 'Green tint' },
+          ]}
+          onChange={(v) => update('reachStyle', v)}
+        />
+      </OptionRow>
+
+      <OptionRow label="Hero layout (form)">
+        <Segment
+          value={tweaks.heroLayout}
+          options={[
+            { value: 'centered', label: 'Centered' },
+            { value: 'left', label: 'Left' },
+            { value: 'wide', label: 'Wide' },
+          ]}
+          onChange={(v) => update('heroLayout', v)}
+        />
+      </OptionRow>
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// APP
+// ═════════════════════════════════════════════════════════════════════
+function App() {
+  const [screen, setScreen] = useState(() => localStorage.getItem('mp_screen') || TWEAK_DEFAULTS.startScreen || 'form');
+  const [formData, setFormData] = useState({});
+  const [tweaks, setTweaks] = useState(TWEAK_DEFAULTS);
+  const [tweaksOpen, setTweaksOpen] = useState(false);
+
+  useEffect(() => { localStorage.setItem('mp_screen', screen); }, [screen]);
+
+  // Apply tweaks → CSS vars
+  useEffect(() => {
+    const root = document.documentElement;
+    const a = ACCENT_MAP[tweaks.accent] || ACCENT_MAP.navy;
+    const r = RADIUS_MAP[tweaks.radius] || RADIUS_MAP.medium;
+    root.style.setProperty('--mp-primary', a.primary);
+    root.style.setProperty('--mp-primary-2', a.primary2);
+    root.style.setProperty('--mp-primary-tint', a.tint);
+    root.style.setProperty('--mp-radius', r.r);
+    root.style.setProperty('--mp-radius-sm', r.rSm);
+    root.style.setProperty('--mp-radius-lg', r.rLg);
+  }, [tweaks]);
+
+  // Tweaks host protocol
+  useEffect(() => {
+    const onMessage = (e) => {
+      if (e.data?.type === '__activate_edit_mode') setTweaksOpen(true);
+      if (e.data?.type === '__deactivate_edit_mode') setTweaksOpen(false);
+    };
+    window.addEventListener('message', onMessage);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }} data-screen-label={
+      screen === 'form' ? '01 Form' : screen === 'progress' ? '02 Progress' : '03 Report'
+    }>
+      {screen === 'form' && (
+        <FormScreen tweaks={tweaks} onSubmit={(d) => { setFormData(d); setScreen('progress'); }} />
+      )}
+      {screen === 'progress' && (
+        <ProgressScreen email={formData.email} onDone={() => setScreen('report')} />
+      )}
+      {screen === 'report' && (
+        <ReportScreen onRestart={() => setScreen('form')} reachStyle={tweaks.reachStyle} />
+      )}
+
+      {/* Floating screen switcher (visible outside tweaks too) */}
+      <div style={{
+        position: 'fixed', bottom: 20, left: 20, zIndex: 50,
+        display: 'flex', gap: 4, padding: 4,
+        background: 'var(--mp-surface)',
+        border: '1px solid var(--mp-line)',
+        borderRadius: 10,
+        boxShadow: 'var(--mp-shadow-md)',
+      }}>
+        {[
+          { id: 'form', label: '1', name: 'Form' },
+          { id: 'progress', label: '2', name: 'Progress' },
+          { id: 'report', label: '3', name: 'Report' },
+        ].map(s => (
+          <button key={s.id} onClick={() => setScreen(s.id)} title={s.name} style={{
+            padding: '6px 12px',
+            background: screen === s.id ? 'var(--mp-primary)' : 'transparent',
+            color: screen === s.id ? '#fff' : 'var(--mp-ink-2)',
+            border: 'none', cursor: 'pointer',
+            fontSize: 12, fontWeight: 700, borderRadius: 6,
+            fontFamily: 'var(--mp-font-display)',
+            display: 'flex', alignItems: 'center', gap: 6,
+            transition: 'all 0.15s',
+          }}>
+            <span className="tabular">{s.label}</span>
+            <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.9 }}>{s.name}</span>
+          </button>
+        ))}
+      </div>
+
+      <TweaksPanel
+        tweaks={tweaks}
+        setTweaks={setTweaks}
+        visible={tweaksOpen}
+        onClose={() => setTweaksOpen(false)}
+        onJumpScreen={setScreen}
+        screen={screen}
+      />
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

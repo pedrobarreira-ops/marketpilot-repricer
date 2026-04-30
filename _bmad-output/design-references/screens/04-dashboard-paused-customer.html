@@ -3,11 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PLACEHOLDER · 04 Dashboard · Paused (customer) · MarketPilot</title>
+<title>04 Dashboard · Paused (customer) · MarketPilot · Reference stub</title>
 <style>
   :root {
     --mp-primary: #00113a;
-    --mp-primary-2: #002366;
     --mp-bg: #f5f7fa;
     --mp-surface: #ffffff;
     --mp-ink: #0a1230;
@@ -15,66 +14,55 @@
     --mp-ink-3: #6b7896;
     --mp-line: #e1e5ec;
     --mp-line-soft: #edf0f5;
-    --mp-loss: oklch(58% 0.19 25);
-    --mp-loss-soft: oklch(96% 0.04 25);
+    --mp-win: oklch(58% 0.14 155);
+    --mp-win-soft: oklch(95% 0.04 155);
   }
   * { box-sizing: border-box; }
   body {
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
     background: var(--mp-bg);
     color: var(--mp-ink);
-    margin: 0;
-    padding: 64px 24px;
+    margin: 0; padding: 64px 24px;
     min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
   }
   .card {
-    max-width: 640px;
-    width: 100%;
+    max-width: 640px; width: 100%;
     background: var(--mp-surface);
-    border: 2px dashed var(--mp-primary);
+    border: 1px solid var(--mp-line);
     border-radius: 18px;
     padding: 44px 40px;
   }
   .badge {
     display: inline-block;
-    background: var(--mp-loss-soft);
-    color: var(--mp-loss);
+    background: var(--mp-win-soft);
+    color: var(--mp-win);
     padding: 4px 12px;
     border-radius: 999px;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase;
     margin-bottom: 20px;
   }
   h1 {
-    font-size: 26px;
-    font-weight: 800;
+    font-size: 26px; font-weight: 800;
     color: var(--mp-primary);
     margin: 0 0 6px;
     letter-spacing: -0.02em;
   }
   .subtitle {
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 14px; font-weight: 500;
     color: var(--mp-ink-3);
-    margin: 0 0 32px;
-    line-height: 1.5;
+    margin: 0 0 32px; line-height: 1.5;
   }
   dl {
     background: var(--mp-bg);
     border: 1px solid var(--mp-line-soft);
     border-radius: 12px;
-    padding: 22px 24px;
-    margin: 0;
+    padding: 22px 24px; margin: 0;
   }
   dt {
-    font-size: 10px;
-    font-weight: 700;
+    font-size: 10px; font-weight: 700;
     color: var(--mp-ink-2);
     text-transform: uppercase;
     letter-spacing: 0.12em;
@@ -82,9 +70,7 @@
   }
   dd {
     margin: 0 0 18px;
-    font-size: 13px;
-    line-height: 1.55;
-    color: var(--mp-ink);
+    font-size: 13px; line-height: 1.55;
   }
   dd:last-child { margin-bottom: 0; }
   code {
@@ -95,10 +81,8 @@
     font-size: 12px;
   }
   .footer {
-    margin-top: 24px;
-    text-align: center;
-    font-size: 11px;
-    color: var(--mp-ink-3);
+    margin-top: 24px; text-align: center;
+    font-size: 11px; color: var(--mp-ink-3);
     letter-spacing: 0.04em;
   }
   a {
@@ -111,7 +95,7 @@
 </head>
 <body>
 <main class="card">
-  <span class="badge">Placeholder</span>
+  <span class="badge">Reference stub</span>
   <h1>04 · Dashboard · Paused (customer)</h1>
   <p class="subtitle">Customer-initiated pause · calm grey banner + metadata strip · KPIs greyed at 60%</p>
   <dl>
@@ -125,7 +109,7 @@
     <dd>Phase B (revised)</dd>
 
     <dt>Status</dt>
-    <dd>This placeholder will be replaced with the actual Claude Design HTML once the canvas is packaged. Designed in the cloud canvas (project "Test MarketPilot") — packaging blocked by usage limit until reset (~5 days from 2026-04-29). See <a href="../README.md"><code>README.md</code></a>.</dd>
+    <dd>Visual lives in the bundle. Open <a href="../bundle/project/dashboard-and-audit.html"><code>../bundle/project/dashboard-and-audit.html</code></a> and navigate via the tweaks toolbar (top-right of the canvas) to artboard <strong>04</strong>. This stub remains as a stable reference target so Architecture and Epics docs can cite it by filename.</dd>
   </dl>
   <p class="footer">MarketPilot Repricer · UX Skeleton Pass 1 → Claude Design Pass 2 → Implementation</p>
 </main>
