@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>26 · Dashboard · Dry-run minimal · MarketPilot · Spec stub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block" rel="stylesheet">
+<style>
+  :root {
+    --mp-primary:        #1a2233;
+    --mp-primary-2:      #2a3550;
+    --mp-bg:             #f5f7fa;
+    --mp-surface:        #ffffff;
+    --mp-ink:            #1a2233;
+    --mp-ink-2:          #4a5366;
+    --mp-ink-3:          #8590a3;
+    --mp-line:           #e2e6ee;
+    --mp-line-soft:      #eef1f6;
+    --mp-info:           #3a6ea8;
+    --mp-info-soft:      #e7eef8;
+    --mp-neutral:        oklch(58% 0.14 240);
+    --mp-neutral-soft:   oklch(96% 0.03 240);
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--mp-bg);
+    color: var(--mp-ink);
+  }
+  /* Spec-stub badge — fixed top-right, doesn't compete with sticky header */
+  .stub-badge {
+    position: fixed;
+    top: 14px; right: 16px;
+    z-index: 100;
+    background: var(--mp-neutral-soft);
+    color: var(--mp-neutral);
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  /* Sticky header — logo only, no channel toggle, no nav */
+  header {
+    position: sticky; top: 0; z-index: 40;
+    background: rgba(245, 247, 250, 0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--mp-line-soft);
+    padding: 18px 32px;
+  }
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+    max-width: 1400px; margin: 0 auto;
+  }
+  .logo-mark {
+    width: 28px; height: 28px;
+    background: var(--mp-primary);
+    border-radius: 6px;
+    display: grid; place-items: center;
+    color: #fff;
+  }
+  .logo-text {
+    font-family: 'Manrope', system-ui, sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+    color: var(--mp-primary);
+    letter-spacing: -0.03em;
+  }
+
+  main {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 32px 32px 64px;
+  }
+
+  /* Dry-run banner — UX skeleton §9.5 verbatim */
+  .banner {
+    background: var(--mp-info-soft);
+    border: 1px solid color-mix(in oklch, var(--mp-info) 35%, transparent);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 32px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .banner > .material-symbols-outlined {
+    color: var(--mp-info);
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+  .banner-text {
+    flex: 1;
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--mp-ink);
+  }
+  .banner-text strong { font-weight: 700; }
+  .banner-cta {
+    background: var(--mp-info);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-family: 'Manrope', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* 3 KPI placeholder cards */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 0;
+  }
+  .kpi-placeholder {
+    background: var(--mp-surface);
+    border: 1px dashed var(--mp-line);
+    border-radius: 16px;
+    padding: 28px 24px;
+    min-height: 168px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    color: var(--mp-ink-3);
+    font-size: 12px;
+    font-style: italic;
+    line-height: 1.5;
+  }
+  .kpi-placeholder .material-symbols-outlined {
+    font-size: 32px;
+    color: var(--mp-line);
+    margin-bottom: 12px;
+  }
+
+  /* Meta panel — skeleton/FR traceability for BAD subagents */
+  .meta {
+    background: var(--mp-surface);
+    border: 1px solid var(--mp-line-soft);
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin-top: 56px;
+  }
+  .meta h2 {
+    font-family: 'Manrope', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--mp-primary);
+    margin: 0 0 18px;
+    letter-spacing: -0.01em;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 11px;
+  }
+  dl { margin: 0; }
+  dt {
+    font-size: 10px; font-weight: 700;
+    color: var(--mp-ink-2);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 4px;
+  }
+  dd {
+    margin: 0 0 18px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--mp-ink);
+  }
+  dd:last-child { margin-bottom: 0; }
+  code {
+    font-family: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+    background: var(--mp-line-soft);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+  a {
+    color: var(--mp-primary);
+    text-decoration: none;
+    font-weight: 600;
+  }
+  a:hover { text-decoration: underline; }
+
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
+</style>
+</head>
+<body>
+
+<span class="stub-badge">Spec stub</span>
+
+<!-- Sticky header — logo only, no channel toggle, no nav (per locked spec) -->
+<header>
+  <div class="logo">
+    <div class="logo-mark">
+      <span class="material-symbols-outlined" style="font-size: 18px;">flight_takeoff</span>
+    </div>
+    <span class="logo-text">MarketPilot</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- Dry-run banner — UX skeleton §9.5 verbatim copy -->
+  <div class="banner">
+    <span class="material-symbols-outlined">science</span>
+    <p class="banner-text">
+      <strong>MODO SIMULAÇÃO</strong> · O que vês são decisões que o motor TOMARIA, não acções no Worten. Quando estiveres confortável, vai live.
+    </p>
+    <button class="banner-cta">Ir live →</button>
+  </div>
+
+  <!-- 3 KPI card placeholders — caption "3 status cards arriving in Epic 8" -->
+  <section class="kpi-grid">
+    <div class="kpi-placeholder">
+      <span class="material-symbols-outlined">pending</span>
+      3 status cards arriving in Epic 8
+    </div>
+    <div class="kpi-placeholder">
+      <span class="material-symbols-outlined">pending</span>
+      3 status cards arriving in Epic 8
+    </div>
+    <div class="kpi-placeholder">
+      <span class="material-symbols-outlined">pending</span>
+      3 status cards arriving in Epic 8
+    </div>
+  </section>
+
+  <!-- LOCKED OUT (per spec): NO Go-Live CTA panel, NO margin editor, NO audit preview. -->
+
+  <!-- Meta panel — traceability for BAD subagent implementing Story 4.9 -->
+  <div class="meta">
+    <h2>Spec stub · 26 · Dashboard · Dry-run minimal</h2>
+    <dl>
+      <dt>Surface</dt>
+      <dd>Story 4.9 minimal landing — first dashboard a customer sees post-onboarding, before Epic 8 ships the full dry-run UI with KPIs populated, margin editor expanded, Hoje preview, and Go-Live CTA panel.</dd>
+
+      <dt>Composition (locked by Pedro 2026-04-30)</dt>
+      <dd>
+        <strong>Sticky header:</strong> logo only — no channel toggle, no nav links<br>
+        <strong>Dry-run banner:</strong> per UX skeleton §9.5 verbatim<br>
+        <strong>3 KPI card placeholders:</strong> with caption "3 status cards arriving in Epic 8"<br>
+        <strong>Locked out:</strong> NO Go-Live CTA panel · NO margin editor · NO audit preview
+      </dd>
+
+      <dt>Skeleton reference</dt>
+      <dd>§3.1 (dashboard root state machine) · §9.5 (dry-run banner copy)</dd>
+
+      <dt>FR / NFR traceability</dt>
+      <dd>FR30 partial (dry-run by default — full DRY_RUN state ships with Epic 8)</dd>
+
+      <dt>Distinct from</dt>
+      <dd><a href="02-dashboard-dryrun.html"><code>02-dashboard-dryrun.html</code></a> — Epic 8's full DRY_RUN state with KPIs populated, margin editor expanded, Hoje preview, and Go-Live CTA panel. This stub (26) is Story 4.9's stripped landing, owned earlier in the build.</dd>
+
+      <dt>Status</dt>
+      <dd>Spec stub (Step 4 fill-in 2026-04-30). Composition explicitly locked by Pedro per Option B. No Claude Design canvas artboard yet — implementation uses skeleton sections + visual-DNA tokens. Designate for Pass 2 polish or future Claude Design generation if visual ambiguity surfaces.</dd>
+    </dl>
+  </div>
+
+</main>
+
+</body>
+</html>
