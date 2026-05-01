@@ -26,7 +26,7 @@ note_on_terminology: |
 
 ## Overview
 
-This document decomposes the binding capability contract (PRD: 51 FRs across 7 groups + 41 NFRs across 8 categories), the architecture spec (30 numbered Architecture Decisions AD1-AD30 + 13 validation amendments F1-F13), and the UX skeleton (38 numbered UX requirements + 5-surface audit-log IA + PT microcopy specs) into implementable stories grouped by epic.
+This document decomposes the binding capability contract (PRD: 51 FRs across 7 groups + 42 NFRs across 8 categories), the architecture spec (30 numbered Architecture Decisions AD1-AD30 + 13 validation amendments F1-F13), and the UX skeleton (38 numbered UX requirements + 5-surface audit-log IA + PT microcopy specs) into implementable stories grouped by epic.
 
 The implementation sequence follows architecture §I (Decision Impact Analysis) as the binding spine. Story granularity rule: each story is independently shippable AND independently testable. Atomicity bundles documented in architecture (AD7+AD8+AD9+AD11; F3+AD29; F4+onboarding scan) ship as adjacent stories with single integration-test gates — they cannot be split across epics without breaking architectural invariants.
 
@@ -120,7 +120,7 @@ The implementation sequence follows architecture §I (Decision Impact Analysis) 
 
 ### NonFunctional Requirements
 
-41 NFRs across 8 categories. Quoted compactly from `prd.md` §Non-Functional Requirements.
+42 NFRs across 8 categories. Quoted compactly from `prd.md` §Non-Functional Requirements. (Note: NFR-O4 — Manual Moloni invoice SLA — was added to PRD post-Step-1 extraction; see C1 fix in implementation-readiness report 2026-05-01 + Story 11.5 binding.)
 
 #### Performance
 
@@ -186,8 +186,9 @@ The implementation sequence follows architecture §I (Decision Impact Analysis) 
 - **NFR-O1:** Founder admin maintains a documented rollback playbook with a 30-minute response target. Drafted before customer #1.
 - **NFR-O2:** Founder admin maintains a 1-page solo-founder continuity runbook covering laptop loss, hospitalization, extended absence. Drafted before customer #1.
 - **NFR-O3:** Founder admin runs a documented Day-1 active-monitoring protocol for the first 24 hours post-Go-Live per customer (audit-log tail + uptime). 2-hour response SLA during the customer's launch week. Day-3 and day-7 pulse-check outreach via call or email.
+- **NFR-O4:** Founder admin generates manual Moloni invoices per Stripe payment within 24 hours of billing, target ≤10 minutes per invoice. Aggregate exceeding 2-3 hr/month triggers Phase 2 Moloni API integration (per FR40 / FR44 Phase 2 trigger). **Story binding:** NFR-O4 is operational-tier work supported by Story 11.5's `recordMoloniInvoice` admin route; the SLA itself is a founder commitment, the supporting tooling is dev work. Both layers are covered.
 
-> **NFR-O1, NFR-O2, NFR-O3** are founder-side operational commitments — not dev stories. Tracked in the **Parallel Tracks → Founder Operational Track** appendix at the end of this document.
+> **NFR-O1, NFR-O2, NFR-O3** are founder-side operational commitments — not dev stories. Tracked in the **Parallel Tracks → Founder Operational Track** appendix at the end of this document. **NFR-O4** is hybrid: the SLA target lives in the Founder Operational Track; the supporting `/admin/moloni-record` route is Story 11.5 dev work.
 
 ### Additional Requirements
 
@@ -416,9 +417,11 @@ FR46  → Epic 12  3-tier failure model finalization (transient retry / per-SKU 
 FR47  → Epic 1   founder_admins seed + middleware
         Epic 8   admin status page UI (read-only, admin aesthetic register per UX-DR28-30)
 FR48  → Epic 12  Resend critical-alert delivery (≤5 min, PT-localized templates)
+
+NFR-O4 → Epic 11  Manual Moloni invoice SLA (Story 11.5 — admin route + per-customer `recordMoloniInvoice`); operational-tier SLA itself in Founder Operational Track
 ```
 
-**Coverage check:** every FR1-FR48 + FR38b/c/d has at least one primary epic. FR42 is intentionally zero-dev-stories per the split above. FRs spanning multiple epics show the primary owner first.
+**Coverage check:** every FR1-FR48 + FR38b/c/d has at least one primary epic. FR42 is intentionally zero-dev-stories per the split above. FRs spanning multiple epics show the primary owner first. NFR-O4 hybrid (added 2026-05-01 per readiness check C1) — dev tooling in Story 11.5, operational SLA in parallel track.
 
 ## Epic List
 
@@ -3477,7 +3480,7 @@ So that I can fulfill FR41 MVP (concierge-only) without ever building self-serve
 
 ### Story 11.5: `moloni_invoices` table + NIF capture flow at Day-3 pulse-check + admin record route
 
-**Implements:** AD22 (Moloni manual at MVP), F7 (NIF capture flow) · **FRs:** FR44 · **Size:** M
+**Implements:** AD22 (with F7) — Moloni manual at MVP + NIF capture flow at Day-3 pulse-check per F7 amendment · **FRs:** FR44 · **NFRs:** NFR-O4 (≤24h post-billing invoice generation, ≤10min target per invoice; aggregate >2-3 hr/month triggers Phase 2 Moloni API integration) · **Size:** M
 **SSoT modules created:** `app/src/routes/admin/moloni-record.js` (founder-only admin route to record invoice metadata), `app/src/views/pages/admin-moloni-record.eta`, `shared/moloni/invoice-metadata.js` (`recordMoloniInvoice`)
 **Migrations:** `db/migrations/202604301213_create_moloni_invoices.sql`
 **Depends on:** Story 1.5 (founder-admin gate), Story 11.1 (stripe_payment_intent_id linkage for the invoice row), Story 1.4 (customer_profiles.nif column for NIF persistence)
@@ -3669,12 +3672,14 @@ So that operator-side configuration changes (Worten enabling new features, chang
 
 One-page scan reference for Bob (SM agent) + BAD subagents. Every constraint below is enforced as a NEGATIVE ASSERTION in Story 1.1's acceptance criteria (or in the relevant downstream story where the constraint becomes mechanically enforceable). BAD subagents implementing stories MUST verify their work doesn't violate these.
 
+> **Note on enforcement timing (per readiness-check 2026-05-01).** ~11 of the 27 constraints rely on ESLint custom rules that ship WITH their target SSoT modules per the refined sequencing pattern (no-direct-fetch with `shared/mirakl/api-client.js` in Story 3.1; no-raw-CSV-building with `shared/mirakl/pri01-writer.js` in Story 6.1; no-raw-INSERT-audit-log with `shared/audit/writer.js` in Story 9.0; no-float-price with `shared/money/index.js` in Story 7.1; no-raw-cron-state-update with `shared/state/cron-state.js` in Story 4.1; worker-must-filter-by-customer with `shared/db/service-role-client.js` usage in Story 5.1). Until those stories ship, the constraints they protect are review-enforced rather than mechanically-enforced. Bob's sprint-status sequencing makes the ramp-up explicit; once the rule lands, retroactive enforcement against existing stories is automatic at next CI run. This is the agreed pattern, not a gap.
+
 | # | Constraint | Enforced where | Rationale |
 |---|---|---|---|
 | 1 | **No Mirakl webhook listener** in the codebase (AD18) | Story 1.1 negative assertion (grep `package.json` + source) | Seller-side webhooks unavailable per MCP — polling-only architecture |
 | 2 | **No external validator library** — Fastify built-in JSON Schema only (AD28) | Story 1.1 negative assertion (no `zod`, `yup`, `joi`, `ajv` in `package.json`) | Sufficient for MVP signup/key-entry/margin/anomaly-review/Stripe webhook payload validation; lib added in Phase 2 only if surface emerges that JSON Schema can't express ergonomically |
 | 3 | **No SPA framework** | Story 1.1 negative assertion (no `react`, `vue`, `svelte`, `angular`, `solid-js` in `package.json`) | Server-rendered eta + per-page vanilla JS preserves DynamicPriceIdea's velocity datapoint and matches NFR-P7 mobile budget |
-| 4 | **No bundler** | Story 1.1 negative assertion (no `vite`, `webpack`, `rollup`, `esbuild`, `parcel` in `package.json`) | Coolify runs `node app/src/server.js` directly; no build step; per-page `<script src="/js/<page>.js" defer>` per F9 |
+| 4 | **No bundler** | Story 1.1 negative assertion (no `vite`, `webpack`, `rollup`, `esbuild`, `parcel` in `package.json`) | Coolify runs `node app/src/server.js` directly; no build step; per-page `<script src="/js/<page>.js" defer>` per F9. **Note (I2 / readiness-check 2026-05-01):** the `defer` attribute pattern itself is review-only at MVP — no automated CI gate scans rendered HTML for missing `defer`. Code review during Epic 8 PR-merge enforces. Phase 2 trigger to add a Playwright assertion if the pattern drifts. |
 | 5 | **No TypeScript at MVP** | Story 1.1 negative assertion (no `typescript`, `ts-node` in `package.json`) | JS-ESM with JSDoc type hints matches DPI shared-code reuse; TS migration is `*.js → *.ts` rename + cleanup, Phase 2 trigger if churn demands |
 | 6 | **OF24 forbidden for price updates** (CLAUDE.md mandate) | Story 6.1 PRI01 writer is the SSoT path; ESLint `no-raw-CSV-building` flags any parallel writer; grep verifies no `POST /api/offers` price calls exist | OF24 resets ALL unspecified offer fields (quantity, description, leadtime) to defaults — confirmed footgun |
 | 7 | **No customer-facing API at MVP** (PRD Journey 5 N/A through Epic 2 / Phase 2) | Story 1.1 negative assertion (no `/api/v1/...` routes); Stripe webhook is the only JSON-accepting route | Reopens Phase 3+ if ≥2 paying customers request audit-log export OR programmatic margin updates |
@@ -3735,7 +3740,7 @@ Pre-revenue legal review is **fixed-fee (not retainer), funded from runway, post
 
 Mechanical Step 4 fill-in: walk `_bmad-output/design-references/screens/` directory, cross-reference UX skeleton sitemap, populate the (stub filename, route/surface, UX skeleton §, FR/NFR, Pattern A/B/C) tuples.
 
-> **NOTE:** Directory walked and table populated by Sally on 2026-04-30. All (TBD) prefixes resolved. Stubs 01–16 + 06b were already shipped (Phases B + C + content); stubs 17–25 generated mechanically during this sweep as Spec stubs (no Claude Design canvas backing yet — implementation uses skeleton sections + visual-DNA tokens; designate for Pass 2 polish or future Claude Design generation if visual ambiguity surfaces). Visual targets bundle: `_bmad-output/design-references/bundle/project/dashboard-and-audit.html`. **One ambiguity flagged:** the row for "minimal landing (Story 4.9)" currently points at `02-dashboard-dryrun.html` (Sally's Phase B full dry-run dashboard); if Story 4.9 specifically wants a stripped/minimal variant distinct from the full dry-run UI, generate a dedicated `26-dashboard-dryrun-minimal.html` stub.
+> **NOTE:** Directory walked and table populated by Sally on 2026-04-30. All (TBD) prefixes resolved. Stubs 01–16 + 06b were already shipped (Phases B + C + content); stubs 17–25 generated mechanically during this sweep as Spec stubs (no Claude Design canvas backing yet — implementation uses skeleton sections + visual-DNA tokens; designate for Pass 2 polish or future Claude Design generation if visual ambiguity surfaces). Stub 26 (`26-dashboard-dryrun-minimal.html`) added to lock Story 4.9's stripped landing as distinct from Epic 8's full DRY_RUN state (`02-dashboard-dryrun.html`). Visual targets bundle: `_bmad-output/design-references/bundle/project/dashboard-and-audit.html`.
 
 | Stub filename | Route / Surface | UX skeleton § | FR/NFR | Pattern |
 |---|---|---|---|---|
@@ -3994,7 +3999,7 @@ ALL 17 in Story 7.8 integration gate (full cycle through engine + writer + coope
 
 # Workflow Complete
 
-**Step 1** — Requirements extraction: 51 FRs + 41 NFRs + 30 ADs + 13 amendments + 38 UX-DRs.
+**Step 1** — Requirements extraction: 51 FRs + 42 NFRs + 30 ADs + 13 amendments + 38 UX-DRs.
 **Step 2** — Epic structure: 12 epics following architecture §I sequence; FR coverage map; dependency DAG.
 **Step 3** — Story creation: 62 stories across 4 batches with full BDD acceptance criteria, named files, named fixtures, pass/fail gates.
 **Step 4** — Final validation: Architectural Constraints (27 items) + Parallel Tracks (Legal + Founder Operational + Screen→Stub Mapping) + Notes for Pedro (18 items) + Comprehensive coverage check.

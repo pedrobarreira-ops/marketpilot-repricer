@@ -660,7 +660,7 @@ This section defines the binding capability contract for MarketPilot Repricer. E
 - **FR47:** Founder admin can view an internal monitoring dashboard (not customer-facing) showing cross-customer audit-log tail, uptime status, and circuit-breaker state.
 - **FR48:** The system delivers critical-tier alerts to customers via email within 5 minutes of event detection.
 
-(Operational commitments — rollback playbook, solo-founder continuity runbook, Day-1 active-monitoring protocol — are documented in §Non-Functional Requirements as operational quality attributes.)
+(Operational commitments — rollback playbook, solo-founder continuity runbook, Day-1 active-monitoring protocol, manual Moloni invoice SLA — are documented in §Non-Functional Requirements as operational quality attributes.)
 
 ## Non-Functional Requirements
 
