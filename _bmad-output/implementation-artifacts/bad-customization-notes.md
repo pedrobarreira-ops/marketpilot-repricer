@@ -1,0 +1,240 @@
+# BAD Customization Notes — collected from Stories 1.1-1.5 manual runs
+
+> **Purpose**: capture the deltas between BAD's forked-skill assumptions and marketpilot-repricer's actual implementation reality. Populated story-by-story during the manual Bob → Amelia → CR flow for Stories 1.1-1.5. After Story 1.5 ships, this becomes the changelist for customizing `bad/SKILL.md` and `bad-review/SKILL.md` before the BAD pipeline runs Stories 1.6+ autonomously.
+>
+> **Read alongside**: `bad/SKILL.md` (the coordinator skill we'll customize) and `bad-review/SKILL.md` (the audit-before-merge skill). Per the 2026-05-01 audit, both are forked from a previous BAD project (DynamicPriceIdea-flavored — `src/workers/`, BullMQ/SQLite/Drizzle stack, "MCP-Verified Endpoint Reference" pointer that doesn't exist in our distillates).
+
+---
+
+## Per-Story Findings
+
+### Story 1.1 — Scaffold + two-service Coolify deploy + composed /health
+
+**Status**: complete (smoke test green 2026-05-01).
+
+**File paths actually created** (compare against BAD's hardcoded `src/workers/`, `src/routes/`, `src/middleware/errorHandler.js`):
+- `app/src/server.js`, `app/src/routes/health.js` — BAD's gate needs `app/src/routes/` not `src/routes/`
+- `worker/src/index.js`, `worker/src/jobs/heartbeat.js` — BAD's gate needs `worker/src/` not `src/workers/`
+- `shared/config/runtime-env.js` — shared module pattern confirmed working
+- `db/migrations/202604301212_create_worker_heartbeats.sql` — BUT: Supabase CLI requires migrations in `supabase/migrations/`, not `db/migrations/`. Architecture directory tree needs update.
+- `supabase/migrations/202604301212_create_worker_heartbeats.sql` — actual applied location
+- `eslint.config.js`, `eslint-rules/` (4 placeholder stubs), `tests/integration/scaffold-smoke.test.js`
+
+**Conventions emerging / drift from architecture**:
+- **Migration path drift**: Architecture says `db/migrations/` but Supabase CLI requires `supabase/migrations/`. Going forward, migrations live in `supabase/migrations/`. The `db/` directory can hold seeds only. Architecture's `05-directory-tree.md` needs amendment.
+- **ESLint no-default-export**: Bob missed this from the Story 1.1 ESLint spec; fixed before Amelia ran. BAD's story-creation must catch this — add to architecture-compliance audit checklist.
+- **pg Pool SSL config**: Bob/Amelia didn't include `ssl: { rejectUnauthorized: false }` in Pool config — required for Supabase connections. See critical finding below.
+
+**Pain points in manual flow**:
+- Supabase CLI login/link required browser auth + correct account — took significant debugging time. BAD automation would face same issue on first run; Pedro must pre-link CLI before BAD runs.
+- DB password with special characters broke `--db-url` flag; alphanumeric-only password required. Document this as onboarding requirement.
+- Session pooler URL (`postgres.PROJECT_REF@pooler.supabase.com`) failed with "tenant not found" — direct connection URL only. Must update `.env.example` to clarify correct URL format.
+
+**MCP invocation patterns**:
+- Mirakl MCP: not needed (no Mirakl calls in Story 1.1) ✓
+- Context7: Bob used it for Fastify v5 ESM init + ESLint v9 flat config patterns — citations embedded in story file ✓
+- Supabase MCP: used `list_tables` to verify `worker_heartbeats` table landed after migration ✓
+
+**Test patterns**:
+- Integration smoke test (not RGR) — `node:test` spawning child processes, polling /health, checking DB row. Amelia wrote a real behavioral test, not theater. ✓ Pedro's empirical prior confirmed: scaffolding stories produce integration-gate tests, not fake unit tests.
+- ESLint + smoke test together are the acceptance gates. No RGR needed for this story type.
+
+**Worker-Path Opus Gate validation**:
+- Worker paths landed at: `worker/src/index.js`, `worker/src/jobs/heartbeat.js`, `worker/src/engine/` (empty scaffold), `worker/src/safety/` (empty scaffold)
+- BAD's current gate condition: `src/workers/` — WRONG for our project
+- Required update: `worker/src/` (all worker-side code), `app/src/routes/` (Fastify routes), `app/src/middleware/` (middleware)
+
+**CR findings**: not yet run — proceeding directly to Story 1.2 given smoke test green. Story 1.1 PRE-MERGE findings noted below.
+
+**Critical finding for all future stories — pg Pool SSL**:
+- Every `pg` Pool in this project MUST include `ssl: { rejectUnauthorized: false }`
+- Supabase SSL certificates don't pass strict verification; `rejectUnauthorized: false` is required
+- The `shared/db/service-role-client.js` SSoT module (Story 2.1) MUST include this in its Pool config
+- Bob must include this in every story that creates a pg Pool. Add to project-context.md Dev Notes template.
+- Confirmed: direct connection `db.PROJECT_REF.supabase.co:5432` + SSL works; session pooler `pooler.supabase.com` does NOT work (tenant not found)
+
+**Notes for BAD customization**:
+- Worker-Path Opus Gate: `src/workers/` → `worker/src/`, add `app/src/routes/`, `app/src/middleware/`
+- Story creation (Bob): must encode Supabase pg Pool SSL requirement in Dev Notes for any story touching `pg`
+- Migration path: `supabase/migrations/` not `db/migrations/` — update architecture directory tree reference in skill
+
+**🔴 CRITICAL — migration immutability rule violated by CR (caught and corrected during Story 1.1 review)**:
+
+During Story 1.1's code review pass, the CR subagent **edited an already-applied migration file** to add an index, instead of creating a new migration. Specifically:
+- `supabase/migrations/202604301212_create_worker_heartbeats.sql` had been applied to the remote project (Supabase MCP `list_tables` confirmed the table existed)
+- CR review pass added `CREATE INDEX worker_heartbeats_written_at_desc_idx ON worker_heartbeats (written_at DESC)` to the same file
+- This violated Step 5 architecture lock: *"append-only SQL managed by Supabase CLI; never edit a migration after applied to any environment"*
+- Practical consequence: `npx supabase db push` would NOT have applied the index because the migration was already tracked as applied in `supabase_migrations.schema_migrations`. The index would have lived on local file system only, with silent divergence between filesystem and remote DB state.
+- Fix: reverted index out of original migration; created new migration `202605011940_add_worker_heartbeats_written_at_idx.sql` with the index DDL only. Applied via `npx supabase db push`.
+
+**Why this happens**: CR subagents have no visibility into "what's been applied to which environment." They reason about a diff in isolation and treat migration files as ordinary editable files. The remote `schema_migrations` tracking table is invisible to the review window. Subagent reasoning alone cannot catch this — it requires a mechanical gate.
+
+**Failure mode in production**: in a multi-environment setup, this divergence is catastrophic:
+- Local dev regenerates DB from migrations → gets the edited version (with index)
+- Staging/prod previously ran the original migration → have the old version (no index)
+- Bug reports that don't reproduce locally; manual schema reconciliation in panic
+- Cost: days of debugging per incident; high probability across a 62-story project lifetime
+
+**Required hard gates (highest priority for BAD customization, ahead of Worker-Path Opus Gate)**:
+
+1. **`bad-review/SKILL.md` — Phase 1 step 9 (new)**: deterministic check that flags any modified file in `supabase/migrations/` whose timestamp predates HEAD. Trigger pattern (post-Phase 1 step 6, before Phase 2):
+   ```bash
+   git log --diff-filter=M --name-only HEAD -- 'supabase/migrations/*.sql' | sort -u
+   ```
+   If any results, halt with: `❌ Migration immutability violation. PR modifies <file>. Migrations are append-only — never edit after apply. Create a new migration instead.` Do not proceed to Phase 2.
+
+2. **`bad-review/references/mcp-forbidden-patterns.md` — add new pattern**: "Modified migration in `supabase/migrations/`" (severity: HIGH; subagent A code-vs-spec audit flags as blocking).
+
+3. **`bad/SKILL.md` Step 5 review prompt — add explicit instruction**: *"If the diff modifies any existing file in `supabase/migrations/` (not just adds new ones), flag as decision_needed. Never patch the modification directly. Create a new migration file."*
+
+4. **Pre-commit hook (project-level)**: bash script in `scripts/check-migration-immutability.sh` that runs in CI and on local commit. Compares staged changes against `git log` to detect any modification of `.sql` files in `supabase/migrations/` that exist in git history. Block commit if violated.
+
+5. **`project-context.md` — add to BAD subagent rules**: explicit rule for Bob/Amelia/CR: "NEVER edit a migration file in `supabase/migrations/` once it has been added to a commit. Schema changes after the first commit always create new migrations. This rule has zero exceptions."
+
+**This rule's failure mode is a multi-day production incident, not just a performance miss — higher priority customization than path-pattern updates.**
+
+**Worker-Path Opus Gate validation**:
+- BAD gate condition: `src/workers/`, `src/middleware/errorHandler.js`, `src/routes/`
+- Our actual paths landed: _to be filled_
+- Required gate update: _to be filled_
+
+**CR findings (severity, accuracy, misses)**:
+- _to be filled_
+
+**Story file structure observations** (Bob's output format vs Amelia's expected input):
+- _to be filled_
+
+**Notes for BAD customization**:
+- _to be filled_
+
+---
+
+### Story 1.2 — Envelope encryption helpers + master-key loader + secret-scanning hook
+
+**Status**: not yet started.
+
+(Same subsections as Story 1.1 — populate after run.)
+
+---
+
+### Story 1.3 — Pino config + redaction list + structured logging
+
+**Status**: not yet started.
+
+(Same subsections — populate after run.)
+
+---
+
+### Story 1.4 — Signup + atomic customer_profiles trigger + source-context capture (Bundle A)
+
+**Status**: not yet started.
+
+(Same subsections — populate after run. Special focus: Bundle A atomicity — does the manual flow correctly land the trigger + endpoint + JSON Schema validation + safe-error mapping in a single PR? Or does it fragment?)
+
+---
+
+### Story 1.5 — founder_admins table + admin-route middleware
+
+**Status**: not yet started.
+
+(Same subsections — populate after run.)
+
+---
+
+## Aggregate Observations (filled after Story 1.5)
+
+### File path inventory
+
+> Complete list of paths landed across Stories 1.1-1.5 — drives Worker-Path Opus Gate update + filename-claim-audit regex update.
+
+- _to be filled_
+
+### Recurring pain points
+
+> Things the manual flow exposed that BAD's automation would address (or would amplify).
+
+- _to be filled_
+
+### Recurring strengths of manual flow
+
+> Things the manual flow does well that we'd lose if BAD just runs without modification.
+
+- _to be filled_
+
+### Mirakl MCP usage frequency
+
+> How often did Mirakl MCP get invoked across these 5 stories? Establishes whether BAD's "check Mirakl MCP" gate needs to be hard or soft.
+
+- _to be filled_
+
+### Supabase MCP usage patterns
+
+> What read-only ops were useful? Did anyone try `apply_migration` (forbidden)? Did the org-scope project_id get passed correctly?
+
+- _to be filled_
+
+### Context7 usage patterns
+
+> What library docs got fetched? Were Context7's CommonJS-to-ESM translations clean or did they require manual fixup?
+
+- _to be filled_
+
+---
+
+## BAD Customization Deltas — Final Changelist for Skill Files
+
+> Populated after Story 1.5 ships. This section is the deliverable: a precise list of edits to apply to `.claude/skills/bad/SKILL.md` and `.claude/skills/bad-review/SKILL.md` (and their reference files) before BAD runs Story 1.6 autonomously.
+
+### `.claude/skills/bad/SKILL.md` — required changes
+
+- **Worker-Path Opus Gate (L362)**: replace `src/workers/`, `src/middleware/errorHandler.js`, `src/routes/` with the actual marketpilot-repricer paths discovered during Stories 1.1-1.5. Concrete diff: _to be filled_.
+- **Step 1 distillate reference (L283)**: replace pointer to `_bmad-output/planning-artifacts/epics-distillate.md` "MCP-Verified Endpoint Reference" with `architecture-distillate/_index.md` "Cross-Cutting Empirically-Verified Mirakl Facts" section.
+- **Memory file references (L194, L255, L341, L368)**: these cite memory files from the previous BAD project. Either inline the rationale (preferred — gates are self-justifying then) or remove the citation.
+- **Bundle C awareness**: add gate that prevents auto-merge of Stories 5.1, 5.2, 6.1, 6.2, 6.3, 7.2, 7.3, 7.6 to main until Story 7.8's atomicity-bundle gate test passes. Concrete mechanism: _to be designed_ (likely a `block_auto_merge_until_story` field in sprint-status.yaml).
+- **Calendar-early sequencing**: add `calendar_early` flag in sprint-status.yaml override to allow Stories 9.0/9.1 to be picked between Epic 2 and Epic 3 despite naive epic-ordering.
+- **Epic-Start Test Design re-entry guard**: prevent double-firing for Epic 9 (once at calendar-early start, once at chronological start).
+
+### `.claude/skills/bad-review/SKILL.md` — required changes
+
+- **Repo-specific context block (L552-559)**: replace stack documentation. Current says "BullMQ, SQLite/Drizzle"; correct is "Postgres on Supabase Cloud EU, no BullMQ, no Drizzle". Replace `scripts/mcp-probe.js` with `scripts/mirakl-empirical-verify.js`.
+- **Live Smoke Evidence guard trigger (L77)**: replace `src/workers/mirakl/` path match with our Mirakl-touching paths (likely `shared/mirakl/`, `worker/src/engine/`, `app/src/routes/_public/onboarding-key.js`).
+- **Filename claim audit regex (L109)**: extend allowed path-prefix list to include `app/`, `worker/`, `shared/`, `db/migrations/`, `tests/integration/`, `tests/fixtures/`, `eslint-rules/`.
+- **Distillate reference**: any reference to `epics-distillate.md` (single file) should point to `epics-distillate/_index.md` (folder pattern).
+
+### `.claude/skills/bad-review/references/mcp-forbidden-patterns.md` — required changes
+
+> Read this file before customization to see existing 5-pattern list.
+
+- Patterns to keep: `product_ids: <with EANs>`, `o.channel_code / offer.channel_code`, `offer.price without offer.total_price alongside`, `Compare activeOffers.length to total_count` (these apply to our project too).
+- Pattern to remove or invert: `state === 'ACTIVE'` — actually correct for our cron_state per F13 lock (UPPER_SNAKE_CASE). Previous project may have used lowercase; we don't.
+- Patterns to add (project-specific footguns):
+  - Float-price math outside `shared/money/index.js` (constraint #22, AD8 STEP 3)
+  - Raw `INSERT INTO audit_log` outside `shared/audit/writer.js` (constraint #21)
+  - Direct `fetch(` outside `shared/mirakl/api-client.js` (constraint #19)
+  - Raw `UPDATE customer_marketplaces SET cron_state` outside `shared/state/cron-state.js` (constraint #23)
+  - Worker queries missing `customer_marketplace_id` filter without `// safe: cross-customer cron` comment (constraint #24)
+  - `apply_migration` via Supabase MCP (project-context.md MCP rule)
+  - `OF24` for price updates (constraint #6 — confirmed footgun)
+  - `Bearer ` prefix on Mirakl Authorization header (empirical fact #10)
+  - `product_sku` used as seller SKU in PRI01 CSV (empirical fact #12 — `shop_sku` is correct)
+
+### Other reference files to audit
+
+- _to be filled_ — read other files in `.claude/skills/bad/references/` and `.claude/skills/bad-review/references/` and note customizations needed.
+
+---
+
+## Open Questions (raise during BAD customization session)
+
+- **Auto-merge policy at MVP**: should `AUTO_PR_MERGE` be `true` (BAD merges to main automatically) or `false` (Pedro hand-merges per `bad-review` audit)? Trade-off: speed vs Bundle C / calendar-early safety. Default: `false` until BAD customization fully lands and Bundle C gate is in place.
+- **MAX_PARALLEL_STORIES tuning**: BAD default is 3. Solo founder + 1M context might handle 3 cleanly; might want 2 to keep review surface manageable. Decide based on Stories 1.1-1.5 cadence.
+- **MODEL_QUALITY = opus default**: should Step 5 always run Opus regardless of path, given the architecture's safety-critical surfaces? Or keep the path-gated approach and just update the path list?
+- **Dependency graph behavior with calendar-early**: how does Phase 0's `bmad-help` map dependencies for Stories 9.0/9.1 ahead of their epic? Worth verifying in dry-run.
+
+---
+
+## Maintenance
+
+- Update after each story's full pipeline lands (Bob → Amelia → CR → review).
+- After Story 1.5: aggregate findings, draft the BAD skill file diffs, and apply them in a single customization PR before Story 1.6 starts under autonomous BAD.
+- Keep this file in sync with reality — if BAD customization happens partially across stories, note which deltas are applied vs pending.

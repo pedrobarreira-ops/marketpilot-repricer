@@ -1,0 +1,16 @@
+# Deferred Work
+
+Items surfaced during code reviews / development that are real but out of scope for the originating story. Each entry lists the source review and the specific finding so a future story owner can pick it up.
+
+---
+
+## Deferred from: code review of 1-1-scaffold-project-two-service-coolify-deploy-composed-health (2026-05-01)
+
+- **pg Pools never `.end()`ed; no SIGTERM handler in app or worker** — Both `app/src/routes/health.js` and `worker/src/jobs/heartbeat.js` create module-scope `Pool` instances at import time and never close them. `worker/src/index.js` has no SIGTERM/SIGINT handler. Story 1.1 spec line 220 explicitly says the inline `pg` Pool is intentional scaffolding "not a pattern to replicate in later stories." Graceful shutdown + Pool teardown belongs to a later story (likely 2.1 when `shared/db/service-role-client.js` is formalized).
+- **/health endpoint not behind `@fastify/rate-limit`** — Plugin is a runtime dep at AC#1 but spec does not register it at Story 1.1. A hostile burst on `/health` could exhaust the `max: 2` pool. Harden in a later security-pass story (Epic 11/12 ops or a dedicated edge-hardening story).
+- **`@fastify/cookie` and `@fastify/csrf-protection` not registered** — Listed as runtime deps for AC#1, registration intentionally later. Owner: auth/session story (Story 1.5 founder-admins or onboarding stories that introduce sessions).
+- **`MASTER_KEY_BASE64` shape (32-byte base64) not validated** — `shared/config/runtime-env.js` only checks presence, not decodability or 32-byte length. Story 1.2 explicitly owns this per Story 1.1 spec line 401: "Story 1.2 extends this module to add 32-byte length validation on `MASTER_KEY_BASE64`."
+- **`.env.example` lists Stripe/Resend keys not in `REQUIRED_VARS`** — `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `RESEND_API_KEY` appear in `.env.example` but `getEnv()`'s required list is only `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_DATABASE_URL`, `MASTER_KEY_BASE64`. Intentional — they're needed at SDK init time only. Tighten in the story that first integrates Stripe (Story 11.1) or Resend (Story 12.2).
+- **RLS comment in migration is unverified claim** — `db/migrations/202604301212_create_worker_heartbeats.sql` lines 7-10 claim Supabase's auto-RLS-trigger handles security on `worker_heartbeats`. Verify via Supabase project settings (Studio → Database → Tables → RLS toggle) rather than in code. Owner: any story that audits Supabase project settings (Epic 2 RLS work is a natural fit).
+- **No `db:migrate` script in `package.json`** — Smoke test assumes the migration is already applied; nothing in scripts runs it. Pedro currently runs `npx supabase db push` manually per Task 3. Add a `"db:migrate": "npx supabase db push"` (or equivalent) when the team standardizes migration workflow — likely Story 4.1 when more migrations land.
+- **Module load order — `health.js` constructs Pool before `getEnv()` validates env** — `app/src/server.js:6` imports `healthRoutes` which evaluates `health.js` and constructs the `Pool` *before* line 8's `getEnv()` runs. Low impact in practice (a Pool with `undefined` connectionString sits idle and `getEnv()` exits before `fastify.listen`), but worth tracking for the day env-validation moves earlier in the boot sequence (e.g., when `shared/db/service-role-client.js` becomes a factory in Story 2.1).

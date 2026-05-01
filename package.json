@@ -1,0 +1,49 @@
+{
+  "name": "marketpilot-repricer",
+  "version": "1.0.0",
+  "description": "MarketPilot automated repricing for Mirakl marketplaces",
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "start:app": "node app/src/server.js",
+    "start:worker": "node worker/src/index.js",
+    "test": "node --test",
+    "test:integration": "node --test 'tests/integration/**/*.test.js'",
+    "lint": "eslint .",
+    "test:rls": "node --test tests/integration/rls-regression.test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pedrobarreira-ops/marketpilot-repricer.git"
+  },
+  "keywords": [],
+  "author": "Pedro Barreira",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/pedrobarreira-ops/marketpilot-repricer/issues"
+  },
+  "homepage": "https://github.com/pedrobarreira-ops/marketpilot-repricer#readme",
+  "dependencies": {
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/csrf-protection": "^7.1.0",
+    "@fastify/rate-limit": "^10.3.0",
+    "@fastify/static": "^9.1.3",
+    "@fastify/view": "^11.1.1",
+    "@supabase/supabase-js": "^2.105.1",
+    "eta": "^4.6.0",
+    "fastify": "^5.8.5",
+    "node-cron": "^4.2.1",
+    "pg": "^8.20.0",
+    "pino": "^10.3.1",
+    "resend": "^6.12.2",
+    "stripe": "^22.1.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.3.0",
+    "eslint-plugin-jsdoc": "^62.9.0",
+    "globals": "^17.5.0"
+  }
+}

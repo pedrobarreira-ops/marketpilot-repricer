@@ -38,3 +38,8 @@ public/*-standalone.html
 # summaries are referenced inline in architecture.md. Raw JSON stays local.
 verification-results.json
 verification-stderr.log
+
+# Build + test output
+dist/
+coverage/
+.env.test

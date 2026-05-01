@@ -73,7 +73,7 @@
 
 generated: 2026-05-01
 last_updated: 2026-05-01
-project: marketpilot-repricer
+project: marketpilot-repricer  # updated by bmad-create-story: Story 1.1 sharded 2026-05-01
 project_key: NOKEY
 tracking_system: file-system
 story_location: d:\Plannae Project\marketpilot-repricer/_bmad-output/implementation-artifacts
@@ -82,8 +82,8 @@ development_status:
   # =========================================================================
   # EPIC 1 -- Foundation & Trust Primitives  (architecture S-I phase 1)
   # =========================================================================
-  epic-1: backlog
-  1-1-scaffold-project-two-service-coolify-deploy-composed-health: backlog
+  epic-1: in-progress
+  1-1-scaffold-project-two-service-coolify-deploy-composed-health: done
   1-2-envelope-encryption-module-master-key-loader-secret-scanning-hook: backlog
   1-3-pino-structured-logging-with-redaction-list: backlog
   1-4-signup-endpoint-atomic-profile-trigger-source-context-capture: backlog  # ATOMICITY BUNDLE A: F3 + AD29 single PR
