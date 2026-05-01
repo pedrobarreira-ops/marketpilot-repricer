@@ -1,0 +1,224 @@
+# generated: 2026-05-01
+# last_updated: 2026-05-01
+# project: marketpilot-repricer
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: d:\Plannae Project\marketpilot-repricer/_bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog -> in-progress: Automatically when first story is created (via create-story)
+#   - in-progress -> done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - SM typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+#
+# SEQUENCING NOTES (Bob, 2026-05-01):
+# ===================================
+# Calendar shipping order DIVERGES from numerical epic order in exactly one place:
+# Stories 9.0 and 9.1 ship BETWEEN Epic 2 and Epic 3 as Story 1.x siblings, NOT in
+# their numerical Epic 9 slot. This is the "calendar-early audit-log foundation"
+# decision (epics.md Option A locked at line 2786). Twelve Batch-2 stories
+# (4.1, 5.1, 5.2, 6.1, 6.2, 6.3, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7) declare 9.0+9.1
+# as dependencies; without the calendar-early slot they would block on a phase-7
+# delivery. Stories 9.2-9.6 ship in their numerical position (between Epic 8 and
+# Epic 10) per architecture S-I phase 7 order.
+#
+# ATOMICITY BUNDLES enforced by acceptance criteria, not by status flow:
+#   Bundle A (F3+AD29):       Story 1.4 single PR -- already a single story
+#   Bundle B (F4+onboarding): Stories 4.1 + 4.4 atomicity-paired (4.2/4.3 between)
+#   Bundle C (AD7+AD8+AD9+AD11): Stories 6.1 + 7.2 + 7.3 + 7.6 -- integration
+#                                 gate at Story 7.8 fires only after all four land
+#
+# Architecture S-I phase 5 ("Engine + safety") groups Stories 5-7.x; phase 6
+# ("PRI01 writer") groups Story 6.x. Cross-component dep note (architecture L890)
+# states writer + engine ship "together" not "engine before writer." Numerical
+# story order (Epic 6 before Epic 7) is the chosen sequencing, satisfying both
+# the atomicity gate at 7.8 and the writer-as-SSoT-imported-by-engine direction.
+#
+# CUSTOM ESLint RULES ship with target SSoT modules (deferred-rule pattern,
+# epics.md L3675 -- intentional, not a gap):
+#   no-direct-fetch              -> Story 3.1 (shared/mirakl/api-client.js)
+#   no-raw-cron-state-update     -> Story 4.1 (shared/state/cron-state.js)
+#   worker-must-filter-by-customer -> Story 5.1 (shared/db/service-role-client.js usage)
+#   no-raw-CSV-building          -> Story 6.1 (shared/mirakl/pri01-writer.js)
+#   no-float-price               -> Story 7.1 (shared/money/index.js)
+#   no-raw-INSERT-audit-log      -> Story 9.0 (shared/audit/writer.js)
+#
+# When Story 5.1 BAD subagent lands the worker-must-filter-by-customer rule,
+# it MUST retrofit Story 9.1's worker/src/jobs/monthly-partition-create.js with
+# a `// safe: cross-customer cron` pragma comment (cron operates cross-customer
+# by design; pre-dates the rule).
+
+generated: 2026-05-01
+last_updated: 2026-05-01
+project: marketpilot-repricer
+project_key: NOKEY
+tracking_system: file-system
+story_location: d:\Plannae Project\marketpilot-repricer/_bmad-output/implementation-artifacts
+
+development_status:
+  # =========================================================================
+  # EPIC 1 -- Foundation & Trust Primitives  (architecture S-I phase 1)
+  # =========================================================================
+  epic-1: backlog
+  1-1-scaffold-project-two-service-coolify-deploy-composed-health: backlog
+  1-2-envelope-encryption-module-master-key-loader-secret-scanning-hook: backlog
+  1-3-pino-structured-logging-with-redaction-list: backlog
+  1-4-signup-endpoint-atomic-profile-trigger-source-context-capture: backlog  # ATOMICITY BUNDLE A: F3 + AD29 single PR
+  1-5-founder-admins-seed-admin-auth-middleware: backlog
+  epic-1-retrospective: optional
+
+  # =========================================================================
+  # EPIC 2 -- Multi-Tenant Isolation  (architecture S-I phase 2)
+  # =========================================================================
+  epic-2: backlog
+  2-1-rls-aware-app-db-client-service-role-worker-db-client-transaction-helper: backlog
+  2-2-rls-regression-suite-ci-block: backlog
+  epic-2-retrospective: optional
+
+  # =========================================================================
+  # CALENDAR-EARLY INSERTION -- Audit-log foundation (Story 1.x siblings)
+  # Stories 9.0 + 9.1 ship HERE, before Epic 3, unblocking 12 Batch-2 dependents.
+  # Numerical Epic 9 slot retains 9.2-9.6 only (post-Epic 8).
+  # =========================================================================
+  9-0-writeauditevent-ssot-module-audit-log-event-types-lookup-table-26-row-ad20-taxonomy-seed: backlog  # CALENDAR-EARLY; ships eslint-rules/no-raw-INSERT-audit-log.js
+  9-1-audit-log-partitioned-base-table-priority-derivation-trigger-initial-partition-monthly-partition-cron: backlog  # CALENDAR-EARLY; depends on 9.0 + 2.1 (RLS clients)
+
+  # =========================================================================
+  # EPIC 3 -- Mirakl Integration Foundation  (architecture S-I phase 3)
+  # =========================================================================
+  epic-3: backlog
+  3-1-mirakl-http-client-port-apiclient-retry-backoff-safe-error-mapping-no-direct-fetch-eslint-rule: backlog  # ESLint: no-direct-fetch ships here
+  3-2-endpoint-wrappers-a01-pc01-of21-p11-mirakl-mock-server: backlog
+  3-3-mirakl-empirical-verify-smoke-test-script-reusable-for-first-customer-onboarding: backlog
+  epic-3-retrospective: optional
+
+  # =========================================================================
+  # EPIC 4 -- Customer Onboarding  (architecture S-I phase 4)
+  # =========================================================================
+  epic-4: backlog
+  4-1-customer-marketplaces-schema-with-f4-provisioning-cron-state-machine-transitions-matrix: backlog  # ATOMICITY BUNDLE B (1/2); ESLint: no-raw-cron-state-update ships here
+  4-2-skus-sku-channels-baseline-snapshots-scan-jobs-schemas-rls: backlog
+  4-3-key-entry-form-onboarding-key-inline-5s-validation-encrypted-persistence-worten-key-one-page-guide-modal: backlog
+  4-4-async-catalog-scan-orchestration-a01-pc01-of21-p11-tier-classify-baseline-atomicity-sibling-of-story-4-1: backlog  # ATOMICITY BUNDLE B (2/2)
+  4-5-scan-progress-page-onboarding-scan-closeable-reconnectable-status-polling: backlog
+  4-6-scan-failed-email-scan-failed-interception: backlog
+  4-7-scan-ready-interstitial-onboarding-scan-ready-ux-dr33-34: backlog
+  4-8-margin-question-onboarding-margin-smart-default-mapping-5-warning: backlog
+  4-9-dashboard-root-in-dry-run-minimal-landing-only: backlog
+  epic-4-retrospective: optional
+
+  # =========================================================================
+  # EPIC 5 -- Cron Dispatcher & State Machine  (architecture S-I phase 5)
+  # =========================================================================
+  epic-5: backlog
+  5-1-master-cron-dispatcher-sql-per-customer-advisory-locks-worker-must-filter-by-customer-eslint-rule: backlog  # ESLint: worker-must-filter-by-customer ships here; BAD subagent must retrofit `// safe: cross-customer cron` to Story 9.1's monthly-partition-create.js
+  5-2-pri01-staging-schema-cycle-assembly-skeleton: backlog
+  epic-5-retrospective: optional
+
+  # =========================================================================
+  # EPIC 6 -- PRI01 Writer Plumbing  (architecture S-I phase 6)
+  # Numerical order chosen over S-I phase 5/6 strict ordering: writer (6.1) ships
+  # before engine (7.2) since engine imports buildPri01Csv from the writer SSoT.
+  # =========================================================================
+  epic-6: backlog
+  6-1-shared-mirakl-pri01-writer-js-per-sku-aggregation-multipart-submit-pending-import-id-atomicity-no-raw-csv-building-eslint-rule: backlog  # ATOMICITY BUNDLE C (1/4 -- AD7); ESLint: no-raw-CSV-building ships here
+  6-2-shared-mirakl-pri02-poller-js-worker-src-jobs-pri02-poll-js-cron-entry-complete-failed-handling: backlog
+  6-3-shared-mirakl-pri03-parser-js-per-sku-rebuild-semantics: backlog
+  epic-6-retrospective: optional
+
+  # =========================================================================
+  # EPIC 7 -- Engine Decision & Safety  (architecture S-I phase 5, ships after Epic 6)
+  # =========================================================================
+  epic-7: backlog
+  7-1-shared-money-index-js-no-float-price-eslint-rule: backlog  # ESLint: no-float-price ships here
+  7-2-worker-src-engine-decide-js-full-ad8-decision-flow-with-filter-chain-via-self-filter: backlog  # ATOMICITY BUNDLE C (2/4 -- AD8)
+  7-3-worker-src-engine-cooperative-absorb-js-step-2-absorption-skip-on-pending: backlog  # ATOMICITY BUNDLE C (3/4 -- AD9)
+  7-4-worker-src-safety-anomaly-freeze-js-audit-anomaly-sku-accept-reject-endpoints: backlog
+  7-5-worker-src-engine-tier-classify-js-full-transitions-atomic-t2a-t2b-write-per-f1: backlog
+  7-6-worker-src-safety-circuit-breaker-js-per-sku-15-per-cycle-20: backlog  # ATOMICITY BUNDLE C (4/4 -- AD11)
+  7-7-worker-src-safety-reconciliation-js-tier-3-daily-pass-nightly-reconciliation: backlog
+  7-8-end-to-end-integration-gate-full-cycle-test-on-all-17-p11-fixtures-atomicity-bundle-gate-for-ad7-ad8-ad9-ad11: backlog  # ATOMICITY BUNDLE C GATE; fires only after 6.1, 7.2, 7.3, 7.6 land
+  epic-7-retrospective: optional
+
+  # =========================================================================
+  # EPIC 8 -- Customer Dashboard & Surfaces  (architecture S-I phase 8)
+  # =========================================================================
+  epic-8: backlog
+  8-1-dashboard-root-state-aware-view-sticky-header-chrome: backlog
+  8-2-kpi-cards-row-3-status-cards-from-free-report-family-secondary-catalog-value-lines: backlog
+  8-3-pt-es-channel-toggle-pill-in-sticky-header: backlog
+  8-4-margin-editor-inline-panel-with-worked-profit-example: backlog
+  8-5-pause-resume-buttons-customer-pause-cron-state-transitions: backlog
+  8-6-go-live-consent-modal-stripe-redirect: backlog
+  8-7-anomaly-review-modal-consumes-story-7-4-endpoints: backlog
+  8-8-banner-library-ux4-stack-precedence: backlog
+  8-9-interception-pages-key-revoked-payment-failed: backlog
+  8-10-admin-status-founder-page-reuses-customer-audit-log-ui: backlog
+  8-11-settings-sectioned-navigation-5-pages: backlog
+  8-12-mobile-focused-critical-alert-response-surface: backlog
+  epic-8-retrospective: optional
+
+  # =========================================================================
+  # EPIC 9 -- Audit Log  (architecture S-I phase 7; numerical-position remainder)
+  # Stories 9.0 + 9.1 already shipped calendar-early between Epic 2 and Epic 3.
+  # 9.2-9.6 ship here in numerical order.
+  # =========================================================================
+  epic-9: backlog
+  9-2-daily-kpi-snapshots-cycle-summaries-schemas-daily-aggregate-cron-5-min-today-partial-refresh: backlog
+  9-3-5-surface-query-endpoints-audit-root-with-daily-summary-atencao-feed-notavel-feed: backlog
+  9-4-search-by-sku-ean-endpoint-primary-investigation-primitive: backlog
+  9-5-firehose-audit-firehose-cycle-aggregated-view-with-lazy-loaded-sku-expansion: backlog
+  9-6-audit-log-archive-job-detach-old-partitions-per-ad19-retention-semantics: backlog
+  epic-9-retrospective: optional
+
+  # =========================================================================
+  # EPIC 10 -- Account Deletion & Grace  (architecture S-I phase 9)
+  # =========================================================================
+  epic-10: backlog
+  10-1-settings-delete-multi-step-initiation-eliminar-phrase-key-destruction-at-initiation-stripe-cancel-at-period-end: backlog
+  10-2-cancel-mid-grace-flow-magic-link-in-email-dashboard-cancelar-eliminacao-banner-button: backlog
+  10-3-daily-deletion-grace-cron-day-5-reminder-email-t-7d-hard-delete-with-audit-log-archive-coordination: backlog
+  epic-10-retrospective: optional
+
+  # =========================================================================
+  # EPIC 11 -- Billing: Stripe & Moloni  (architecture S-I phase 9)
+  # =========================================================================
+  epic-11: backlog
+  11-1-stripe-customer-subscription-first-subscriptionitem-creation-on-go-live-consumed-by-story-8-6: backlog
+  11-2-stripe-webhook-webhooks-stripe-signature-replay-protection-idempotency-cron-state-transitions-for-all-marketplaces: backlog
+  11-3-settings-billing-page-stripe-customer-portal-link: backlog
+  11-4-concierge-marketplace-add-admin-script-founder-cli-for-adding-2nd-marketplace: backlog
+  11-5-moloni-invoices-table-nif-capture-flow-at-day-3-pulse-check-admin-record-route: backlog  # NFR-O4 24h-SLA + 10-min-target binding folded in per readiness-check fix
+  epic-11-retrospective: optional
+
+  # =========================================================================
+  # EPIC 12 -- Operations & Failure Model  (architecture S-I phase 10)
+  # =========================================================================
+  epic-12: backlog
+  12-1-3-tier-failure-model-finalization-sustained-transient-classifier-cycle-fail-sustained-event-type-addition: backlog
+  12-2-shared-resend-client-js-extension-pt-localized-template-helpers-8-critical-alert-templates: backlog
+  12-3-pc01-monthly-re-pull-cron-platform-features-changed-event-type-addition: backlog
+  epic-12-retrospective: optional
