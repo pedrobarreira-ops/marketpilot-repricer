@@ -1,0 +1,5 @@
+# Force LF for all shell scripts and git hooks — Coolify runs them in Linux
+# containers, which choke on CRLF shebangs. Pedro's Windows clone keeps LF
+# in working tree thanks to this rule, no autocrlf surprise.
+*.sh text eol=lf
+.githooks/* text eol=lf

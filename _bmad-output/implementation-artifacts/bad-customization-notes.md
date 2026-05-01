@@ -109,11 +109,31 @@ During Story 1.1's code review pass, the CR subagent **edited an already-applied
 
 ---
 
-### Story 1.2 — Envelope encryption helpers + master-key loader + secret-scanning hook
+### Story 1.2 — Envelope encryption + master-key loader + secret-scanning hook
 
-**Status**: not yet started.
+**Status**: complete (smoke green, 31/31 unit tests, e2e hook test green; dev=Opus, review=Opus).
 
-(Same subsections as Story 1.1 — populate after run.)
+**File paths actually created**:
+- `shared/crypto/master-key-loader.js`, `shared/crypto/envelope.js`
+- `worker/src/index.js` extended (loadMasterKey before startHeartbeat)
+- `supabase/migrations/202604301204_create_shop_api_key_vault.sql` (Option A: committed; apply deferred to Story 4.1)
+- `scripts/check-no-secrets.sh`, `.githooks/pre-commit`, `scripts/install-git-hooks.sh`, `scripts/rotate-master-key.md`
+- `.gitattributes` (LF on `*.sh` + `.githooks/*` — Coolify Linux containers + Pedro's Windows clone)
+- Test files: `tests/shared/crypto/{envelope,master-key-loader}.test.js`, `tests/scripts/check-no-secrets.test.js`
+
+**Critical CR catch — hook silently bypassed on real git commit**:
+- Original hook used `[ -t 0 ]` (true only for TTY). Git invokes hooks with stdin=`/dev/null` — neither TTY nor pipe — so logic fell to `cat`, got empty content, exit 0.
+- All 10 unit tests passed because they pipe input via stdin (a different codepath).
+- **Without CR catching this, AD3 first-line-of-defense would have shipped non-functional.**
+- Fix: `[ -t 0 ]` → `[ -p /dev/stdin ]`.
+
+**Notes for BAD customization (additive)**:
+- **Git hook test pattern**: every hook spec MUST include canonical real-git invocation in tests — `bash .githooks/<hook> < /dev/null` with real staged content. Stdin-piped tests alone exercise the wrong codepath. Add to project-context.md test patterns.
+- **Spec regex validation by Bob**: any regex in acceptance criteria must include 2-3 representative test inputs to mentally validate. The `MASTER_KEY[A-Z_]*` vs `[A-Z0-9_]*` bug shipped because no spec-time test case used `MASTER_KEY_BASE64` (digits in suffix). Bob's create-story prompt should require this.
+- **`.gitattributes` cross-platform LF rule**: any story creating `*.sh` or `.githooks/*` MUST include `*.sh text eol=lf` and `.githooks/* text eol=lf`. Default for Bob.
+- **`grep ... || true` antipattern**: swallows exit 2 (malformed regex) along with exit 1 (no match). Use explicit `if [ $? -gt 1 ]` distinction in any spec involving grep + error tolerance.
+- **Self-referential test exclusions**: any scanner-style hook MUST exclude its own test directory from the scan path (`tests/<scanner>/*`). Detection tests by definition construct synthetic trigger patterns; without the exclusion, the hook blocks its own commit. Story 1.2's commit was blocked by this exact loop on first attempt; fix landed as `':!tests/scripts/*'` pathspec.
+- **Adversarial review framing matters more than model size**: dev=Opus and review=Opus, yet review caught a critical bug dev missed. The fresh-context separate review pass is the load-bearing variable. Reinforces "always run CR before merging security-critical stories" — this is non-negotiable, regardless of model selection.
 
 ---
 

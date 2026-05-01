@@ -33,6 +33,9 @@ cp .env.example .env.local
 
 npm install
 
+# Install the pre-commit secret-scanning hook (one time, per fresh clone)
+bash scripts/install-git-hooks.sh
+
 # Start app server (localhost:3000)
 npm run start:app
 
@@ -45,6 +48,32 @@ npm run lint
 # Integration smoke test (requires .env.local with real Supabase credentials)
 node --test tests/integration/scaffold-smoke.test.js
 ```
+
+## Developer setup
+
+### Pre-commit secret-scanning hook (AD3, mandatory)
+
+The repo ships a pre-commit hook that blocks accidentally-staged secrets — `MASTER_KEY_BASE64` values, Mirakl `shop_api_key` values, Stripe `sk_live_` / `sk_test_` keys, and `Authorization: Bearer ...` tokens. Install once per fresh clone:
+
+```sh
+bash scripts/install-git-hooks.sh
+# → tells git to look in .githooks/ instead of .git/hooks/ (which is per-clone, untracked)
+```
+
+If the hook flags a false positive, refine the regex in `scripts/check-no-secrets.sh` rather than bypassing with `--no-verify`. Bypass discipline is part of the AD3 trust commitment.
+
+**Second layer of defense — GitHub-side secret scanning:** also enable repo Settings → Code security & analysis → Secret scanning. Catches anything that slipped past the local hook on someone else's clone.
+
+### Master key generation
+
+The worker process loads a 32-byte AES-256-GCM master key from `MASTER_KEY_BASE64` at boot and holds it in memory only — never on disk, never in logs, never exported. Generate with:
+
+```sh
+openssl rand -base64 32
+# → 44-character base64 string; paste into .env.local AND Coolify env vars
+```
+
+The annual rotation procedure lives in [`scripts/rotate-master-key.md`](scripts/rotate-master-key.md).
 
 ## Coolify two-service deployment
 

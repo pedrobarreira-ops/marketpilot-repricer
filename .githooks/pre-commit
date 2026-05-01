@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Pre-commit hook installed via `git config core.hooksPath .githooks`.
+# Delegates to scripts/check-no-secrets.sh. Idempotent.
+exec bash "$(git rev-parse --show-toplevel)/scripts/check-no-secrets.sh"
