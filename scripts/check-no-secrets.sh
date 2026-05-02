@@ -49,9 +49,12 @@ else
   # - *.env.example: template, references identifiers without values
   # - *.md: docs/runbooks legitimately mention identifiers as identifiers
   # - tests/scripts/*: hook scanner's own tests legitimately construct synthetic
-  #   trigger patterns (e.g., fake JWT in Bearer-token test) — exclusion confines
-  #   the test fixtures while keeping all other test directories scanned.
-  diff_content="$(git diff --cached --no-color -U0 -- ':!*.env.example' ':!*.md' ':!tests/scripts/*' || true)"
+  #   trigger patterns (e.g., fake JWT in Bearer-token test).
+  # - tests/shared/logger.test.js: redaction tests intentionally feed
+  #   synthetic shop_api_key / Authorization values to verify pino redacts them.
+  # General principle: any test file proving a scanner/redactor works must be
+  # exempt — the test by definition needs to construct the trigger.
+  diff_content="$(git diff --cached --no-color -U0 -- ':!*.env.example' ':!*.md' ':!tests/scripts/*' ':!tests/shared/logger.test.js' || true)"
 fi
 
 # Empty diff (e.g., commit --allow-empty) — pass.

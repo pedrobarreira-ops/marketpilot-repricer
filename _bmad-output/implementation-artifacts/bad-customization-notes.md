@@ -132,16 +132,33 @@ During Story 1.1's code review pass, the CR subagent **edited an already-applied
 - **Spec regex validation by Bob**: any regex in acceptance criteria must include 2-3 representative test inputs to mentally validate. The `MASTER_KEY[A-Z_]*` vs `[A-Z0-9_]*` bug shipped because no spec-time test case used `MASTER_KEY_BASE64` (digits in suffix). Bob's create-story prompt should require this.
 - **`.gitattributes` cross-platform LF rule**: any story creating `*.sh` or `.githooks/*` MUST include `*.sh text eol=lf` and `.githooks/* text eol=lf`. Default for Bob.
 - **`grep ... || true` antipattern**: swallows exit 2 (malformed regex) along with exit 1 (no match). Use explicit `if [ $? -gt 1 ]` distinction in any spec involving grep + error tolerance.
-- **Self-referential test exclusions**: any scanner-style hook MUST exclude its own test directory from the scan path (`tests/<scanner>/*`). Detection tests by definition construct synthetic trigger patterns; without the exclusion, the hook blocks its own commit. Story 1.2's commit was blocked by this exact loop on first attempt; fix landed as `':!tests/scripts/*'` pathspec.
+- **Self-referential test exclusions** (now hit twice — Story 1.2 + Story 1.3): any scanner OR redactor whose tests prove detection/redaction MUST exclude those test files from the scan path. The class is broader than "scanner tests" — Story 1.3's redaction tests also legitimately construct synthetic trigger patterns. Generalize the rule for BAD: when a story ships a security-protective primitive (scanner, redactor, validator) AND tests it with synthetic trigger patterns, Bob must include the path exclusion in the spec. Current exclusions: `tests/scripts/*` (Story 1.2), `tests/shared/logger.test.js` (Story 1.3). Future stories will add more — Story 7.x engine fixtures with PRI01 patterns, Story 11.x Stripe fixtures, etc.
 - **Adversarial review framing matters more than model size**: dev=Opus and review=Opus, yet review caught a critical bug dev missed. The fresh-context separate review pass is the load-bearing variable. Reinforces "always run CR before merging security-critical stories" — this is non-negotiable, regardless of model selection.
 
 ---
 
 ### Story 1.3 — Pino config + redaction list + structured logging
 
-**Status**: not yet started.
+**Status**: complete (13/13 unit tests green; dev=Opus, review=Sonnet 4.6). Smoke test failed for environmental reason — IPv6-only DNS resolution on `db.PROJECT_REF.supabase.co` from Pedro's home network. Not a regression.
 
-(Same subsections — populate after run.)
+**File paths actually created**:
+- `shared/logger.js` (SSoT factory + `AD27_FIELDS` + `REDACT_CONFIG` + `FASTIFY_REQUEST_ID_LOG_LABEL` constant)
+- `tests/shared/logger.test.js` (captured-stream pattern, parameterized over 14 AD27 fields × 2 depths)
+- Modified: `app/src/server.js`, `worker/src/index.js`, `shared/config/runtime-env.js`, `eslint.config.js`, `.env.example`
+
+**Two impl-time spec deviations (Amelia caught + documented)**:
+- `requestIdLogLabel` is a Fastify v5 **constructor option**, not a logger option. Bob's spec snippet had it nested in `logger:` config; that path is silently ignored by Fastify (falls back to `reqId`). Top-level placement at `Fastify({ logger: ..., requestIdLogLabel: ... })` is the only way.
+- Pino `base` REPLACES the default `{ pid, hostname }` rather than augmenting. AC#2 requires both fields, so they must be re-added explicitly when overriding `base`.
+
+**One review-time spec inconsistency (CR caught + Pedro extended AD27)**:
+- Original AD27 list had asymmetric casing: `Authorization` + `authorization` (both) but only `cookie` / `set-cookie` (lowercase). Same Node-http-parser-vs-construction reasoning applies symmetrically. Extended AD27 to 14 fields (added `Cookie` + `Set-Cookie`).
+- Touched 7 files: 2 distillates (architecture + epics), 1 epics-section, 1 story file, code, tests, project-context. Validated as a pattern: when Bob applies a rule to one item, all logically-equivalent items should receive the same treatment.
+
+**Notes for BAD customization (additive)**:
+- **Framework integration option placement**: Bob's spec must verify whether a framework-integration option lives at the framework-constructor level vs the wrapped-library level. Empirical check at story-creation time: try the snippet against the real framework version. Pino + Fastify is the canonical example; same pattern applies to Stripe webhooks, Resend, etc.
+- **Pino `base` semantics**: `base` is replacement, not merge. Any story using `base: { ... }` must explicitly re-include `pid`/`hostname` if AC requires them.
+- **Asymmetric-pattern detector**: when a redaction/exclusion list applies a pattern (dual-casing, case-folding, wildcard) to one entry, CR should flag any other entry that doesn't get the same treatment. Heuristic: same severity class + same input source = same protection breadth.
+- **Smoke test environmental fragility**: Supabase direct connection (`db.PROJECT_REF.supabase.co`) resolves IPv6-only on this project. Pedro's home network has intermittent IPv6 connectivity → smoke test against real Supabase is flaky locally. Not a Coolify deployment issue (their infrastructure has clean dual-stack). Document in BAD: don't gate merge on smoke test passing locally if all unit tests + structural verification pass and the failure shape is connection timeout.
 
 ---
 

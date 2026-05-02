@@ -26,6 +26,8 @@ export default [
         'error',
         { selector: 'CallExpression[callee.property.name="then"]', message: 'Use async/await instead of .then() chains.' },
         { selector: 'ExportDefaultDeclaration', message: 'Default exports forbidden. Use named exports (AD architecture convention).' },
+        { selector: 'CallExpression[callee.object.object.name="process"][callee.object.property.name="stdout"][callee.property.name="write"]', message: 'process.stdout.write forbidden in source. Use the shared pino logger (shared/logger.js) per AD27.' },
+        { selector: 'CallExpression[callee.object.object.name="process"][callee.object.property.name="stderr"][callee.property.name="write"]', message: 'process.stderr.write forbidden in source. Use the shared pino logger (shared/logger.js) per AD27.' },
       ],
       'jsdoc/require-jsdoc': ['error', { require: { FunctionDeclaration: false, ArrowFunctionExpression: false, FunctionExpression: false }, publicOnly: true }],
       'jsdoc/require-param': 'error',

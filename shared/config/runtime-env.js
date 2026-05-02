@@ -1,6 +1,6 @@
-import pino from 'pino';
+import { createWorkerLogger } from '../logger.js';
 
-const log = pino({ level: 'info' });
+const log = createWorkerLogger();
 
 const REQUIRED_VARS = [
   'SUPABASE_URL',

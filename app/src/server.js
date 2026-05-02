@@ -3,6 +3,7 @@ import FastifyStatic from '@fastify/static';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
 import { getEnv } from '../../shared/config/runtime-env.js';
+import { getFastifyLoggerOptions, FASTIFY_REQUEST_ID_LOG_LABEL } from '../../shared/logger.js';
 import { healthRoutes } from './routes/health.js';
 
 getEnv();
@@ -10,9 +11,8 @@ getEnv();
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const fastify = Fastify({
-  logger: {
-    level: 'info',
-  },
+  logger: getFastifyLoggerOptions(),
+  requestIdLogLabel: FASTIFY_REQUEST_ID_LOG_LABEL,
 });
 
 try {

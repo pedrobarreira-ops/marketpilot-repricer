@@ -1,11 +1,11 @@
-import pino from 'pino';
 import { getEnv } from '../../shared/config/runtime-env.js';
 import { loadMasterKey } from '../../shared/crypto/master-key-loader.js';
+import { createWorkerLogger } from '../../shared/logger.js';
 import { startHeartbeat } from './jobs/heartbeat.js';
 
 getEnv();
 
-const logger = pino({ level: 'info' });
+const logger = createWorkerLogger();
 
 logger.info('Worker boot — MarketPilot repricer worker starting');
 
