@@ -4,6 +4,15 @@ Items surfaced during code reviews / development that are real but out of scope 
 
 ---
 
+## Deferred from: Item 0 verification (Epic 1 retro, 2026-05-03)
+
+- **scaffold-smoke fails locally with "The server does not support SSL connections" — SSL drift bug at heartbeat.js** [worker/src/jobs/heartbeat.js:8-12] — During Item 0 verification (running `npm run test:smoke` after env guard + cross-file race fix), the scaffold-smoke test times out at 60s polling `/health`. Root cause: `worker/src/jobs/heartbeat.js` hard-codes `ssl: { ca: caCert }` on its inline `pg.Pool` without checking whether the connection string targets local Postgres (which doesn't support SSL). Worker subprocess fails every heartbeat write with `Error: The server does not support SSL connections`, so `worker_heartbeats` table stays empty and `/health` never returns 200. Pre-existing bug since Story 1.1 — test only ever passed against Cloud (which supports SSL). NOT a regression from Item 0.
+  - **Fix:** Story 2.1 (`shared/db/service-role-client.js`) absorbs the inline pool with the canonical `buildPgPoolConfig(connectionString, caCert)` helper documented in [project-context.md Library Empirical Contract #9](../../project-context.md#9-conditional-ssl-based-on-connection-string-host-localhost-vs-supabase-cloud). Helper detects `localhost` / `127.0.0.1` and omits SSL config in that case. Per retro Item 3 spec.
+  - **Status:** scaffold-smoke is a known failing test until Story 2.1 ships. `npm run test:integration` (signup-flow + admin-middleware) passes 22/22; only `npm run test:smoke` is red. The env guard + cross-file race fix from Item 0 are verified working independently of this issue.
+  - **Cross-references:** retro Item 3 carried requirements (conditional-SSL helper as root-cause fix); Library Empirical Contract #9 (failure mode if violated, exactly what we're observing); Story 1.5 deviation note (inlined per-pool conditional, the symptom the helper centralizes).
+
+---
+
 ## Pre-customer-#1 operational gates
 
 Cross-cutting hardening items that must land BEFORE the first paying customer onboards, but do NOT belong to any single feature story. Each item is a standalone chore PR; group into a "Go-Live readiness" mini-epic when the launch window approaches.

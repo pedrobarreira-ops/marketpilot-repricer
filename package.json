@@ -10,9 +10,11 @@
     "start:app": "node app/src/server.js",
     "start:worker": "node worker/src/index.js",
     "test": "node --test",
-    "test:integration": "node --test 'tests/integration/**/*.test.js'",
-    "lint": "eslint .",
-    "test:rls": "node --test tests/integration/rls-regression.test.js"
+    "test:integration": "node --env-file=.env.test --test --test-concurrency=1 tests/integration/signup-flow.test.js tests/integration/admin-middleware.test.js",
+    "test:smoke": "node --env-file=.env.test --test tests/integration/scaffold-smoke.test.js",
+    "test:rls": "node --test tests/integration/rls-regression.test.js",
+    "db:migrate": "npx supabase db push",
+    "lint": "eslint ."
   },
   "repository": {
     "type": "git",
