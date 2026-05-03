@@ -814,6 +814,8 @@ Using the assessment report:
 
 ### Step 3: Gate & Continue
 
+**Pre-step: Phase 4.5 must have resolved.** Before starting any timer / monitor / wait in this step, ensure the Phase 4.5 Pedro Integration Test Gate (defined below) has fired and resolved with `[P]` (or was a no-op because no batch story was tagged `integration_test_required: true`). If Phase 4.5 resolved with `[F]` BAD has already halted; this step does not run. If `[K]` was offered and selected, this step runs as normal but the skip is logged to `deferred-work.md`.
+
 Using the assessment report from Step 2, follow the applicable branch:
 
 **Branch A — All epics complete (`all_epics_complete = true`):**
@@ -857,6 +859,125 @@ Using the assessment report from Step 2, follow the applicable branch:
 3. After Phase 0 completes:
    - At least one story unblocked → proceed to Phase 1.
    - All stories still blocked → print which PRs are pending (from Phase 0 report), restart Branch B for another wait.
+
+---
+
+## Phase 4.5: Pedro Integration Test Gate
+
+Discipline checkpoint that fires between Phase 4 Step 2 (Epic Completion Check) and Phase 4 Step 3 (Gate & Continue). Captures the systemic discovery from Epic 1 retro: library empirical-contract violations are a permanent property of integration work, and static review (even adversarial 3-layer code review) cannot catch them. Pedro's hands-on `npm run test:integration` against a working local Supabase is what catches them.
+
+This gate is informational/coordinator-tracked, NOT automated CI. BAD does not shell out to `npm test`. Pedro runs the script locally and reports the result back. The blocking comes from `[F]` halting BAD until the failures are investigated.
+
+### Step 1: Determine the batch
+
+Spawn a quick subagent (`MODEL_STANDARD`, yolo mode) with this prompt:
+```
+Read `_bmad-output/implementation-artifacts/sprint-status.yaml`. Extract:
+
+1. The top-level `integration_test_required:` block. May be absent or empty —
+   if so, return `INTEGRATION_TEST_BATCH = []` and exit.
+
+2. For each story in the current batch (the coordinator passes the batch
+   list as `BATCH_STORIES`), check whether the story key appears in the
+   `integration_test_required:` block with value `true`. If yes, capture:
+     - story key (e.g. "2-1-rls-aware-...")
+     - the inline YAML comment after the `true` value (e.g.
+       "pg Pool + RLS + auth contract surface") — this is the per-story reason
+
+3. Run `cat package.json | grep '"test:integration"'` to verify the
+   `npm run test:integration` script exists. Save as `SCRIPT_EXISTS` (boolean).
+
+4. Return:
+   - INTEGRATION_TEST_BATCH: list of {story, pr_number, reason} for batch
+     stories tagged `true`
+   - SCRIPT_EXISTS: boolean
+
+The PR numbers come from Phase 4 Step 2's batch summary; the coordinator
+substitutes them as `BATCH_STORIES_WITH_PRS`.
+```
+
+### Step 2: Three branches
+
+**Branch A — `INTEGRATION_TEST_BATCH` empty:**
+```
+📋 Phase 4.5 — no stories tagged integration_test_required in this batch.
+Proceeding to Phase 4 Step 3.
+```
+No halt. Coordinator continues to Step 3 immediately.
+
+**Branch B — `INTEGRATION_TEST_BATCH` non-empty AND `SCRIPT_EXISTS = true`:**
+
+Halt with this message:
+```
+📋 Phase 4.5 — Pedro Integration Test Gate
+
+The following stories in this batch carry integration_test_required: true:
+{numbered list — one line per story:
+  - Story {N} (PR #{pr}) — {reason from inline YAML comment}}
+
+Before running /bad-review on these PRs, run integration tests locally
+against a working local Supabase:
+
+  npm run test:integration
+
+Report:
+
+[P] All passed — proceed to Phase 4 Step 3 (wait for PR merges)
+[F] One or more failed — halt BAD; investigate failures before merging
+[S] Stop BAD entirely
+```
+
+📣 **Notify:** `📋 Integration test gate fired — {N} stories require local test run before merge`.
+
+**Branch C — `INTEGRATION_TEST_BATCH` non-empty AND `SCRIPT_EXISTS = false`:**
+
+Item 0 (test-harness chore PR) hasn't landed yet. The script the gate asks Pedro to run doesn't exist. Halt with this message instead:
+```
+📋 Phase 4.5 — Pedro Integration Test Gate (script not yet available)
+
+The following stories in this batch carry integration_test_required: true:
+{numbered list with reasons}
+
+⚠ However, `npm run test:integration` does not exist in package.json yet —
+Item 0 of the Epic 1 retro (test-harness chore PR) has not landed. The
+gate cannot be honored mechanically this batch.
+
+Report:
+
+[K] Skip this batch — Item 0 not yet landed; will be audit-logged. Once
+    Item 0 lands the script becomes available and [K] is no longer offered.
+[S] Stop BAD entirely (recommended if you want to land Item 0 first)
+```
+
+📣 **Notify:** `⚠ Integration test gate fired but script unavailable — Item 0 dependency`.
+
+### Step 3: Action handlers
+
+- **[P]**: log `Phase 4.5 passed: {N} stories, batch {batch_id}, {timestamp}`. Proceed to Phase 4 Step 3.
+
+- **[F]**: HALT BAD. Print `❌ Phase 4.5 failed — Pedro reported integration test failures. PRs left open. Resolve failures before resuming BAD.` 📣 **Notify:** `❌ Integration tests failed — BAD halted at Phase 4.5`. Do NOT auto-recover; do NOT continue to Phase 4 Step 3. Pedro investigates manually, fixes, then either resumes BAD with a new `/bad` invocation (which re-runs Phase 0 → Phase 4.5 from clean state) or merges hotfix PRs and skips back to Phase 0.
+
+- **[S]**: Stop BAD entirely. Print final summary. 📣 **Notify:** `🛑 BAD stopped at Phase 4.5 by user`.
+
+- **[K]** (Branch C only): log `Phase 4.5 SKIPPED — npm run test:integration unavailable; Item 0 not yet landed`. Append to `_bmad-output/implementation-artifacts/deferred-work.md` under a new section:
+  ```
+  ## Phase 4.5 skipped — Item 0 dependency ({ISO-date})
+
+  Batch: {batch_id} — {N} stories tagged integration_test_required:
+  - Story {N} (PR #{pr}) — {reason}
+  - Story {M} (PR #{pr}) — {reason}
+
+  npm run test:integration script did not exist at gate fire-time.
+  Bypass acceptable until Item 0 (test-harness chore PR) lands; once it
+  does, [K] is no longer offered and Phase 4.5 becomes mandatory.
+  ```
+  Then proceed to Phase 4 Step 3.
+
+### Rationale
+
+Library contracts (pg Pool conditional-SSL, Supabase auth.users DELETE semantics, Stripe webhook idempotency, Mirakl PRI01 partial-success, etc.) are differences between documented behavior and actual library behavior. They cannot be caught by reading code or tests in isolation — only by running tests against the real library against a real Supabase / Stripe / Mirakl. Phase 4.5 is the harness that forces this run before any Mirakl/Stripe/Supabase-touching PR merges.
+
+Untagged stories pay zero cost — Branch A exits immediately with a one-line notice. The frequency of `true` tags naturally drops over time as Library Empirical Contracts accumulate (`_bmad-output/planning-artifacts/architecture-distillate/_index.md` table) — once a contract is documented and the test exists, future stories that touch the same library inherit the prior test coverage and don't need a fresh integration run.
 
 ---
 

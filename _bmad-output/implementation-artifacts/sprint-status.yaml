@@ -1,5 +1,5 @@
 # generated: 2026-05-01
-# last_updated: 2026-05-03  # bmad-code-review: Story 1.5 → done (12 patches applied: REVOKE on founder_admins + isLocalDb URL parser + getUser try/catch + Pool error handler + env var validation + lazy CA cert + email validation + LOWER() comparison + tampered-cookie test rewritten + 'role' literal grep + GDPR comment expansion + AD27 access_token/refresh_token; 6 deferred; lint 0 errors; admin-middleware 10/10)
+# last_updated: 2026-05-03  # bmad-retrospective: Epic 1 retro complete (epic-1-retrospective: optional → done); doc saved at epic-1-retro-2026-05-03.md; 5 sequenced action items (Items 0-4: test-harness chore + distillate housekeeping + BAD pipeline updates + Story 2.1 + Story 2.2); 5 decisions recorded (Q1-Q5); systemic discovery: library empirical-contract violations are permanent property of integration work, requiring `integration_test_required: true` story tag + Phase 4.5 BAD gate before Story 2.1 dev kicks off
 # project: marketpilot-repricer
 # project_key: NOKEY
 # tracking_system: file-system
@@ -72,7 +72,7 @@
 # by design; pre-dates the rule).
 
 generated: 2026-05-01
-last_updated: 2026-05-03  # bmad-code-review: Story 1.5 → done (12 patches applied; AD27 redaction list extended; 6 deferred to Story 2.1 / Story 2.2 / future test-harness; lint clean; admin-middleware 10/10)
+last_updated: 2026-05-03  # bmad-retrospective: Epic 1 retro → done; saved at epic-1-retro-2026-05-03.md; Items 0+1+2 (chore PRs + distillate housekeeping + BAD Phase 4.5) blocking Story 2.1
 project: marketpilot-repricer  # updated by bmad-create-story: Story 1.1 sharded 2026-05-01; Story 1.2 sharded 2026-05-01; Story 1.3 sharded 2026-05-02; Story 1.4 sharded 2026-05-02; Story 1.5 sharded 2026-05-03; Story 1.5 → review 2026-05-03; Story 1.5 → done 2026-05-03 (post-review)
 project_key: NOKEY
 tracking_system: file-system
@@ -88,7 +88,7 @@ development_status:
   1-3-pino-structured-logging-with-redaction-list: done
   1-4-signup-endpoint-atomic-profile-trigger-source-context-capture: done  # ATOMICITY BUNDLE A: F3 + AD29 single PR; review 2026-05-02 → 15 patches + 5 decisions resolved
   1-5-founder-admins-seed-admin-auth-middleware: done  # sharded 2026-05-03 (Bob); implemented 2026-05-03 (Amelia); reviewed 2026-05-03 (bmad-code-review) — 12 patches applied incl. CRITICAL REVOKE on founder_admins + AD27 redaction list extension (access_token/refresh_token); 6 deferred to Story 2.1 / Story 2.2 / test-harness; cloud db push + Supabase MCP verification still deferred to Pedro
-  epic-1-retrospective: optional
+  epic-1-retrospective: done  # 2026-05-03 — Bob facilitated; saved at epic-1-retro-2026-05-03.md; 5 sequenced action items (Items 0-4); 5 decisions recorded (Q1-Q5); Phase 4.5 BAD gate + integration_test_required tag scheduled as prerequisite for Story 2.1
 
   # =========================================================================
   # EPIC 2 -- Multi-Tenant Isolation  (architecture S-I phase 2)
@@ -341,3 +341,36 @@ merge_blocks:
     until_story: 7-8-end-to-end-integration-gate-full-cycle-test-on-all-17-p11-fixtures-atomicity-bundle-gate-for-ad7-ad8-ad9-ad11
     bundle: C
     reason: "Bundle C participant (AD11) — atomicity gate at 7.8 must pass before circuit-breaker ships."
+
+# =============================================================================
+# INTEGRATION TEST REQUIRED — Phase 4.5 BAD gate (Epic 1 retro Item 2)
+# =============================================================================
+# When `integration_test_required: true` is set on a story key, BAD's Phase 4.5
+# gate fires after the batch summary, halting until Pedro runs
+# `npm run test:integration` locally against a working local Supabase and
+# reports pass/fail. Untagged stories (absent from this block) skip the gate
+# silently — zero cost for non-integration work.
+#
+# Default policy (per Epic 1 retro 2026-05-03, Item 2 + Q5):
+#   `true` for stories touching:
+#     - pg / Postgres pools (direct SQL, db clients)
+#     - Supabase Auth (signup, signin, sessions, auth.users triggers)
+#     - signed cookies (mp_session etc.)
+#     - Mirakl SDK / API client (P11, PRI01, PRI02, PRI03, OF21, A01, PC01)
+#     - Stripe SDK / webhooks (subscription, customer-portal, billing, deletion)
+#     - Resend SDK (critical alerts, templated emails)
+#     - any other external library contract surface (e.g. Moloni)
+#   `false` (i.e. absence from this block) for:
+#     - pure schema migrations with no business logic
+#     - documentation / config-only changes
+#     - ESLint rule additions
+#     - pure-function utility modules (e.g. shared/money/index.js)
+#
+# Frequency naturally drops over time as Library Empirical Contracts
+# accumulate — Bob adds entries during sharding when the policy applies.
+# The inline comment after each `true` entry is read by Phase 4.5's halt
+# message as the per-story reason — keep it short and surface-specific.
+# =============================================================================
+integration_test_required:
+  2-1-rls-aware-app-db-client-service-role-worker-db-client-transaction-helper: true   # pg Pool + RLS + auth contract surface
+  2-2-rls-regression-suite-ci-block: true   # live RLS verification against Supabase
