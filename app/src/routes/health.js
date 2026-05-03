@@ -1,24 +1,16 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import pg from 'pg';
-const { Pool } = pg;
-
-const caCert = fs.readFileSync(path.resolve('supabase/prod-ca-2021.crt'), 'utf8');
-
-const pool = new Pool({
-  connectionString: process.env.SUPABASE_SERVICE_ROLE_DATABASE_URL,
-  ssl: { ca: caCert },
-  max: 2,
-  // Server-side cancel after 1s. Replaces the previous Promise.race wrapper, which
-  // resolved the race but left the underlying pg query running and pinning a pool slot.
-  statement_timeout: 1000,
-});
+import { getServiceRoleClient } from '../../../shared/db/service-role-client.js';
 
 /**
  * Registers the /health route on the Fastify instance.
  * Public endpoint — no auth middleware applied (FR45, pinged by UptimeRobot).
  * Returns 200 when both Postgres and the worker heartbeat are healthy,
  * 503 with degraded details otherwise.
+ *
+ * Pool management: uses getServiceRoleClient() from the SSoT module
+ * (shared/db/service-role-client.js). The inline pg.Pool from Story 1.1
+ * is absorbed here as part of Story 2.1's pool consolidation. Pool teardown
+ * is handled by app/src/server.js Fastify onClose hook → closeServiceRolePool().
+ *
  * @param {import('fastify').FastifyInstance} fastify - The Fastify server instance
  * @param {object} _opts - Fastify plugin options (unused)
  * @returns {Promise<void>}
@@ -28,7 +20,9 @@ export async function healthRoutes(fastify, _opts) {
     const result = { status: 'healthy', details: {} };
     let httpStatus = 200;
 
-    // (a) DB liveness — SELECT 1, cancelled by Pool's statement_timeout after 1s
+    const pool = getServiceRoleClient();
+
+    // (a) DB liveness — SELECT 1, cancelled by Pool's statement_timeout after 5s
     try {
       await pool.query('SELECT 1');
       result.details.db = 'ok';

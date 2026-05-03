@@ -7,9 +7,21 @@
 import js from '@eslint/js';
 import jsdoc from 'eslint-plugin-jsdoc';
 import globals from 'globals';
+import noDirPgInApp from './eslint-rules/no-direct-pg-in-app.js';
 
 export default [
   js.configs.recommended,
+  {
+    // Story 2.1: no-direct-pg-in-app rule — forbids direct pg Pool/Client import
+    // or instantiation inside app/src/. Scoped to app/src only (NOT shared/db/,
+    // worker/src/, or tests/). The SSoT modules in shared/db/ legitimately own
+    // all raw pg access.
+    files: ['app/src/**/*.js'],
+    plugins: { 'no-direct-pg': noDirPgInApp },
+    rules: {
+      'no-direct-pg/no-direct-pg-in-app': 'error',
+    },
+  },
   {
     // Scope to source files only — excludes eslint.config.js (root) and tests/scripts
     files: ['app/**/*.js', 'worker/**/*.js', 'shared/**/*.js'],

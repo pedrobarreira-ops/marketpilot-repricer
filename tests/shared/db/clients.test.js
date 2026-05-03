@@ -46,7 +46,20 @@ async function signupAndGetToken (email, password) {
     process.env.SUPABASE_ANON_KEY
   );
 
-  const { data: signUpData, error: signUpError } = await supabase.auth.signUp({ email, password });
+  // The handle_new_auth_user trigger (Story 1.4 migration) requires first_name,
+  // last_name, and company_name in raw_user_meta_data. Without them, signup
+  // fails with "Database error saving new user" (trigger RAISE EXCEPTION).
+  const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        first_name: 'Test',
+        last_name: 'User',
+        company_name: 'Test Corp',
+      },
+    },
+  });
   if (signUpError) throw new Error(`signUp failed for ${email}: ${signUpError.message}`);
 
   const userId = signUpData.user?.id;
@@ -139,24 +152,25 @@ test('db-clients suite lifecycle', async (t) => {
   await t.test('tx_helper_commits_on_success', async () => {
     const pool = getServiceRoleClient();
     // worker_heartbeats is available as a scratch table from the Story 1.1 migration.
+    // Schema: id bigserial PK, worker_instance_id text NOT NULL, written_at timestamptz DEFAULT NOW().
     // Insert a sentinel row inside the transaction; verify it survives COMMIT.
-    const sentinelTs = new Date().toISOString();
+    const sentinelId = `tx-test-commit-${randomUUID()}`;
 
     await tx(pool, async (txClient) => {
       await txClient.query(
-        'INSERT INTO worker_heartbeats (last_seen_at) VALUES ($1)',
-        [sentinelTs]
+        'INSERT INTO worker_heartbeats (worker_instance_id) VALUES ($1)',
+        [sentinelId]
       );
     });
 
     const { rows } = await pool.query(
-      'SELECT last_seen_at FROM worker_heartbeats WHERE last_seen_at = $1',
-      [sentinelTs]
+      'SELECT worker_instance_id FROM worker_heartbeats WHERE worker_instance_id = $1',
+      [sentinelId]
     );
     assert.equal(rows.length, 1, 'tx COMMIT — sentinel row must be visible after successful tx');
 
     // Cleanup: remove sentinel row (beforeEach only clears auth/customer tables)
-    await pool.query('DELETE FROM worker_heartbeats WHERE last_seen_at = $1', [sentinelTs]);
+    await pool.query('DELETE FROM worker_heartbeats WHERE worker_instance_id = $1', [sentinelId]);
   });
 
   // ---------------------------------------------------------------------------
@@ -164,15 +178,16 @@ test('db-clients suite lifecycle', async (t) => {
   // ---------------------------------------------------------------------------
   await t.test('tx_helper_rolls_back_on_throw', async () => {
     const pool = getServiceRoleClient();
-    // Use a timestamp slightly in the future to guarantee uniqueness across runs
-    const sentinelTs = new Date(Date.now() + 5000).toISOString();
+    // Schema: id bigserial PK, worker_instance_id text NOT NULL, written_at timestamptz DEFAULT NOW().
+    // Use a unique sentinel ID to guarantee uniqueness across runs.
+    const sentinelId = `tx-test-rollback-${randomUUID()}`;
 
     await assert.rejects(
       async () => {
         await tx(pool, async (txClient) => {
           await txClient.query(
-            'INSERT INTO worker_heartbeats (last_seen_at) VALUES ($1)',
-            [sentinelTs]
+            'INSERT INTO worker_heartbeats (worker_instance_id) VALUES ($1)',
+            [sentinelId]
           );
           throw new Error('intentional rollback');
         });
@@ -183,8 +198,8 @@ test('db-clients suite lifecycle', async (t) => {
 
     // Row must NOT be visible after rollback
     const { rows } = await pool.query(
-      'SELECT last_seen_at FROM worker_heartbeats WHERE last_seen_at = $1',
-      [sentinelTs]
+      'SELECT worker_instance_id FROM worker_heartbeats WHERE worker_instance_id = $1',
+      [sentinelId]
     );
     assert.equal(rows.length, 0, 'tx ROLLBACK — sentinel row must NOT be visible after tx throws');
   });
@@ -316,16 +331,24 @@ test('db-clients suite lifecycle', async (t) => {
   // ---------------------------------------------------------------------------
 
   await t.test('negative_assertion_service_role_client_not_importable_in_app_src', async () => {
-    // Constraint: service-role pool instantiated only in worker.
-    // Grep app/src/** for any import of service-role-client.js.
-    // Permitted callers after Story 2.1 absorption:
-    //   - app/src/routes/health.js (ops endpoint)
-    //   - app/src/middleware/founder-admin-only.js (service-role lookup by design)
+    // Constraint: service-role client must NOT appear in customer-facing app/src code.
+    // Grep app/src/** for any import of service-role-client.js,
+    // excluding the permitted callers defined by Story 2.1 AC#2:
+    //   - app/src/routes/health.js (ops endpoint, not customer-scoped)
+    //   - app/src/middleware/founder-admin-only.js (admin middleware, service-role by design)
+    //   - app/src/middleware/rls-context.js (permitted — imports rls-aware-client which
+    //     internally uses service-role, but rls-context itself does not import service-role)
     // Customer-facing routes (_public, _authenticated) must never import it.
-    // For simplicity this assertion checks ALL of app/src — the negative-assertion
-    // for _authenticated/_public routes is the separate test below.
+    // The negative-assertion for _authenticated/_public routes is the separate test below.
     const { readFile, readdir } = await import('node:fs/promises');
-    const { join } = await import('node:path');
+    const { join, normalize } = await import('node:path');
+
+    const PERMITTED_CALLERS = new Set([
+      normalize('app/src/routes/health.js'),
+      normalize('app/src/middleware/founder-admin-only.js'),
+      // server.js registers onClose → closeServiceRolePool() for graceful shutdown
+      normalize('app/src/server.js'),
+    ]);
 
     /** @param {string} dir @param {string[]} exts @returns {Promise<string[]>} */
     async function walk (dir, exts) {
@@ -343,10 +366,12 @@ test('db-clients suite lifecycle', async (t) => {
     const files = await walk('app/src', ['.js']);
     const hits = [];
     for (const f of files) {
+      // Skip permitted callers (health.js and founder-admin-only.js per AC#2)
+      if (PERMITTED_CALLERS.has(normalize(f))) continue;
       const text = await readFile(f, 'utf8');
       if (text.includes('service-role-client')) hits.push(f);
     }
-    assert.deepEqual(hits, [], `service-role-client must not be imported in app/src/: ${hits.join(', ')}`);
+    assert.deepEqual(hits, [], `service-role-client must not be imported outside permitted callers in app/src/: ${hits.join(', ')}`);
   });
 
   await t.test('negative_assertion_rls_aware_client_not_importable_in_worker', async () => {

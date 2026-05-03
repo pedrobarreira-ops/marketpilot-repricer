@@ -2,6 +2,7 @@ import { getEnv } from '../../shared/config/runtime-env.js';
 import { loadMasterKey } from '../../shared/crypto/master-key-loader.js';
 import { createWorkerLogger } from '../../shared/logger.js';
 import { startHeartbeat } from './jobs/heartbeat.js';
+import { closeServiceRolePool } from '../../shared/db/service-role-client.js';
 
 getEnv();
 
@@ -23,5 +24,15 @@ try {
   logger.error({ code: err.code, message: err.message }, 'Master key load failed — exiting');
   process.exit(1);
 }
+
+// Story 2.1: SIGTERM / SIGINT graceful shutdown — closes the service-role pool
+// and exits cleanly. Deferred from Story 1.1 (pg Pools never .end()ed).
+async function shutdown (signal) {
+  logger.info({ signal }, 'worker shutting down');
+  await closeServiceRolePool();
+  process.exit(0);
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 startHeartbeat(logger);
