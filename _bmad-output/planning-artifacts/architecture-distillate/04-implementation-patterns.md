@@ -165,7 +165,7 @@ This section covers Implementation Patterns & Consistency Rules: naming/structur
 
 ## Process — Logging
 - pino ONLY; no `console.log`, no `console.error`, no `process.stdout.write` (except `scripts/` ops scripts where deliberate output channel)
-- Redaction list (AD27, locked — adding new sensitive field requires extending list in same PR): `Authorization`, `cookie`, `set-cookie`, `password`, `password_hash`, `shop_api_key`, `master_key`, `MASTER_KEY_BASE64`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `RESEND_API_KEY`
+- Redaction list (AD27, locked — adding new sensitive field requires extending list in same PR): `Authorization`, `cookie`, `set-cookie`, `password`, `password_hash`, `shop_api_key`, `master_key`, `MASTER_KEY_BASE64`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `RESEND_API_KEY`, `access_token`, `refresh_token` (last two added 2026-05-03 per Story 1.5 review — Supabase Auth tokens decorated on `request.user`)
 - Log levels: trace (disabled prod; per-request fine detail in dev), debug (disabled prod; cycle-step traces), info (cycle-start, cycle-end, customer signup, Go-Live click), warn (retried failures, rate-limit backoff triggers, sustained-transient banner triggers), error (critical events: anomaly freeze, circuit breaker, key revoked, payment failure)
 - Structured fields: every log line carries `customer_marketplace_id` (or null pre-auth), `request_id` (app) or `cycle_id` (worker), `event_type` if line corresponds to audit event
 

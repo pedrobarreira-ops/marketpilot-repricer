@@ -47,6 +47,11 @@ const AD27_FIELDS = Object.freeze([
   'STRIPE_SECRET_KEY',
   'STRIPE_WEBHOOK_SECRET',
   'RESEND_API_KEY',
+  // Supabase Auth tokens decorated on request.user by app/src/middleware/auth.js.
+  // Wildcard machinery covers request.user.access_token / .refresh_token via *.<field>.
+  // Extended 2026-05-03 per Story 1.5 review.
+  'access_token',
+  'refresh_token',
 ]);
 
 /**

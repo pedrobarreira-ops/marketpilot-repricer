@@ -1,0 +1,7 @@
+<% layout('/layouts/default', { ...it, title: 'Acesso restrito' }) %>
+<section class="mp-auth-card">
+  <h1><%= it.messagePt %></h1>
+  <p class="mp-auth-link">
+    <a href="/">Voltar à página inicial</a>
+  </p>
+</section>

@@ -1,5 +1,5 @@
 # generated: 2026-05-01
-# last_updated: 2026-05-02  # bmad-create-story: Story 1.4 sharded → ready-for-dev (Atomicity Bundle A: F3 + AD29 single PR)
+# last_updated: 2026-05-03  # bmad-code-review: Story 1.5 → done (12 patches applied: REVOKE on founder_admins + isLocalDb URL parser + getUser try/catch + Pool error handler + env var validation + lazy CA cert + email validation + LOWER() comparison + tampered-cookie test rewritten + 'role' literal grep + GDPR comment expansion + AD27 access_token/refresh_token; 6 deferred; lint 0 errors; admin-middleware 10/10)
 # project: marketpilot-repricer
 # project_key: NOKEY
 # tracking_system: file-system
@@ -72,8 +72,8 @@
 # by design; pre-dates the rule).
 
 generated: 2026-05-01
-last_updated: 2026-05-02  # bmad-code-review: Story 1.4 → done (5 decisions resolved, 15 patches applied, 14 deferred)
-project: marketpilot-repricer  # updated by bmad-create-story: Story 1.1 sharded 2026-05-01; Story 1.2 sharded 2026-05-01; Story 1.3 sharded 2026-05-02; Story 1.4 sharded 2026-05-02
+last_updated: 2026-05-03  # bmad-code-review: Story 1.5 → done (12 patches applied; AD27 redaction list extended; 6 deferred to Story 2.1 / Story 2.2 / future test-harness; lint clean; admin-middleware 10/10)
+project: marketpilot-repricer  # updated by bmad-create-story: Story 1.1 sharded 2026-05-01; Story 1.2 sharded 2026-05-01; Story 1.3 sharded 2026-05-02; Story 1.4 sharded 2026-05-02; Story 1.5 sharded 2026-05-03; Story 1.5 → review 2026-05-03; Story 1.5 → done 2026-05-03 (post-review)
 project_key: NOKEY
 tracking_system: file-system
 story_location: d:\Plannae Project\marketpilot-repricer/_bmad-output/implementation-artifacts
@@ -87,7 +87,7 @@ development_status:
   1-2-envelope-encryption-module-master-key-loader-secret-scanning-hook: done
   1-3-pino-structured-logging-with-redaction-list: done
   1-4-signup-endpoint-atomic-profile-trigger-source-context-capture: done  # ATOMICITY BUNDLE A: F3 + AD29 single PR; review 2026-05-02 → 15 patches + 5 decisions resolved
-  1-5-founder-admins-seed-admin-auth-middleware: backlog
+  1-5-founder-admins-seed-admin-auth-middleware: done  # sharded 2026-05-03 (Bob); implemented 2026-05-03 (Amelia); reviewed 2026-05-03 (bmad-code-review) — 12 patches applied incl. CRITICAL REVOKE on founder_admins + AD27 redaction list extension (access_token/refresh_token); 6 deferred to Story 2.1 / Story 2.2 / test-harness; cloud db push + Supabase MCP verification still deferred to Pedro
   epic-1-retrospective: optional
 
   # =========================================================================

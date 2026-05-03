@@ -37,6 +37,27 @@ When a customer hits `POST /signup`, Supabase Auth's `auth.signUp()` runs an INS
 
 The route layer does NOT carry partial-state cleanup logic. Postgres atomicity is the contract; do not add catch-and-DELETE code that would break under concurrent load. The PT-localized field error mapping lives in [`app/src/lib/signup-error-mapper.js`](app/src/lib/signup-error-mapper.js); the source-context (`?source=`/`?campaign=`, FR7) cookie middleware lives in [`app/src/middleware/source-context-capture.js`](app/src/middleware/source-context-capture.js). See [`_bmad-output/implementation-artifacts/1-4-signup-endpoint-atomic-profile-trigger-source-context-capture.md`](_bmad-output/implementation-artifacts/1-4-signup-endpoint-atomic-profile-trigger-source-context-capture.md) for the full spec, ACs, and review checklist.
 
+## Admin Authorization
+
+Story 1.5 ships the **founder-admin gate** that protects every future admin-only surface (`/admin/status` from Story 8.10, founder operational endpoints from Stories 11.4 / 11.5). The design is **binary** — a request is either authenticated as a founder, or it is not. There is no role table, no `is_admin` claim on the JWT, and **no customer-impersonation flow** (Constraint #13 — the founder NEVER logs in as the customer; the read-only `?as_admin={customer_id}` pattern in Story 8.10 reuses the customer audit-log surface and is NOT impersonation).
+
+The two composable preHandler primitives are:
+
+- [`app/src/middleware/auth.js`](app/src/middleware/auth.js) — generic Supabase Auth session-check. Reads the `mp_session` signed cookie set by [`app/src/routes/_public/login.js`](app/src/routes/_public/login.js), validates the JWT via `supabase.auth.getUser()`, and decorates `request.user = {id, email, access_token, refresh_token}`. Redirects to `/login?next=<current-path>` on any failure (UX-DR1).
+- [`app/src/middleware/founder-admin-only.js`](app/src/middleware/founder-admin-only.js) — founder gate, composed on top of `auth.js`. Looks `request.user.email` up against the [`founder_admins`](supabase/migrations/202604301202_create_founder_admins.sql) allow-list via a service-role pg.Pool (AD4). On match: decorates `request.adminContext = {email}`. On absence: 403 + PT-localized `admin-denied.eta`. On lookup error: 503.
+
+Future admin route groups wire both hooks in order:
+
+```js
+fastify.register(async (instance) => {
+  instance.addHook('preHandler', authMiddleware);    // 1. validates session
+  instance.addHook('preHandler', founderAdminOnly);  // 2. gates by founder_admins
+  await instance.register(adminStatusRoutes);
+}, { prefix: '/admin' });
+```
+
+The `founder_admins` table is **service-role-only** (RLS explicitly disabled, no per-tenant scope). Adding a co-founder ships as a new `<ts>_add_<name>_to_founder_admins.sql` migration — **never** edit the original seed migration. See [`_bmad-output/implementation-artifacts/1-5-founder-admins-seed-admin-auth-middleware.md`](_bmad-output/implementation-artifacts/1-5-founder-admins-seed-admin-auth-middleware.md) for the full spec, ACs, and review checklist.
+
 ## Local development
 
 ```sh
