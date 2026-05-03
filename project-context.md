@@ -434,6 +434,101 @@ Per-feature integration tests typically spawn only the app (not the worker). `/h
 
 **Pattern**: poll a route the test exercises anyway (e.g., `GET /` for the scaffold placeholder, or one of the routes under test). Story 1.1's `scaffold-smoke.test.js` is the exception — it spawns BOTH services intentionally to test `/health` composition.
 
+### 7. Pino `base` REPLACES default `{pid, hostname}` (does NOT extend)
+
+Setting `base: { service: 'app' }` in the pino config REPLACES the default base fields. Logs lose `pid` and `hostname` — breaking any log aggregation that filters by them, and making it impossible to distinguish app/worker output when both write to the same stream.
+
+**Pattern**: when customizing `base`, explicitly include the defaults alongside any custom fields. Story 1.3's `shared/logger.js` is the canonical example:
+
+```js
+import os from 'node:os';
+
+const logger = pino({
+  base: {
+    pid: process.pid,
+    hostname: os.hostname(),
+    service: 'app',  // or 'worker'
+  },
+  // ... rest of config
+});
+```
+
+**Failure mode if violated**: structured logs lose pid/hostname; cannot correlate logs across worker restarts or distinguish processes.
+
+### 8. `pg` ESM destructure: default-import then destructure
+
+The `pg` package is published as CommonJS without an ESM-named-exports map. `import { Pool } from 'pg'` fails at module resolution.
+
+**Pattern**: `import pg from 'pg'; const { Pool } = pg;` (or `Client`, `types` etc. as needed). Story 1.1's `health.js` + `heartbeat.js`, Story 1.5's `founder-admin-only.js`, Story 1.4's `reset-auth-tables.js` all follow this. Apply to Story 2.1's `shared/db/service-role-client.js` and every future `pg` consumer.
+
+**Failure mode if violated**: `SyntaxError: The requested module 'pg' does not provide an export named 'Pool'` at boot. Hard fail, easy to spot — but blocks the process from starting.
+
+### 9. Conditional SSL based on connection-string host (localhost vs Supabase Cloud)
+
+Local Postgres test instances don't have SSL configured by default; Supabase Cloud requires SSL with CA pinning (per contract #3). Hard-coding `ssl: { ca: caCert }` breaks local tests; hard-coding `ssl: false` breaks Cloud. The two pool configurations must diverge based on the connection string's host.
+
+**Pattern** (canonical — Story 2.1 will centralize this as a single helper to prevent cargo-culting across Epics 4+):
+
+```js
+function buildPgPoolConfig (connectionString, caCert) {
+  const isLocal =
+    connectionString.includes('localhost') ||
+    connectionString.includes('127.0.0.1');
+  return isLocal
+    ? { connectionString, max: 2 }
+    : { connectionString, ssl: { ca: caCert }, max: 2 };
+}
+```
+
+Story 1.5's `founder-admin-only.js` deviated by inlining this logic per-pool (the SSL drift root cause). Story 2.1's `shared/db/service-role-client.js` MUST absorb the inline pools at `health.js`, `heartbeat.js`, `founder-admin-only.js` into the shared helper. Without centralization, every future `pg.Pool` site re-implements the host detection and drift continues.
+
+**Failure mode if violated**: tests fail locally with SSL handshake errors, OR production fails with rejected certs. Drift across files makes audit hard ("which Pool uses which?").
+
+### 10. `@fastify/formbody` required for HTML form-POST routes
+
+Fastify v5's default body parser is JSON-only. POSTs from HTML forms (`Content-Type: application/x-www-form-urlencoded`) get `request.body === undefined` unless `@fastify/formbody` is registered. No error logged — silent empty body.
+
+**Pattern**: any route that accepts an HTML form POST must register the plugin at server boot:
+
+```js
+import formbody from '@fastify/formbody';
+fastify.register(formbody);
+```
+
+Story 1.4's `signup.js` failed silently on form POSTs until this was added. Already in `package.json` dependencies; verify `fastify.register(formbody)` is in `app/src/server.js` for any project that handles form POSTs.
+
+**Failure mode if violated**: route handler sees `undefined` body; validation rejects "missing fields" even though the form sent them. Hard to diagnose without specifically testing form-encoded POST.
+
+### 11. `requestIdLogLabel` is a Fastify v5 top-level option, NOT a pino option
+
+To customize the field name pino uses for request IDs (e.g., to emit `reqId` instead of the default), set `requestIdLogLabel: 'reqId'` at the Fastify constructor's TOP LEVEL — beside `logger`, not nested inside the pino config. Fastify v5 reads this option from the top level only; nesting it inside `logger:` is silently ignored.
+
+**Pattern**:
+
+```js
+const fastify = Fastify({
+  logger: { /* pino config */ },
+  requestIdLogLabel: 'reqId',  // top-level, not inside `logger`
+  genReqId: () => randomUUID(),
+});
+```
+
+Story 1.3 debug fix discovered this — the original config nested `requestIdLogLabel` inside `logger:` and request IDs were emitted under the default field name silently.
+
+**Failure mode if violated**: request logs use the default field name; custom name silently ignored. No error logged. Discovered only when log-aggregation queries fail to find the expected field.
+
+### 12. AD27 redaction list extension protocol: distillate-first, then `shared/logger.js`
+
+When a new secret-bearing field is discovered (e.g., `access_token`, `refresh_token`, `mp_session` signature), the redaction extension MUST land in two places in the same PR: (a) the source distillate's AD27 redaction list (so future implementers see the canonical set), and (b) `shared/logger.js`'s pino redaction config (so the runtime actually redacts). The audit trail trusts (a); the runtime depends on (b).
+
+**Pattern**: extension PR touches both files atomically:
+- `_bmad-output/planning-artifacts/architecture-distillate/03-decisions-E-J.md` (AD27 entry)
+- `shared/logger.js` (pino `redact: { paths: [...] }` config)
+
+Story 1.3 + Story 1.5 patches added `access_token`, `refresh_token`, `mp_session` to both. The distillate-first order matters — if (a) is skipped, the next refactor of `shared/logger.js` may drop the field; if (b) is skipped, logs leak the secret immediately.
+
+**Failure mode if violated**: redaction list drifts between distillate (truth) and runtime (effect). Audit reviews trust the distillate; production logs leak the secret. Latent bug class — only surfaces in a production incident or a careful log audit.
+
 ---
 
 ## F1-F13 Amendments — Quick Reference
