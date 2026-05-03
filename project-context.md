@@ -361,6 +361,81 @@ EAN resolution (3-strategy in DynamicPriceIdea): `product.product_references` EA
 
 ---
 
+## Library Empirical Contracts + Operational Patterns
+
+> Discovered during foundation-story implementation (Stories 1.1-1.4). These are **load-bearing rules** that override what library docs / spec text might suggest. Every BAD subagent must respect these or trigger silent failures.
+
+### 1. GoTrue strips Postgres HINT codes from `auth.signUp` errors
+
+Trigger-raised `RAISE EXCEPTION ... USING HINT = 'SOMETHING'` does NOT propagate the HINT through Supabase Auth to the client. Empirical contract (Supabase Auth ≥ 2.x, verified 2026-05-02): `error.message = "Database error saving new user"`, `error.code = "unexpected_failure"`. **The HINT is stripped before reaching `@supabase/auth-js`.**
+
+**Pattern**: any story relying on a trigger HINT for user-facing field errors MUST mirror the trigger's validation at the route level. The trigger remains as defense-in-depth; the user-facing field error is produced by the route's pre-validation. Story 1.4's `signup.js` is the canonical example — `length(trim(...)) = 0` check before calling `auth.signUp`, returning PT-localized `fieldErrors` to the form template.
+
+**Failure mode if violated**: customer sees generic catch-all error message instead of field-specific guidance. Atomicity invariant still holds (trigger rolls back), but UX regression.
+
+### 2. `@fastify/cookie` v11+ does NOT auto-unwrap signed cookies
+
+`request.cookies[name]` returns the raw `s:<value>.<signature>` string for signed cookies. To verify and extract the original value: `const { valid, value } = request.unsignCookie(raw)`.
+
+**Pattern**: any code that reads a signed cookie MUST use `request.unsignCookie()` explicitly. Comments like "auto-unwraps if valid" are wrong — the library does not do this. The `request.cookies[name] === false` for tampered-cookie pattern (sometimes documented online) is also wrong.
+
+Affects: Story 1.4 `mp_source_ctx` (fixed); Story 2.1 `mp_session` reader (apply this pattern); Story 11.x Stripe webhook signed cookies if used (apply this pattern).
+
+**Failure mode if violated**: `JSON.parse` falls through silently, returning nulls instead of the cookie's actual values. No error logged. Hard to debug without specifically testing the cookie roundtrip.
+
+### 3. `pg` Pool against Supabase requires CA pinning
+
+Supabase Postgres uses a custom CA. `pg` Pool's default SSL behavior does NOT trust it. Must explicitly load and pass the CA cert.
+
+**Pattern** (canonical, copied from `app/src/routes/health.js` and `worker/src/jobs/heartbeat.js`):
+
+```js
+import fs from 'node:fs';
+import path from 'node:path';
+import pg from 'pg';
+const { Pool } = pg;
+
+const caCert = fs.readFileSync(path.resolve('supabase/prod-ca-2021.crt'), 'utf8');
+
+const pool = new Pool({
+  connectionString: process.env.SUPABASE_SERVICE_ROLE_DATABASE_URL,
+  ssl: { ca: caCert },
+  max: <appropriate>,
+});
+```
+
+NEVER `ssl: { rejectUnauthorized: false }` (insecure — accepts forged certs). NEVER skip SSL config (Supabase requires SSL; connection fails). The CA cert is at `supabase/prod-ca-2021.crt` (committed — public CA).
+
+Affects: every `pg` Pool instantiation. Story 1.1's `health.js` + `heartbeat.js` (done); Story 2.1's `shared/db/service-role-client.js` SSoT module (apply this pattern); every future worker-side query path.
+
+### 4. Migration forward-FK deferral pattern
+
+When a story's migration references a forward-FK target from a future story (e.g., Story 1.2's vault → Story 4.1's customer_marketplaces), the migration file is committed but NOT applied — neither locally nor to Cloud — until the target story ships.
+
+**Pattern**: rename the migration file with `.deferred-until-story-X.Y` suffix. Supabase CLI ignores files without the `.sql` extension, so the file is committed (deliverable preserved) but excluded from `db push` / `db reset` / `start`.
+
+**At the target story's sharding**: Bob's task list MUST include "rename `<filename>.sql.deferred-until-story-X.Y` back to `<filename>.sql`" + "run `npx supabase db push` to apply both this story's migration AND the unblocked deferred one."
+
+Current instance: `supabase/migrations/202604301204_create_shop_api_key_vault.sql.deferred-until-story-4.1` — restore at Story 4.1 sharding.
+
+**This rule does NOT violate migration immutability** — we're renaming for tooling exclusion, not editing content. Once restored at Story 4.1, the file content is unchanged from its original commit.
+
+### 5. `auth.users` reset between integration tests: DELETE not TRUNCATE
+
+`auth.refresh_tokens_id_seq` and other auth-schema sequences are owned by `supabase_auth_admin`, not the `postgres` connection user. `TRUNCATE auth.users CASCADE RESTART IDENTITY` fails with "must be owner of sequence."
+
+**Pattern**: `DELETE FROM auth.users` — relies on Supabase-defined `ON DELETE CASCADE` chains (refresh_tokens, identities, sessions, our customers/customer_profiles). Works without sequence ownership.
+
+Story 1.4's `tests/integration/_helpers/reset-auth-tables.js` is the canonical example.
+
+### 6. Integration test readiness probe — don't poll `/health`
+
+Per-feature integration tests typically spawn only the app (not the worker). `/health` requires `worker_heartbeats < 90s` freshness; without a worker, it always 503s.
+
+**Pattern**: poll a route the test exercises anyway (e.g., `GET /` for the scaffold placeholder, or one of the routes under test). Story 1.1's `scaffold-smoke.test.js` is the exception — it spawns BOTH services intentionally to test `/health` composition.
+
+---
+
 ## F1-F13 Amendments — Quick Reference
 
 | F# | Severity | Topic | Resolution |
