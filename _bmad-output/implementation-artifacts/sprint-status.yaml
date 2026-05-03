@@ -72,8 +72,8 @@
 # by design; pre-dates the rule).
 
 generated: 2026-05-01
-last_updated: 2026-05-03  # bmad-retrospective: Epic 1 retro → done; saved at epic-1-retro-2026-05-03.md; Items 0+1+2 (chore PRs + distillate housekeeping + BAD Phase 4.5) blocking Story 2.1
-project: marketpilot-repricer  # updated by bmad-create-story: Story 1.1 sharded 2026-05-01; Story 1.2 sharded 2026-05-01; Story 1.3 sharded 2026-05-02; Story 1.4 sharded 2026-05-02; Story 1.5 sharded 2026-05-03; Story 1.5 → review 2026-05-03; Story 1.5 → done 2026-05-03 (post-review)
+last_updated: 2026-05-03  # bmad-create-story: Story 2.1 sharded 2026-05-03 (Bob); epic-2 → in-progress; 2-1-... → ready-for-dev; integration_test_required: true; bmad-testarch-atdd: Story 2.1 → atdd-done 2026-05-03 (Quinn)
+project: marketpilot-repricer  # updated by bmad-create-story: Story 1.1 sharded 2026-05-01; Story 1.2 sharded 2026-05-01; Story 1.3 sharded 2026-05-02; Story 1.4 sharded 2026-05-02; Story 1.5 sharded 2026-05-03; Story 1.5 → review 2026-05-03; Story 1.5 → done 2026-05-03 (post-review); Story 2.1 sharded 2026-05-03 (Bob) → ready-for-dev
 project_key: NOKEY
 tracking_system: file-system
 story_location: d:\Plannae Project\marketpilot-repricer/_bmad-output/implementation-artifacts
@@ -93,8 +93,8 @@ development_status:
   # =========================================================================
   # EPIC 2 -- Multi-Tenant Isolation  (architecture S-I phase 2)
   # =========================================================================
-  epic-2: backlog
-  2-1-rls-aware-app-db-client-service-role-worker-db-client-transaction-helper: backlog
+  epic-2: in-progress
+  2-1-rls-aware-app-db-client-service-role-worker-db-client-transaction-helper: atdd-done  # sharded 2026-05-03 (Bob); integration_test_required: true; carried Epic 1 retro Item 3 requirements (SSL helper centralization, pool absorption x3, mp_session contract, SIGTERM shutdown); atdd-done 2026-05-03 (Quinn) — clients.test.js fully implemented + package.json test:integration extended
   2-2-rls-regression-suite-ci-block: backlog
   epic-2-retrospective: optional
 
