@@ -162,6 +162,53 @@ test('negative_assertion_rls_aware_client_not_importable_in_worker', async () =>
   assert.deepEqual(hits, [], `rls-aware-client must not be imported in worker/src/: ${hits.join(', ')}`);
 });
 
+// ---------------------------------------------------------------------------
+// AC#1 (second clause) — rls-context middleware binds request.db
+// ---------------------------------------------------------------------------
+test('rls_context_middleware_binds_request_db', async () => {
+  // TODO (Story 2.1 ATDD): import { rlsContext } from '../../../app/src/middleware/rls-context.js'
+  // Verifies that the middleware:
+  //   1. Extracts the JWT from the Authorization header (Bearer <token>).
+  //   2. Calls getRlsAwareClient(jwt) to obtain a scoped db client.
+  //   3. Attaches the client as request.db before calling next().
+  //
+  // Suggested approach:
+  //   a. Construct a minimal Fastify app stub with the rlsContext hook registered.
+  //   b. Register a GET /probe route that returns { hasDb: !!request.db }.
+  //   c. Inject a request with Authorization: Bearer <test-jwt>.
+  //   d. assert response.json().hasDb === true
+  //   e. Also assert getRlsAwareClient was called with the test-jwt
+  //      (spy or capture via a mock that replaces the factory in the module graph).
+  assert.ok(true, 'scaffold — implementation required at ATDD step');
+});
+
+// ---------------------------------------------------------------------------
+// AC#5 — ESLint no-direct-pg-in-app rule fires on violation
+// ---------------------------------------------------------------------------
+test('eslint_no_direct_pg_in_app_rule_fires_on_violation', async () => {
+  // TODO (Story 2.1 ATDD): import the rule from '../../../eslint-rules/no-direct-pg-in-app.js'
+  // Verifies that the custom ESLint rule reports at least one error when given
+  // a fixture string containing `import { Pool } from 'pg'` inside app/src/.
+  //
+  // Suggested approach using ESLint's Node JS API (RuleTester):
+  //   import { RuleTester } from 'eslint';
+  //   import rule from '../../../eslint-rules/no-direct-pg-in-app.js';
+  //   const tester = new RuleTester({ languageOptions: { ecmaVersion: 2022, sourceType: 'module' } });
+  //   tester.run('no-direct-pg-in-app', rule, {
+  //     valid: [],
+  //     invalid: [
+  //       {
+  //         filename: 'app/src/routes/prices.js',
+  //         code: "import { Pool } from 'pg';",
+  //         errors: [{ messageId: 'noDirectPg' }],   // adjust messageId to match rule impl
+  //       },
+  //     ],
+  //   });
+  // RuleTester.run throws synchronously on failure, so no extra assert is needed.
+  assert.ok(true, 'scaffold — implementation required at ATDD step');
+});
+
+// ---------------------------------------------------------------------------
 test('negative_assertion_no_direct_pg_pool_in_app_routes', async () => {
   // AC#5 (ESLint rule backup): app/src/routes and app/src/middleware must not
   // import pg Pool directly — they must use getRlsAwareClient factory.

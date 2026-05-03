@@ -39,11 +39,13 @@ Both stories carry `integration_test_required: true` in sprint-status.yaml (live
 | AC | Test name | Assertion |
 |----|-----------|-----------|
 | AC#1 | `rls_aware_client_scopes_to_jwt_subject` | SELECT via JWT-A returns only customer-A rows |
+| AC#1 | `rls_context_middleware_binds_request_db` | Middleware extracts JWT, calls `getRlsAwareClient`, attaches result as `request.db` |
 | AC#2 | `service_role_client_bypasses_rls` | SELECT via service_role returns all rows; pool `max <= 5` |
 | AC#2 | `service_role_client_supports_advisory_locks` | `pg_try_advisory_lock` call succeeds |
 | AC#3 | `tx_helper_commits_on_success` | Row visible after successful tx callback |
 | AC#3 | `tx_helper_rolls_back_on_throw` | Row NOT visible after thrown tx callback |
 | AC#3 | `tx_helper_nesting_behaviour_documented` | Either ConcurrentTransactionError OR savepoint (document choice) |
+| AC#5 | `eslint_no_direct_pg_in_app_rule_fires_on_violation` | ESLint rule in `eslint-rules/no-direct-pg-in-app.js` reports error on `import { Pool } from 'pg'` fixture |
 | AC#5 | `negative_assertion_no_direct_pg_pool_in_app_routes` | No `pg` import in `app/src/routes/` or `app/src/middleware/` |
 | AD2  | `negative_assertion_service_role_client_not_importable_in_app_src` | No `service-role-client` import in `app/src/` |
 | AD2  | `negative_assertion_rls_aware_client_not_importable_in_worker` | No `rls-aware-client` import in `worker/src/` |
@@ -115,20 +117,22 @@ Epic 2 has no atomicity bundle participation. Stories 2.1 and 2.2 ship as indepe
 | Story | AC | Test File | Test Name | Status |
 |-------|----|-----------|-----------|--------|
 | 2.1 | AC#1 | clients.test.js | rls_aware_client_scopes_to_jwt_subject | scaffold |
+| 2.1 | AC#1 (middleware) | clients.test.js → `app/src/middleware/rls-context.js` | rls_context_middleware_binds_request_db | scaffold |
 | 2.1 | AC#2 | clients.test.js | service_role_client_bypasses_rls | scaffold |
 | 2.1 | AC#2 | clients.test.js | service_role_client_supports_advisory_locks | scaffold |
 | 2.1 | AC#3 | clients.test.js | tx_helper_commits_on_success | scaffold |
 | 2.1 | AC#3 | clients.test.js | tx_helper_rolls_back_on_throw | scaffold |
 | 2.1 | AC#3 | clients.test.js | tx_helper_nesting_behaviour_documented | scaffold |
 | 2.1 | AC#4 (integration) | clients.test.js | all 3 negative-assertion tests | scaffold |
-| 2.1 | AC#5 (ESLint) | clients.test.js | negative_assertion_no_direct_pg_pool_in_app_routes | scaffold |
+| 2.1 | AC#5 (ESLint) | clients.test.js → `eslint-rules/no-direct-pg-in-app.js` | eslint_no_direct_pg_in_app_rule_fires_on_violation | scaffold |
+| 2.1 | AC#5 (grep backup) | clients.test.js | negative_assertion_no_direct_pg_pool_in_app_routes | scaffold |
 | 2.2 | AC#1 | rls-regression.test.js | two_customers_seed_creates_two_distinct_customers | scaffold |
 | 2.2 | AC#2 | rls-regression.test.js | rls_isolation_{table}_{operation} (15 parameterized tests) | scaffold |
 | 2.2 | AC#3 | rls-regression.test.js | test_rls_script_exits_nonzero_on_failure | scaffold |
 | 2.2 | AC#4 | rls-regression.test.js | convention_every_seed_table_is_in_regression_config | scaffold |
 | 2.2 | AC#5 | rls-regression.test.js | negative_assertion_no_migration_missing_rls_policy | scaffold |
 
-**Total test cases at scaffold:** 20 (3 negative assertions + 6 behavioral stubs for 2.1 + 11 for 2.2)
+**Total test cases at scaffold:** 22 (3 negative assertions + 8 behavioral stubs for 2.1 + 11 for 2.2)
 
 ---
 
