@@ -82,7 +82,7 @@ development_status:
   # =========================================================================
   # EPIC 1 -- Foundation & Trust Primitives  (architecture S-I phase 1)
   # =========================================================================
-  epic-1: in-progress
+  epic-1: done
   1-1-scaffold-project-two-service-coolify-deploy-composed-health: done
   1-2-envelope-encryption-module-master-key-loader-secret-scanning-hook: done
   1-3-pino-structured-logging-with-redaction-list: done

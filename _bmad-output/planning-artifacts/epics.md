@@ -747,6 +747,7 @@ Stories follow the template's user-story + Given/When/Then ACs. Each story carri
 ## Epic 1: Foundation & Trust Primitives
 
 ### Story 1.1: Scaffold project, two-service Coolify deploy, composed /health
+**GH Issue:** #1
 
 **Implements:** AD1, AD23 · **FRs:** FR45 · **NFRs:** NFR-R1, NFR-Sc4 · **Size:** L
 **SSoT modules created:** `app/src/server.js`, `worker/src/index.js`, `worker/src/jobs/heartbeat.js`, `app/src/routes/health.js`, `eslint.config.js`
@@ -798,6 +799,7 @@ So that every subsequent epic builds on a Coolify-deployable foundation that Upt
 ---
 
 ### Story 1.2: Envelope encryption module, master-key loader, secret-scanning hook
+**GH Issue:** #2
 
 **Implements:** AD3 · **FRs:** FR11 (crypto module only — vault wiring lands Epic 4) · **NFRs:** NFR-S1 · **Size:** M
 **SSoT modules created:** `shared/crypto/envelope.js`, `shared/crypto/master-key-loader.js`, `scripts/check-no-secrets.sh`, `scripts/rotate-master-key.md`
@@ -844,6 +846,7 @@ So that customer Mirakl shop API keys can later be encrypted at rest with zero p
 ---
 
 ### Story 1.3: Pino structured logging with redaction list
+**GH Issue:** #3
 
 **Implements:** AD27 · **FRs:** (foundation — no positive FR) · **NFRs:** NFR-S1 (logs never contain cleartext keys) · **Size:** S
 **SSoT modules created:** `shared/logger.js` (or `app/src/lib/logger.js` + `worker/src/lib/logger.js` factory pair)
@@ -880,6 +883,7 @@ So that operational debugging never leaks secrets to stdout or to Coolify's log 
 ---
 
 ### Story 1.4: Signup endpoint, atomic profile trigger, source-context capture
+**GH Issue:** #4
 
 **Implements:** AD29 (with F3 — atomicity bundle), FR7 source-context middleware · **FRs:** FR1, FR2 (negative-assertion), FR3, FR7 · **NFRs:** NFR-S5 · **Size:** L
 **SSoT modules created:** `app/src/routes/_public/signup.js`, `app/src/routes/_public/login.js`, `app/src/routes/_public/forgot-password.js`, `app/src/routes/_public/reset-password.js`, `app/src/middleware/source-context-capture.js`, `app/src/middleware/auth.js`, `app/src/views/pages/signup.eta`, `app/src/views/pages/login.eta`
@@ -944,6 +948,7 @@ So that I can verify my email and proceed to onboarding without ending up in an 
 ---
 
 ### Story 1.5: Founder admins seed + admin-auth middleware
+**GH Issue:** #5
 
 **Implements:** AD4 (partial — seed + middleware only; admin status page UI in Epic 8) · **FRs:** FR6, FR47 (founder-side primitive) · **Size:** S
 **SSoT modules created:** `app/src/middleware/founder-admin-only.js`
@@ -985,6 +990,7 @@ So that the admin status page in Epic 8 has a working access gate the moment its
 ## Epic 2: Multi-Tenant Isolation
 
 ### Story 2.1: RLS-aware app DB client + service-role worker DB client + transaction helper
+**GH Issue:** #6
 
 > **Carried requirements (Bob: read before sharding):** see `_bmad-output/implementation-artifacts/epic-1-retro-2026-05-03.md` Item 3 for spec constraints — (1) centralize conditional-SSL-by-host into a single helper (`getDbClientForHost` or similar; this is the SSL drift root cause Library Empirical Contract #9 documents); (2) explicitly enumerate the 3 pools being absorbed (`app/src/routes/health.js`, `worker/src/jobs/heartbeat.js`, `app/src/middleware/founder-admin-only.js`) — `endFounderAdminPool` test-teardown export must survive absorption; (3) honor the `mp_session` cookie empirical contract (auth.js decorates `request.user.access_token`, rls-context.js consumes it directly — do NOT re-derive from cookie); (4) pre-load Library Empirical Contracts entries #2 (unsignCookie), #3 (CA pinning), #5 (auth.users DELETE) when sharding.
 
@@ -1028,6 +1034,7 @@ So that BAD subagents have one path per context and cannot accidentally use the 
 ---
 
 ### Story 2.2: RLS regression suite + CI block
+**GH Issue:** #7
 
 **Implements:** AD30 · **FRs:** FR5 · **NFRs:** NFR-S3, NFR-I3 · **Size:** M
 **SSoT modules created:** `scripts/rls-regression-suite.js`, `tests/integration/rls-regression.test.js`, `db/seed/test/two-customers.sql`
@@ -1069,6 +1076,7 @@ So that route bugs cannot leak cross-tenant data and the convention "every new c
 ## Epic 3: Mirakl Integration Foundation
 
 ### Story 3.1: Mirakl HTTP client port — apiClient + retry/backoff + safe-error mapping + no-direct-fetch ESLint rule
+**GH Issue:** #10
 
 **Implements:** AD5 · **FRs:** (foundation) · **NFRs:** NFR-I1 · **Size:** M
 **SSoT modules created:** `shared/mirakl/api-client.js` (`mirAklGet`, `MiraklApiError` class — `mirAklGet` is the only Mirakl HTTP export per AD5; PRI01 multipart submit is handled in `shared/mirakl/pri01-writer.js`, Epic 6, since no other POST endpoints exist in MarketPilot's Mirakl integration), `shared/mirakl/safe-error.js` (`getSafeErrorMessage`), `eslint-rules/no-direct-fetch.js` (custom rule)
@@ -1117,6 +1125,7 @@ So that every Mirakl call uses one path with one retry policy, one error classif
 ---
 
 ### Story 3.2: Endpoint wrappers — A01, PC01, OF21, P11 + Mirakl mock server
+**GH Issue:** #11
 
 **Implements:** AD5, AD16 (partial) · **FRs:** (foundation for FR8-FR15, FR20) · **NFRs:** NFR-I1 · **Size:** L
 **SSoT modules created:** `shared/mirakl/a01.js`, `shared/mirakl/pc01.js`, `shared/mirakl/of21.js`, `shared/mirakl/p11.js`, `shared/mirakl/self-filter.js`, `tests/mocks/mirakl-server.js`
@@ -1172,6 +1181,7 @@ So that every endpoint has one calling pattern with one set of return-shape JSDo
 ---
 
 ### Story 3.3: mirakl-empirical-verify smoke-test script + reusable for first-customer onboarding
+**GH Issue:** #12
 
 **Implements:** AD16 (smoke-test reuse) · **FRs:** (operational tooling consumed by FR9 inline validation + Story 4.4 onboarding orchestration) · **Size:** S
 **SSoT modules created:** `scripts/mirakl-empirical-verify.js`
@@ -1210,6 +1220,7 @@ So that I can verify a customer's environment matches our assumptions BEFORE the
 ## Epic 4: Customer Onboarding
 
 ### Story 4.1: customer_marketplaces schema with F4 PROVISIONING + cron_state machine + transitions matrix
+**GH Issue:** #13
 
 **Implements:** AD15 (schema + transitions matrix), AD16 (with F4 — PROVISIONING + nullable A01/PC01 + CHECK constraint), AD26 (PC01 capture columns + JSONB snapshot) · **FRs:** FR8 (foundation) · **Size:** L
 **SSoT modules created:** `shared/state/cron-state.js` (`transitionCronState`), `shared/state/transitions-matrix.js` (`LEGAL_CRON_TRANSITIONS`)
@@ -1295,6 +1306,7 @@ So that every cron-state mutation is atomic with its audit event and BAD subagen
 ---
 
 ### Story 4.2: skus + sku_channels + baseline_snapshots + scan_jobs schemas + RLS
+**GH Issue:** #14
 
 **Implements:** AD10 (schema only — engine logic Epic 7), AD16 step 4-7 · **FRs:** FR17 (schema), FR25, FR33 · **Size:** M
 **SSoT modules created:** (schema-only)
@@ -1340,6 +1352,7 @@ So that every cron-state mutation is atomic with its audit event and BAD subagen
 ---
 
 ### Story 4.3: Key entry form `/onboarding/key` + inline 5s validation + encrypted persistence + Worten-key one-page guide modal
+**GH Issue:** #15
 
 **Implements:** AD3 (vault wiring — module landed Story 1.2), AD16 step 1, UX-DR23 · **FRs:** FR8, FR9, FR10, FR11 (vault wiring) · **NFRs:** NFR-P6 · **Size:** L
 **SSoT modules created:** `app/src/routes/onboarding/key.js`, `app/src/views/pages/onboarding-key.eta`, `app/src/views/modals/key-help.eta`, `app/src/views/components/trust-block.eta`
@@ -1390,6 +1403,7 @@ So that every cron-state mutation is atomic with its audit event and BAD subagen
 ---
 
 ### Story 4.4: Async catalog scan orchestration — A01 → PC01 → OF21 → P11 → tier classify → baseline (atomicity sibling of Story 4.1)
+**GH Issue:** #16
 
 **Implements:** AD16 (full sequence), AD26 (PC01 capture), F4 (transitions out of PROVISIONING) · **FRs:** FR12, FR14, FR17 (population), FR25 (per-channel population) · **NFRs:** NFR-P10, NFR-Sc2 · **Size:** L
 **SSoT modules created:** `worker/src/jobs/onboarding-scan.js`, `worker/src/lib/tier-classify.js` (initial classification only — engine logic Epic 7)
@@ -1438,6 +1452,7 @@ So that every cron-state mutation is atomic with its audit event and BAD subagen
 ---
 
 ### Story 4.5: Scan progress page `/onboarding/scan` — closeable + reconnectable + status polling
+**GH Issue:** #17
 
 **Implements:** AD16 (UX), UX-DR6 · **FRs:** FR13, FR14 · **Size:** M
 **SSoT modules created:** `app/src/routes/onboarding/scan.js`, `app/src/views/pages/onboarding-scan.eta`, `public/js/scan-progress.js`
@@ -1474,6 +1489,7 @@ So that every cron-state mutation is atomic with its audit event and BAD subagen
 ---
 
 ### Story 4.6: Scan-failed email + `/scan-failed` interception
+**GH Issue:** #18
 
 **Implements:** AD16 (failure handling), UX-DR3 · **FRs:** FR15 · **Size:** S
 **SSoT modules created:** `shared/resend/client.js` (`sendCriticalAlert({to, subject, html})` — minimal canonical interface), `app/src/routes/interceptions/scan-failed.js`, `app/src/views/pages/scan-failed.eta`, `app/src/views/emails/scan-failed.eta`
@@ -1504,6 +1520,7 @@ So that every cron-state mutation is atomic with its audit event and BAD subagen
 ---
 
 ### Story 4.7: Scan-ready interstitial `/onboarding/scan-ready` (UX-DR33-34)
+**GH Issue:** #21
 
 **Implements:** UX-DR33, UX-DR34 · **FRs:** FR16 (gateway to margin question) · **Size:** S
 **SSoT modules created:** `app/src/routes/onboarding/scan-ready.js`, `app/src/views/pages/onboarding-scan-ready.eta`
@@ -1538,6 +1555,7 @@ So that every cron-state mutation is atomic with its audit event and BAD subagen
 ---
 
 ### Story 4.8: Margin question `/onboarding/margin` + smart-default mapping + <5% warning
+**GH Issue:** #63
 
 **Implements:** AD16 (final onboarding step), UX-DR2 · **FRs:** FR16 · **Size:** M
 **SSoT modules created:** `app/src/routes/onboarding/margin.js`, `app/src/views/pages/onboarding-margin.eta`, `app/src/views/components/smart-default-warning-thin-margin.eta`
@@ -1573,6 +1591,7 @@ So that every cron-state mutation is atomic with its audit event and BAD subagen
 ---
 
 ### Story 4.9: Dashboard root in DRY_RUN — minimal landing only
+**GH Issue:** #20
 
 **Implements:** UX-DR3, UX-DR13 (KPI card visual treatment but no full dashboard yet) · **FRs:** FR30 partial · **Size:** S
 **SSoT modules created:** `app/src/routes/dashboard/index.js` (minimal — full page Epic 8), `app/src/views/pages/dashboard-dry-run-minimal.eta`
@@ -1598,6 +1617,7 @@ So that every cron-state mutation is atomic with its audit event and BAD subagen
 ## Epic 5: Cron Dispatcher & State Machine
 
 ### Story 5.1: Master cron + dispatcher SQL + per-customer advisory locks + `worker-must-filter-by-customer` ESLint rule
+**GH Issue:** #24
 
 **Implements:** AD17 · **FRs:** FR18 · **NFRs:** NFR-Sc3, NFR-P1, NFR-P2 · **Size:** L
 **SSoT modules created:** `worker/src/dispatcher.js`, `worker/src/advisory-lock.js`, `worker/src/jobs/master-cron.js`, `eslint-rules/worker-must-filter-by-customer.js`
@@ -1663,6 +1683,7 @@ SELECT cm.id, sc.id AS sku_channel_id, sc.sku_id, sc.channel_code
 ---
 
 ### Story 5.2: pri01_staging schema + cycle-assembly skeleton
+**GH Issue:** #25
 
 **Implements:** AD17 (cycle assembly + staging table flush), AD11 partial (per-cycle CB gate placeholder for Epic 7) · **FRs:** FR18 partial · **Size:** M
 **SSoT modules created:** `worker/src/cycle-assembly.js`
@@ -1700,6 +1721,7 @@ So that the writer in Epic 6 has a stable consumer-side contract and the engine 
 ## Epic 6: PRI01 Writer Plumbing
 
 ### Story 6.1: `shared/mirakl/pri01-writer.js` — per-SKU aggregation + multipart submit + pending_import_id atomicity + `no-raw-CSV-building` ESLint rule
+**GH Issue:** #22
 
 **Implements:** AD7 (writer half) · **FRs:** FR23 (writer) · **NFRs:** NFR-P5 partial · **Size:** L
 **SSoT modules created:** `shared/mirakl/pri01-writer.js` (`buildPri01Csv`, `submitPriceImport`, `markStagingPending`), `eslint-rules/no-raw-CSV-building.js`
@@ -1756,6 +1778,7 @@ So that no parallel CSV-building or PRI01-submission code can exist in the codeb
 ---
 
 ### Story 6.2: `shared/mirakl/pri02-poller.js` + `worker/src/jobs/pri02-poll.js` cron entry + COMPLETE/FAILED handling
+**GH Issue:** #23
 
 **Implements:** AD7 (poller half) · **FRs:** FR23 (PRI02 polling) · **NFRs:** NFR-P5 (≤30 min resolution) · **Size:** M
 **SSoT modules created:** `shared/mirakl/pri02-poller.js` (`pollImportStatus`, `clearPendingImport`), `worker/src/jobs/pri02-poll.js`
@@ -1799,6 +1822,7 @@ So that the pending_import_id invariant chain closes (writer sets → poller cle
 ---
 
 ### Story 6.3: `shared/mirakl/pri03-parser.js` + per-SKU rebuild semantics
+**GH Issue:** #26
 
 **Implements:** AD7 (PRI03 partial-success), AD24 partial · **FRs:** FR23 (partial-success handling) · **Size:** M
 **SSoT modules created:** `shared/mirakl/pri03-parser.js` (`fetchAndParseErrorReport`, `scheduleRebuildForFailedSkus`)
@@ -1844,6 +1868,7 @@ So that PRI01's delete-and-replace semantic stays correct under partial failures
 ## Epic 7: Engine Decision & Safety
 
 ### Story 7.1: `shared/money/index.js` + `no-float-price` ESLint rule
+**GH Issue:** #27
 
 **Implements:** AD8 STEP 3 dependency (math primitives), money discipline foundation · **FRs:** FR21 (math foundation) · **Size:** S
 **SSoT modules created:** `shared/money/index.js` (`toCents`, `fromCents`, `roundFloorCents`, `roundCeilingCents`, `formatEur`), `eslint-rules/no-float-price.js`
@@ -1896,6 +1921,7 @@ So that BAD subagents writing engine STEP 3 floor/ceiling computations and Epic 
 ---
 
 ### Story 7.2: `worker/src/engine/decide.js` — full AD8 decision flow with filter chain via self-filter
+**GH Issue:** #28
 
 **Implements:** AD8 (full enumeration), AD13 (collision detection), AD14 (mandatory filter chain) · **FRs:** FR20, FR21, FR24 partial · **Size:** L
 **SSoT modules created:** `worker/src/engine/decide.js` (`decideForSkuChannel`)
@@ -1961,6 +1987,7 @@ So that the heart of the system ships behind a clear orchestrator that BAD subag
 ---
 
 ### Story 7.3: `worker/src/engine/cooperative-absorb.js` — STEP 2 absorption + skip-on-pending
+**GH Issue:** #29
 
 **Implements:** AD9 · **FRs:** FR22 · **Size:** M
 **SSoT modules created:** `worker/src/engine/cooperative-absorb.js` (`absorbExternalChange`)
@@ -2001,6 +2028,7 @@ So that the customer's ERP / manual edit / other tool stays authoritative for pr
 ---
 
 ### Story 7.4: `worker/src/safety/anomaly-freeze.js` + `/audit/anomaly/:sku/{accept|reject}` endpoints
+**GH Issue:** #30
 
 **Implements:** AD12 · **FRs:** FR29 · **Size:** M
 **SSoT modules created:** `worker/src/safety/anomaly-freeze.js` (`freezeSkuForReview`, `unfreezeSkuAfterAccept`, `unfreezeSkuAfterReject`), `app/src/routes/audit/anomaly-review.js`
@@ -2045,6 +2073,7 @@ So that customers can confirm or reject suspicious external changes without me b
 ---
 
 ### Story 7.5: `worker/src/engine/tier-classify.js` — full transitions + atomic T2a→T2b write per F1
+**GH Issue:** #31
 
 **Implements:** AD10 (with F1 amendment) · **FRs:** FR17 (tier transitions populate state), FR19 · **Size:** M
 **SSoT modules created:** `worker/src/engine/tier-classify.js` (`applyTierClassification`)
@@ -2091,6 +2120,7 @@ So that the dispatcher's predicate correctly relaxes Tier 2b cadence after 4h ho
 ---
 
 ### Story 7.6: `worker/src/safety/circuit-breaker.js` — per-SKU 15% + per-cycle 20%
+**GH Issue:** #32
 
 **Implements:** AD11 (with F6) · **FRs:** FR26, FR27 · **Size:** M
 **SSoT modules created:** `worker/src/safety/circuit-breaker.js` (`checkPerSkuCircuitBreaker`, `checkPerCycleCircuitBreaker`)
@@ -2140,6 +2170,7 @@ So that engine bugs and customer ERP cascades both have explicit catches, and th
 ---
 
 ### Story 7.7: `worker/src/safety/reconciliation.js` — Tier 3 daily pass = nightly reconciliation
+**GH Issue:** #33
 
 **Implements:** FR28, AD10 (Tier 3 daily) · **Size:** S
 **SSoT modules created:** `worker/src/safety/reconciliation.js` (`runReconciliationPass`), `worker/src/jobs/reconciliation.js` (cron entry)
@@ -2171,6 +2202,7 @@ So that newly-entered competitors are picked up within 24h without polling Tier 
 ---
 
 ### Story 7.8: END-TO-END INTEGRATION GATE — full cycle test on all 17 P11 fixtures (atomicity-bundle gate for AD7+AD8+AD9+AD11)
+**GH Issue:** #34
 
 **Implements:** AD7 + AD8 + AD9 + AD11 atomicity-bundle gate · **FRs:** FR17-FR29 (engine + writer + safety integrated) · **Size:** L
 **Test fixtures:** ALL 17 P11 fixtures: `p11-tier1-undercut-succeeds`, `p11-tier1-floor-bound-hold`, `p11-tier1-tie-with-competitor-hold`, `p11-tier2a-recently-won-stays-watched`, `p11-tier2b-ceiling-raise-headroom`, `p11-tier3-no-competitors`, `p11-tier3-then-new-competitor`, `p11-all-competitors-below-floor`, `p11-all-competitors-above-ceiling`, `p11-self-active-in-p11`, `p11-self-marked-inactive-but-returned`, `p11-single-competitor-is-self`, `p11-zero-price-placeholder-mixed-in`, `p11-shop-name-collision`, `p11-pri01-pending-skip`, `p11-cooperative-absorption-within-threshold`, `p11-cooperative-absorption-anomaly-freeze`
@@ -2236,6 +2268,7 @@ The screen→stub mapping appendix lands in Step 4 Parallel Tracks; each Story 8
 ---
 
 ### Story 8.1: Dashboard root state-aware view + sticky header chrome
+**GH Issue:** #35
 
 **Implements:** AD15 surfacing (cron_state-driven banner stack), UX-DR3 (interception override), UX-DR13 (KPI card visual treatment carries; report's narrative arc does NOT) · **FRs:** FR30 (dry-run state), FR34 partial (dashboard chrome — KPI cards in 8.2), FR35 partial (toggle UI in 8.3) · **NFRs:** NFR-P7 (≤2s broadband / ≤4s 3G), NFR-A1, NFR-L1 · **Size:** L
 **SSoT modules created:** `app/src/routes/dashboard/index.js` (full version replacing Story 4.9's minimal stub), `app/src/views/layouts/default.eta`, `app/src/views/pages/dashboard.eta`, `app/src/middleware/interception-redirect.js`, `public/js/dashboard.js`
@@ -2296,6 +2329,7 @@ So that the dashboard is one coherent surface that adapts to my account's state 
 ---
 
 ### Story 8.2: KPI cards row (3 status cards from free-report family + secondary catalog-value lines)
+**GH Issue:** #36
 
 **Implements:** UX-DR13, UX-DR14 (channel-scoped) · **FRs:** FR34 · **NFRs:** NFR-A1, NFR-L1 · **Size:** M
 **SSoT modules created:** `app/src/views/components/kpi-cards.eta`
@@ -2339,6 +2373,7 @@ So that I recognize the dashboard as the same product family as the free report 
 ---
 
 ### Story 8.3: PT/ES channel toggle pill in sticky header
+**GH Issue:** #37
 
 **Implements:** UX-DR14 (single-select; "Both" is Phase 2) · **FRs:** FR35 · **NFRs:** NFR-L1 · **Size:** S
 **SSoT modules created:** `app/src/views/components/channel-toggle.eta`, `public/js/dashboard.js` (toggle state management)
@@ -2375,6 +2410,7 @@ So that I can compare per-channel competitive landscapes by toggling without jug
 ---
 
 ### Story 8.4: Margin editor inline panel with worked-profit-example
+**GH Issue:** #38
 
 **Implements:** UX-DR15-21 (representative SKU rule, stated-margin assumption, live update mechanics) · **FRs:** FR36 · **NFRs:** NFR-A1, NFR-A2, NFR-L1 · **Size:** L
 **SSoT modules created:** `app/src/views/components/margin-editor.eta`, `app/src/routes/dashboard/margin-edit.js` (POST handler), `public/js/margin-editor.js` (150ms-debounced live recompute)
@@ -2437,6 +2473,7 @@ So that I see the euro impact of my settings on a real product, not abstract per
 ---
 
 ### Story 8.5: Pause / Resume buttons + customer-pause cron_state transitions
+**GH Issue:** #39
 
 **Implements:** UX-DR5 (paused-state distinction), AD15 (cron_state transitions) · **FRs:** FR32 · **NFRs:** NFR-A2 · **Size:** M
 **SSoT modules created:** `app/src/routes/dashboard/pause-resume.js` (`POST /pause`, `POST /resume`), `app/src/views/components/pause-button.eta`, `public/js/pause-resume.js` (confirmation modal)
@@ -2479,6 +2516,7 @@ So that I can freeze repricing fast (trust escape valve per UX-DR24) without acc
 ---
 
 ### Story 8.6: Go-Live consent modal + Stripe redirect
+**GH Issue:** #40
 
 **Implements:** UX-DR24 ("Tu confirmas. Nós executamos."), AD15 (DRY_RUN → ACTIVE transition without audit event per per-(from,to) map) · **FRs:** FR31 · **NFRs:** NFR-A2, NFR-L1 · **Size:** M
 **SSoT modules created:** `app/src/routes/dashboard/go-live.js` (`POST /go-live`), `app/src/views/modals/go-live-consent.eta`, `public/js/go-live-modal.js`
@@ -2523,6 +2561,7 @@ So that the consent is documented (audit log + customer self-flip) and I'm fully
 ---
 
 ### Story 8.7: Anomaly review modal (consumes Story 7.4 endpoints)
+**GH Issue:** #41
 
 **Implements:** UX-DR8, UX-DR24 ("Nada acontece até confirmares.") · **FRs:** FR29 · **NFRs:** NFR-A2 · **Size:** M
 **SSoT modules created:** `app/src/views/modals/anomaly-review.eta`, `public/js/anomaly-review.js`
@@ -2568,6 +2607,7 @@ So that I can confirm or reject the external change in one click without digging
 ---
 
 ### Story 8.8: Banner library + UX4 stack precedence
+**GH Issue:** #42
 
 **Implements:** UX-DR4 (precedence), UX-DR5 (paused-state distinction) · **FRs:** FR39 partial (banner UI; classifier in Epic 12) · **NFRs:** NFR-L1 · **Size:** M
 **SSoT modules created:** `app/src/views/components/banners.eta` (precedence-aware library)
@@ -2611,6 +2651,7 @@ So that I never see two contradictory banners and the visual treatment matches t
 ---
 
 ### Story 8.9: Interception pages — `/key-revoked`, `/payment-failed`
+**GH Issue:** #43
 
 **Implements:** UX-DR31 (key-revoked override), UX-DR32 (payment-failed first-time interception only) · **FRs:** FR43 partial (`/payment-failed`); Worten 401 detection covered in worker code · **NFRs:** NFR-L1 · **Size:** M
 **SSoT modules created:** `app/src/routes/interceptions/key-revoked.js`, `app/src/routes/interceptions/payment-failed.js`, `app/src/views/pages/key-revoked.eta`, `app/src/views/pages/payment-failed.eta`
@@ -2650,6 +2691,7 @@ So that I'm not stuck in a degraded dashboard state and can fix the issue in one
 ---
 
 ### Story 8.10: `/admin/status` founder page (reuses customer audit-log UI)
+**GH Issue:** #44
 
 **Implements:** UX-DR28 (read-only, edits only via Supabase Studio), UX-DR29 (deliberately different visual register), UX-DR30 (reuse customer audit-log UI) · **FRs:** FR6, FR47 · **NFRs:** NFR-O3 · **Size:** L
 **SSoT modules created:** `app/src/routes/admin/status.js`, `app/src/views/pages/admin-status.eta`, `app/src/views/components/admin-mode-banner.eta` (red banner shown when impersonating customer audit log)
@@ -2695,6 +2737,7 @@ So that I can do the 22:47 Tuesday triage from PRD Journey 3 without context-swi
 ---
 
 ### Story 8.11: Settings sectioned navigation (5 pages)
+**GH Issue:** #45
 
 **Implements:** UX-DR22 (sectioned nav, accordion on mobile), UX-DR38 (concierge marketplace-add) · **FRs:** FR1 (account email + password change via Supabase Auth), FR4 deletion entry, FR41 MVP read-only marketplaces, FR43 billing portal link · **NFRs:** NFR-L1 · **Size:** L
 **SSoT modules created:** `app/src/routes/settings/account.js`, `app/src/routes/settings/key.js`, `app/src/routes/settings/marketplaces.js`, `app/src/routes/settings/billing.js`, `app/src/routes/settings/delete.js` (delete entry — full flow lands in Epic 10), `app/src/views/pages/settings-account.eta`, `app/src/views/pages/settings-key.eta`, `app/src/views/pages/settings-marketplaces.eta`, `app/src/views/pages/settings-billing.eta`, `app/src/views/pages/settings-delete.eta`, `app/src/views/components/settings-sidebar.eta`
@@ -2746,6 +2789,7 @@ So that all account management lives in one section with consistent chrome inste
 ---
 
 ### Story 8.12: Mobile-focused critical-alert response surface
+**GH Issue:** #46
 
 **Implements:** UX-DR26, UX-DR27 (mobile chrome strips channel toggle, margin editor, settings sidebar, firehose) · **FRs:** FR48 (alert delivery — recipient-side mobile rendering) · **NFRs:** NFR-P7 (≤4s on 3G mobile) · **Size:** M
 **SSoT modules created:** `app/src/views/layouts/mobile-alert.eta` (stripped layout for `/?alert=X` query param), `public/css/mobile.css` (mobile breakpoint overrides)
@@ -2788,6 +2832,7 @@ So that I can react fast on mobile without the desktop dashboard's full chrome c
 > **Internal sequencing — Option A locked.** Stories 9.0 and 9.1 are the **calendar-early foundation** that ships as Story 1.x siblings (BEFORE Epic 5's dispatcher), even though they're labeled Epic 9. Stories 9.2-9.6 (5-surface IA + KPI aggregates + search + firehose + archive) ship later in §I phase 7 order. Bob does NOT shard Epic 9 in numerical order — the foundation ships first per architecture's note: *"Story 9.1 (audit_log schema + writer module) is a Story 1.x sibling — must land before any feature that emits events."*
 
 ### Story 9.0: `writeAuditEvent` SSoT module + `audit_log_event_types` lookup table + 26-row AD20 taxonomy seed [CALENDAR-EARLY — Story 1.x sibling]
+**GH Issue:** #8
 
 **Implements:** AD20 (taxonomy + lookup), F5 (migration ordering) · **FRs:** FR38d (event-type taxonomy at three priority levels) · **NFRs:** NFR-S6 (append-only at app layer) · **Size:** M
 **SSoT modules created:** `shared/audit/writer.js` (`writeAuditEvent`), `shared/audit/event-types.js` (enum + JSDoc `@typedef PayloadFor<EventType>` per audit event type), `eslint-rules/no-raw-INSERT-audit-log.js`
@@ -2841,6 +2886,7 @@ So that BAD subagents writing the engine, dispatcher, billing, and lifecycle cod
 ---
 
 ### Story 9.1: `audit_log` partitioned base table + priority-derivation trigger + initial partition + monthly partition cron [CALENDAR-EARLY — Story 1.x sibling]
+**GH Issue:** #9
 
 **Implements:** AD19 (with F8 — no FK on sku_id / sku_channel_id), AD20 (priority trigger) · **FRs:** FR37 partial (storage layer) · **NFRs:** NFR-S6, NFR-P8 (foundation) · **Size:** L
 **SSoT modules created:** `worker/src/jobs/monthly-partition-create.js`
@@ -2917,6 +2963,7 @@ So that audit emissions from day 1 land in a queryable durable table and partiti
 ---
 
 ### Story 9.2: `daily_kpi_snapshots` + `cycle_summaries` schemas + daily-aggregate cron + 5-min "today" partial refresh
+**GH Issue:** #47
 
 **Implements:** AD19 (precomputed aggregates), Story 8.2 KPI cards' data source · **FRs:** FR34 partial (data) · **NFRs:** NFR-P8 (≤2s on 90-day window — aggregates make this feasible) · **Size:** M
 **SSoT modules created:** `worker/src/jobs/daily-kpi-aggregate.js`, `worker/src/engine/kpi-derive.js` (cycle-end aggregation → cycle_summaries; consumed by Story 5.2's cycle-end hook)
@@ -2962,6 +3009,7 @@ So that the dashboard's KPI cards (Story 8.2) and the firehose (Story 9.5) hit i
 ---
 
 ### Story 9.3: 5-surface query endpoints — `/audit` root with Daily summary + Atenção feed + Notável feed
+**GH Issue:** #48
 
 **Implements:** UX-DR7 (daily summary), UX-DR8 (Atenção feed expanded by default), UX-DR9 (Notável feed collapsed-by-default), UX-DR12 (every event accessible via search/firehose) · **FRs:** FR37, FR38, FR38b, FR38d · **NFRs:** NFR-P8, NFR-A3, NFR-L1 · **Size:** L
 **SSoT modules created:** `app/src/routes/audit/index.js` (`GET /audit`), `app/src/routes/audit/_fragments/atencao-feed.js`, `app/src/routes/audit/_fragments/notavel-feed.js`, `app/src/views/pages/audit.eta`, `app/src/views/components/audit-feeds.eta`, `shared/audit/readers.js` (query helpers for the 5 surfaces — single-source-of-truth for audit reads)
@@ -3012,6 +3060,7 @@ So that the highest-priority signals reach me first and I never need to scroll a
 ---
 
 ### Story 9.4: Search by SKU/EAN endpoint (primary investigation primitive)
+**GH Issue:** #49
 
 **Implements:** UX-DR10 (sticky-top search), UX-DR12 (search exposes all event types for a single SKU) · **FRs:** FR38 partial (filter by SKU/EAN) · **NFRs:** NFR-P8 · **Size:** M
 **SSoT modules created:** `app/src/routes/audit/search.js` (`GET /audit?sku={EAN}`), `app/src/routes/audit/_fragments/search-by-sku.js`, `app/src/views/components/search-by-sku.eta`
@@ -3058,6 +3107,7 @@ So that the most common investigation pattern is the most prominent affordance.
 ---
 
 ### Story 9.5: Firehose `/audit/firehose` — cycle-aggregated view with lazy-loaded SKU expansion
+**GH Issue:** #50
 
 **Implements:** UX-DR11 (opt-in, paginated 50/page), UX-DR12 (firehose preserves trust property) · **FRs:** FR37, FR38c (cycle-aggregated NOT flat) · **NFRs:** NFR-P8 · **Size:** M
 **SSoT modules created:** `app/src/routes/audit/firehose.js` (`GET /audit/firehose`), `app/src/views/pages/audit-firehose.eta`
@@ -3102,6 +3152,7 @@ So that even at 3M-events/quarter volume the firehose stays digestible and respe
 ---
 
 ### Story 9.6: Audit-log archive job — detach old partitions per AD19 retention semantics
+**GH Issue:** #51
 
 **Implements:** AD19 (archive policy), Pedro's audit_log retention clarification (T+7d hard delete: zero fiscal-evidence exceptions; all rows wiped — fiscal evidence lives in `moloni_invoices`) · **FRs:** FR4 + NFR-S6 retention · **Size:** S
 **SSoT modules created:** `worker/src/jobs/audit-log-archive.js`
@@ -3138,6 +3189,7 @@ So that the audit_log doesn't grow unbounded and FR4 hard-delete at T+7d wipes a
 ## Epic 10: Account Deletion & Grace
 
 ### Story 10.1: `/settings/delete` multi-step initiation + ELIMINAR phrase + key destruction at INITIATION + Stripe `cancel_at_period_end`
+**GH Issue:** #52
 
 **Implements:** AD21 (initiation half) · **FRs:** FR4 amended (steps 1-3) · **NFRs:** NFR-S1 (encrypted key destruction at initiation as security commitment), NFR-S6 · **Size:** L
 **SSoT modules created:** `app/src/routes/settings/delete.js` (multi-step routes), `app/src/views/pages/settings-delete.eta` (Step 1 page), `app/src/views/modals/delete-confirm.eta` (Step 2 ELIMINAR + email modal), `public/js/delete-account.js` (client-side ELIMINAR phrase validation)
@@ -3192,6 +3244,7 @@ So that the security commitment "the moment you say delete, the key is gone" is 
 ---
 
 ### Story 10.2: Cancel-mid-grace flow (magic link in email + dashboard "Cancelar eliminação" banner button)
+**GH Issue:** #53
 
 **Implements:** AD21 (cancel-mid-grace half), UX-DR36 (grace banner with cancel button), UX-DR37 (magic link in confirmation email) · **FRs:** FR4 amended (cancel during grace) · **Size:** M
 **SSoT modules created:** `app/src/routes/settings/cancel-deletion.js`, `app/src/views/pages/cancel-deletion-confirm.eta`, magic-link signed-token verification helper in `app/src/lib/signed-tokens.js`
@@ -3237,6 +3290,7 @@ So that I can recover my account easily, even if I no longer have the original e
 ---
 
 ### Story 10.3: Daily deletion-grace cron (day-5 reminder email + T+7d hard-delete with audit-log archive coordination)
+**GH Issue:** #54
 
 **Implements:** AD21 (T+7d hard-delete + day-5 reminder), Pedro's clarification (zero fiscal-evidence exceptions on audit_log; all wiped — fiscal evidence lives in `moloni_invoices` only) · **FRs:** FR4 amended (steps 4 + reminder) · **Size:** M
 **SSoT modules created:** `worker/src/jobs/deletion-grace.js`
@@ -3290,6 +3344,7 @@ So that grace-period mechanics are automated without manual ops and the FR4 dele
 ## Epic 11: Billing — Stripe & Moloni
 
 ### Story 11.1: Stripe Customer + Subscription + first SubscriptionItem creation on Go-Live (consumed by Story 8.6)
+**GH Issue:** #55
 
 **Implements:** AD22 (with F2 + F12 schema linkage corrected) · **FRs:** FR40 · **NFRs:** NFR-I2 (idempotency on mutations), NFR-S7 (no card data stored — Stripe handles PCI-DSS) · **Size:** M
 **SSoT modules created:** `shared/stripe/subscriptions.js` (`createCustomerAndSubscription`, `addSubscriptionItem`, `cancelSubscriptionAtPeriodEnd`, `getSubscriptionStatus`)
@@ -3341,6 +3396,7 @@ So that the billing model can't drift into the architecture's pre-F2 contradicti
 ---
 
 ### Story 11.2: Stripe webhook `/_webhooks/stripe` — signature + replay protection + idempotency + cron_state transitions for ALL marketplaces
+**GH Issue:** #56
 
 **Implements:** AD22 (webhook half) · **FRs:** FR43 · **NFRs:** NFR-S4 (signature + replay), NFR-I2 (idempotent webhook handling) · **Size:** L
 **SSoT modules created:** `app/src/routes/_webhooks/stripe.js`, `shared/stripe/webhooks.js` (`verifySignature`, `checkReplay`, `processEvent`)
@@ -3401,6 +3457,7 @@ So that one failed payment cleanly pauses the entire customer's repricing across
 ---
 
 ### Story 11.3: `/settings/billing` page + Stripe Customer Portal link
+**GH Issue:** #57
 
 **Implements:** AD22 (Customer Portal link delegation) · **FRs:** FR40, FR43 (customer self-manages payment method via Stripe Portal) · **Size:** S
 **SSoT modules created:** `app/src/routes/settings/billing.js` (replaces Story 8.11's stub), `shared/stripe/customer-portal.js` (`createPortalLink`)
@@ -3433,6 +3490,7 @@ So that one failed payment cleanly pauses the entire customer's repricing across
 ---
 
 ### Story 11.4: Concierge marketplace-add admin script (founder CLI for adding 2nd+ marketplace)
+**GH Issue:** #58
 
 **Implements:** AD22 partial (concierge backend), FR41 MVP (concierge-only, NO self-serve UI) · **FRs:** FR41 MVP · **Size:** M
 **SSoT modules created:** `scripts/concierge-add-marketplace.js` (CLI; founder runs locally with .env.production-like config)
@@ -3481,6 +3539,7 @@ So that I can fulfill FR41 MVP (concierge-only) without ever building self-serve
 ---
 
 ### Story 11.5: `moloni_invoices` table + NIF capture flow at Day-3 pulse-check + admin record route
+**GH Issue:** #59
 
 **Implements:** AD22 (with F7) — Moloni manual at MVP + NIF capture flow at Day-3 pulse-check per F7 amendment · **FRs:** FR44 · **NFRs:** NFR-O4 (≤24h post-billing invoice generation, ≤10min target per invoice; aggregate >2-3 hr/month triggers Phase 2 Moloni API integration) · **Size:** M
 **SSoT modules created:** `app/src/routes/admin/moloni-record.js` (founder-only admin route to record invoice metadata), `app/src/views/pages/admin-moloni-record.eta`, `shared/moloni/invoice-metadata.js` (`recordMoloniInvoice`)
@@ -3524,6 +3583,7 @@ So that I can fulfill FR41 MVP (concierge-only) without ever building self-serve
 ## Epic 12: Operations & Failure Model
 
 ### Story 12.1: 3-tier failure model finalization + sustained-transient classifier + `cycle-fail-sustained` event_type addition
+**GH Issue:** #60
 
 **Implements:** AD24 (with F10 hardcoded threshold), AD18 (polling implies retry) · **FRs:** FR46, FR39 partial (sustained-transient banner emit — UI in Story 8.8) · **NFRs:** NFR-R4, NFR-R5 · **Size:** M
 **SSoT modules created:** `worker/src/safety/failure-classifier.js`, `worker/src/safety/sustained-transient-detector.js`
@@ -3576,6 +3636,7 @@ So that flaky Mirakl periods surface clearly to the customer (PT-localized banne
 ---
 
 ### Story 12.2: `shared/resend/client.js` extension — PT-localized template helpers + 8 critical-alert templates
+**GH Issue:** #61
 
 **Implements:** AD25 (Resend), AD24 (critical-tier alert) · **FRs:** FR48 · **NFRs:** NFR-I4 (PT-localized templates), NFR-P9 (≤5 min delivery), NFR-Sc4 (free tier 3k/mo budget) · **Size:** L
 **SSoT modules created:** Extends `shared/resend/client.js` (Story 4.6's minimal SSoT — `sendCriticalAlert({to, subject, html})` interface PRESERVED) with `sendCriticalAlertWithTemplate({to, templateName, vars})`. Adds 8 PT-localized eta templates in `app/src/views/emails/`:
@@ -3629,6 +3690,7 @@ So that every email surface across the system goes through one canonical interfa
 ---
 
 ### Story 12.3: PC01 monthly re-pull cron + `platform-features-changed` event_type addition
+**GH Issue:** #62
 
 **Implements:** AD26 · **FRs:** (architectural — defends writer from silent operator-config drift) · **Size:** S
 **SSoT modules created:** `worker/src/jobs/pc01-monthly-repull.js`
