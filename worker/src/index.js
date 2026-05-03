@@ -27,10 +27,21 @@ try {
 
 // Story 2.1: SIGTERM / SIGINT graceful shutdown — closes the service-role pool
 // and exits cleanly. Deferred from Story 1.1 (pg Pools never .end()ed).
+//
+// Failure handling: closeServiceRolePool can reject (pg fails to drain,
+// network error mid-end). Without try/catch the unhandled rejection would
+// suppress process.exit and leave the worker hung — the worst possible
+// SIGTERM outcome (orchestrator escalates to SIGKILL). On error, we exit(1)
+// instead of exit(0) so the orchestrator records the failure.
 async function shutdown (signal) {
   logger.info({ signal }, 'worker shutting down');
-  await closeServiceRolePool();
-  process.exit(0);
+  try {
+    await closeServiceRolePool();
+    process.exit(0);
+  } catch (err) {
+    logger.error({ err }, 'worker shutdown — pool close failed; exiting with code 1');
+    process.exit(1);
+  }
 }
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));

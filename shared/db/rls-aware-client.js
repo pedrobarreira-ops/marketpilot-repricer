@@ -24,15 +24,44 @@ import { getServiceRoleClient } from './service-role-client.js';
  * Decode the payload from a JWT (base64url middle segment) without verification.
  * Verification was already done upstream by Supabase auth.getUser() in auth.js.
  *
+ * Uses Node's native `'base64url'` encoding (16+) which handles URL-safe
+ * characters AND missing trailing padding canonically — JWTs are emitted with
+ * stripped `=` padding, and the manual `+/` swap pattern silently relies on
+ * Node's base64 decoder being lenient about padding (works today, but fragile
+ * across platforms). `'base64url'` is the documented contract.
+ *
  * @param {string} jwt - raw JWT string (header.payload.signature)
  * @returns {object} decoded JWT payload object
  */
 function decodeJwtPayload (jwt) {
   const parts = jwt.split('.');
   if (parts.length !== 3) throw new Error('getRlsAwareClient: invalid JWT format');
-  // base64url → base64 → Buffer → JSON
-  const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-  return JSON.parse(Buffer.from(b64, 'base64').toString('utf8'));
+  return JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+}
+
+/**
+ * Reset the RLS session settings on a connection to prevent claim leakage
+ * when the connection is returned to the pool.
+ *
+ * Returns the reset error (or null on success) so the caller can decide
+ * whether to release the connection cleanly or with an error flag. Silently
+ * swallowing reset failures would leave a connection with stale
+ * `request.jwt.claims` in the pool — the exact cross-request leakage the
+ * wrapper exists to prevent (statement_timeout / idle_in_transaction abort
+ * paths can break the RESET round-trip without breaking the underlying
+ * socket, so the pool would happily reuse the poisoned connection).
+ *
+ * @param {import('pg').PoolClient} client - pg PoolClient to reset
+ * @returns {Promise<Error|null>} the reset error if RESET failed; null on success
+ */
+async function resetRlsSettings (client) {
+  try {
+    await client.query(`RESET ROLE`);
+    await client.query(`SELECT set_config('request.jwt.claims', '', false)`);
+    return null;
+  } catch (err) {
+    return err;
+  }
 }
 
 /**
@@ -56,22 +85,6 @@ function decodeJwtPayload (jwt) {
  * @param {string} jwt - Supabase Auth access_token (raw JWT string)
  * @returns {Promise<import('pg').PoolClient>} pg PoolClient with RLS armed
  */
-/**
- * Reset the RLS session settings on a connection to prevent claim leakage
- * when the connection is returned to the pool.
- *
- * @param {import('pg').PoolClient} client - pg PoolClient to reset
- * @returns {Promise<void>}
- */
-async function resetRlsSettings (client) {
-  try {
-    await client.query(`RESET ROLE`);
-    await client.query(`SELECT set_config('request.jwt.claims', '', false)`);
-  } catch {
-    // Ignore reset errors — if the connection is broken, the pool will discard it.
-  }
-}
-
 export async function getRlsAwareClient (jwt) {
   const pool = getServiceRoleClient();
   const client = await pool.connect();
@@ -101,10 +114,13 @@ export async function getRlsAwareClient (jwt) {
 
   // Wrap release() to auto-reset RLS session settings before returning to pool.
   // This prevents cross-request claim leakage when connections are reused.
+  // If the RESET round-trip itself fails, force release with an error flag so
+  // the pool discards the connection rather than handing it to the next caller
+  // with stale request.jwt.claims still set.
   const originalRelease = client.release.bind(client);
   client.release = async (err) => {
-    await resetRlsSettings(client);
-    return originalRelease(err);
+    const resetErr = await resetRlsSettings(client);
+    return originalRelease(err ?? resetErr ?? undefined);
   };
 
   return client;

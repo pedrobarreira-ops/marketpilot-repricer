@@ -39,6 +39,18 @@ export class TransactionNestingError extends Error {
  * a client is checked out from the pool before BEGIN and released on
  * COMMIT/ROLLBACK.
  *
+ * Caller-managed-client contract: when a checked-out PoolClient is passed
+ * (rather than a Pool), the caller is responsible for the connection
+ * lifecycle. If tx() throws, the caller MUST treat the connection as
+ * potentially poisoned and discard it — release with an error flag
+ * (`client.release(err)`) so the pool removes the connection rather than
+ * recycling it. ROLLBACK can fail (network drop, server-side abort) and
+ * leave the connection in PG transaction-aborted state (error 25P02 on the
+ * next query); without `release(err)`, the next pool checkout would inherit
+ * that broken state. When tx() owns the checkout (Pool passed in), it
+ * handles this internally — the contract only matters for the
+ * caller-managed path.
+ *
  * @param {import('pg').PoolClient | import('pg').Pool} client - pg client or pool
  * @param {function(import('pg').PoolClient): Promise<*>} callback - work to run inside transaction
  * @returns {Promise<*>} - result of callback
