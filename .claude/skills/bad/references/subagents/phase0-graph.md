@@ -39,6 +39,7 @@ After updating PR statuses, sync `_bmad-output/implementation-artifacts/sprint-s
 **Epic-row reconciliation:**
 - For each epic that has an `epic-{N}:` row in sprint-status: if every story row under that epic is `done`, set the epic row to `done`. Otherwise leave it as `in-progress` or `backlog`.
 - Epic-level retrospective rows (`epic-{N}-retrospective`) are NOT auto-flipped — those are explicitly run via `bmad-retrospective` and updated by that skill.
+- The top-level `epic_test_design:` block (sibling of `calendar_early_overrides:`, NOT inside `development_status:`) is NOT touched by this reconciliation — those values are written exclusively by the Epic-Start Test Design subagent (see [bad/SKILL.md](../../SKILL.md) Phase 1 Epic-Start trigger) when scaffolds for that epic complete and are pushed to `main`. Phase 0 reads `epic_test_design:` to populate the report's `epic_test_design_status` map, but never writes to it. The block lives outside `development_status:` so other BMAD skills that classify keys via the `epic-*` prefix heuristic don't misclassify these as Epic rows with invalid statuses.
 
 This repair step handles three distinct repeating patterns:
 1. sprint-status.yaml reset or reverted by a git operation
@@ -83,6 +84,7 @@ _Last updated: {ISO timestamp}_
 **Ready to Work = ✅ Yes** only when **all** of the following are true:
 - The story itself is not `done`.
 - Every story it depends on has a **merged** PR (or is `done` with a merged PR).
-- Every story in all **lower-numbered epics** has a **merged** PR (or is `done` with a merged PR) — epic N may not start until epic N-1 is fully merged into main.
+- **Default epic-ordering rule:** Every story in all **lower-numbered epics** has a **merged** PR (or is `done` with a merged PR) — epic N may not start until epic N-1 is fully merged into main.
+- **Calendar-early exception:** if the story appears in the top-level `calendar_early_overrides` block in `sprint-status.yaml` with `after_epic: K`, the default epic-ordering rule above is replaced by: every story in epics 1..K has a merged PR. Epics K+1 through (this story's numerical epic - 1) are explicitly **not** required to be complete. The story's own declared dependencies (Dependencies column) still apply unchanged. When this exception fires, suffix the Ready cell as `✅ Yes (calendar-early)` so Phase 1 can detect it without re-reading sprint-status.yaml.
 
-Any condition failing → **❌ No** with a parenthetical explaining the blocker (e.g., `❌ No (1.1 not merged)`, `❌ No (epic 1 not complete)`).
+Any condition failing → **❌ No** with a parenthetical explaining the blocker (e.g., `❌ No (1.1 not merged)`, `❌ No (epic 1 not complete)`, `❌ No (epic 2 not complete — calendar-early gate)`).

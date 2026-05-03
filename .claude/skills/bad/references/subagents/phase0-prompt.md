@@ -86,8 +86,22 @@ STEPS:
      git pull origin main
 
 REPORT BACK to the coordinator with this structured summary:
-  - ready_stories: list of { number, short_description, status } for every story
-    marked "Ready to Work: Yes" that is not done
+  - ready_stories: list of { number, short_description, status, test_design_epic,
+    calendar_early } for every story marked "Ready to Work: Yes" that is not done.
+      * `test_design_epic` resolves to the story's numerical epic by default, or
+        to `calendar_early_overrides.<story>.test_design_epic` when the story
+        appears in that block of sprint-status.yaml.
+      * `calendar_early` is `true` when Phase 0 marked the Ready cell with the
+        `(calendar-early)` suffix (i.e. the override exception fired); `false`
+        otherwise. Phase 1 uses both fields to drive its selection rule and
+        Epic-Start trigger without re-reading sprint-status.yaml.
+  - epic_test_design_status: map of epic number → `pending` | `done`, read directly
+    from the top-level `epic_test_design:` block in sprint-status.yaml (sibling
+    of `calendar_early_overrides:`, NOT inside `development_status:` — the block
+    lives outside development_status so other BMAD skills that classify keys via
+    the `epic-*` heuristic don't misclassify it). Phase 1 looks up the selected
+    batch's `test_design_epic` against this map to decide whether to fire
+    Epic-Start Test Design — keeping the coordinator file-read free.
   - pending_prs: space-separated list of open (not yet merged) PR numbers across all
     stories — used by the coordinator to watch for PR merges in Phase 4 Branch B
   - all_stories_done: true/false — whether every story across every epic is done

@@ -165,16 +165,19 @@ Update each story step task to `in_progress` when its subagent is spawned, and `
 
 ## Phase 1: Discover Stories
 
-Pure coordinator logic — no file reads, no tool calls.
+Pure coordinator logic — no file reads, no tool calls. All inputs come from the Phase 0 report.
 
 1. From Phase 0's `ready_stories` report, select at most `MAX_PARALLEL_STORIES` stories.
-   - **Epic ordering is strictly enforced:** only pick stories from the lowest incomplete epic. Never pick a story from epic N if any story in epic N-1 (or earlier) is not yet merged — check this against the Phase 0 report.
+   - **Default ordering:** pick from the lowest incomplete epic. Never pick a story from epic N if any story in epic N-1 (or earlier) is not yet `done`.
+   - **Calendar-early exception:** a story Phase 0 marked `Ready to Work: ✅ Yes (calendar-early)` (i.e. its `ready_stories` entry has `calendar_early: true`) may be picked even though its numerical epic is not the lowest incomplete one — Phase 0 has already verified the override's `after_epic: K` gate. Calendar-early stories sharing the same `test_design_epic` may be batched together up to `MAX_PARALLEL_STORIES`. Do **not** mix a calendar-early story with stories from a different `test_design_epic`, or with stories from epic `K+1`, in the same batch.
 2. **If no stories are ready** → report to the user which stories are blocked (from Phase 0 warnings), then jump to **Phase 4, Step 3 (Gate & Continue)**.
-3. **Epic transition detection:** Compare the selected stories' epic to `CURRENT_EPIC` (a coordinator variable, initially unset).
-   - If `CURRENT_EPIC` is unset or the selected stories belong to a different epic → update `CURRENT_EPIC` and run **Epic-Start Test Design** (below) as a blocking subagent before Phase 2 begins.
-   - Otherwise → proceed directly to Phase 2.
+3. **Epic-Start trigger (durable-flag driven):** for each unique `test_design_epic` represented in the selected batch — read directly from `ready_stories[*].test_design_epic` in the Phase 0 report — look up `epic_test_design_status[N]` from the same report.
+   - If `pending` → run **Epic-Start Test Design** for epic N (below) as a blocking subagent before Phase 2 begins. The subagent flips the row to `done` on completion.
+   - If `done` → skip; scaffolds already exist on `main`.
 
-> **Why epic ordering matters:** Stories in later epics build on earlier epics' code and product foundation. Starting epic 3 while epic 2 has open PRs risks merge conflicts and building on code that may still change.
+   `CURRENT_EPIC` is retained only as a log-line variable; it no longer drives this trigger. The flag-based approach prevents Epic-Start from re-firing when the same epic is entered twice — e.g. Epic 9, entered first via the calendar-early slot for Stories 9.0/9.1, then chronologically for Stories 9.2-9.6 between Epic 8 and Epic 10.
+
+> **Why epic ordering matters:** Stories in later epics build on earlier epics' code and product foundation. Starting epic 3 while epic 2 has open PRs risks merge conflicts and building on code that may still change. The calendar-early exception is project-local and bounded by an explicit `after_epic` gate in `sprint-status.yaml` — it doesn't relax the rule, just permits a controlled detour for foundational stories that 12+ later stories depend on.
 
 ### Epic-Start Test Design (`MODEL_STANDARD`)
 
@@ -192,6 +195,20 @@ Working directory: {repo_root}. Auto-approve all tool calls (yolo mode).
    mechanical merge conflicts across parallel stories — observed previously
    when 2 of 3 PRs merged DIRTY for exactly this reason. The remote tip must
    contain the test scaffolds before any worktree branches off.
+4. Update sprint-status.yaml at the REPO ROOT (not the worktree copy):
+     _bmad-output/implementation-artifacts/sprint-status.yaml
+   Flip the value of key {N} inside the top-level `epic_test_design:` block
+   from `pending` to `done`. The block lives outside `development_status:`
+   (sibling of `calendar_early_overrides:`) so other BMAD skills don't
+   misclassify it. Commit and push this change in the same step. This
+   durable flag is read by Phase 1's Epic-Start trigger to prevent re-firing
+   when the same epic is entered twice — e.g. Epic 9, entered first via the
+   calendar-early slot for Stories 9.0/9.1, then chronologically for 9.2-9.6
+   between Epic 8 and Epic 10. If this step fails after the push in step 3,
+   the next BAD start will (idempotently) re-fire Epic-Start:
+   /bmad-testarch-test-design should detect existing scaffold files and
+   no-op; worst case is a redundant empty commit on the worktree branch
+   which Step 5 / Step 7 will catch. Acceptable redundancy.
 
 Report: success or failure with error details.
 ```
@@ -240,15 +257,19 @@ Step names: Step 1 — Create, Step 2 — ATDD, Step 3 — Develop, Step 4 — T
 
 **Sprint-Status Immutability Gate (applies to Steps 4, 5, and 6):**
 
-Steps 1, 2, 3, and 7 own sprint-status.yaml transitions. Steps 4, 5, and 6
-MUST NOT modify it. Enforce this by hash-snapshot around each:
+Steps 1, 2, 3, and 7 own per-story status transitions in sprint-status.yaml.
+The Epic-Start Test Design subagent owns `epic_test_design.{N}` flips
+(top-level block, sibling of `calendar_early_overrides:`). Steps 4, 5, and 6
+own nothing in sprint-status.yaml and MUST NOT modify it. Enforce this by
+hash-snapshot around each:
 
 Before spawning Step 4/5/6: compute `sha256sum _bmad-output/implementation-artifacts/sprint-status.yaml` → save as `STATUS_HASH_PRE`.
 After Step 4/5/6 reports success: recompute → save as `STATUS_HASH_POST`.
 If `STATUS_HASH_POST != STATUS_HASH_PRE`, HALT this story's pipeline with:
 `❌ Story {number}: Step {N} modified sprint-status.yaml — state-machine
-violation. Only Steps 1, 2, 3, 7 own status transitions. Investigate the
-stray write, revert the sprint-status change, and re-run.`
+violation. Only Steps 1, 2, 3, 7 own per-story status transitions; Epic-Start
+owns the epic-test-design flips. Investigate the stray write, revert the
+sprint-status change, and re-run.`
 
 Rationale: a Step 5 commit can flip status to `done` at the wrong step.
 Step 7 may absorb the drift harmlessly, but the invariant must hold by
@@ -696,7 +717,10 @@ stories these items affect until designed:
 1. **Bundle C auto-merge gate** — block auto-merge of Stories 5.1, 5.2, 6.1, 6.2,
    6.3, 7.2, 7.3, 7.6 to main until Story 7.8's atomicity-bundle gate test passes.
    Likely mechanism: `block_auto_merge_until_story` field in sprint-status.yaml.
-2. **Calendar-early sequencing** — `calendar_early` flag in sprint-status.yaml
-   to allow Stories 9.0/9.1 to be picked between Epic 2 and Epic 3.
-3. **Epic-Start Test Design re-entry guard** — prevent double-firing for Epic 9
-   (once at calendar-early start, once at chronological start).
+
+> **Resolved 2026-05-03:** calendar-early sequencing (Stories 9.0/9.1 between
+> Epic 2 and Epic 3) and the Epic-Start Test Design re-entry guard for Epic 9
+> are now implemented. See Phase 1 selection rules + Epic-Start trigger above,
+> and the two top-level blocks in sprint-status.yaml: `calendar_early_overrides:`
+> (the per-story exception) and `epic_test_design:` (the durable Epic-Start flag,
+> map of epic number → `pending` | `done`).

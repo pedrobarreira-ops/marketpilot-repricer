@@ -222,3 +222,58 @@ development_status:
   12-2-shared-resend-client-js-extension-pt-localized-template-helpers-8-critical-alert-templates: backlog
   12-3-pc01-monthly-re-pull-cron-platform-features-changed-event-type-addition: backlog
   epic-12-retrospective: optional
+
+# =============================================================================
+# EPIC TEST-DESIGN STATUS — BAD Phase 1 Epic-Start trigger (durable flag)
+# =============================================================================
+# Each entry is the durable signal for whether Epic-Start Test Design has
+# completed for that epic. Owned exclusively by the Epic-Start subagent
+# (see bad/SKILL.md Phase 1 Epic-Start Test Design section):
+#   - pending → Epic-Start Test Design has NOT been run for this epic yet.
+#               Phase 1 fires it as a blocking subagent when stories from
+#               this epic (or stories whose calendar_early_overrides entry
+#               points at it via test_design_epic) are first selected.
+#   - done    → Scaffolds already exist on `main`; Phase 1 skips Epic-Start.
+# Epic 1 is `done` retroactively because Stories 1.1–1.5 shipped pre-BAD.
+# Epic 9 is consumed once: the calendar-early run for 9.0/9.1 flips it to
+# `done`; the chronological re-entry for 9.2-9.6 sees `done` and skips.
+# Lives outside `development_status:` so other BMAD skills that classify
+# sprint-status keys via the `epic-*` prefix heuristic don't misclassify
+# these as Epic rows with invalid statuses.
+# =============================================================================
+epic_test_design:
+  1: done
+  2: pending
+  3: pending
+  4: pending
+  5: pending
+  6: pending
+  7: pending
+  8: pending
+  9: pending
+  10: pending
+  11: pending
+  12: pending
+
+# =============================================================================
+# CALENDAR-EARLY OVERRIDES — Phase 0/Phase 1 reader (BAD customization)
+# =============================================================================
+# Stories listed here are exempt from the default "lowest-incomplete-epic"
+# epic-ordering filter. Each entry declares:
+#   - after_epic: K  → all stories in epics 1..K must be `done` before this
+#                      story is Ready. Epics K+1..(numerical_epic-1) are NOT
+#                      required to be complete.
+#   - test_design_epic: N → which epic's `epic_test_design.N` flag (in the
+#                           sibling block above) governs Epic-Start. Calendar-
+#                           early siblings sharing the same test_design_epic
+#                           may be batched together.
+# Phase 0's "Ready to Work" rule reads `after_epic`; Phase 1's Epic-Start
+# trigger reads `test_design_epic`. No other skill or step touches this block.
+# =============================================================================
+calendar_early_overrides:
+  9-0-writeauditevent-ssot-module-audit-log-event-types-lookup-table-26-row-ad20-taxonomy-seed:
+    after_epic: 2
+    test_design_epic: 9
+  9-1-audit-log-partitioned-base-table-priority-derivation-trigger-initial-partition-monthly-partition-cron:
+    after_epic: 2
+    test_design_epic: 9
