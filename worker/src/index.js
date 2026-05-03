@@ -2,6 +2,7 @@ import { getEnv } from '../../shared/config/runtime-env.js';
 import { loadMasterKey } from '../../shared/crypto/master-key-loader.js';
 import { createWorkerLogger } from '../../shared/logger.js';
 import { startHeartbeat } from './jobs/heartbeat.js';
+import { closeServiceRolePool } from '../../shared/db/service-role-client.js';
 
 getEnv();
 
@@ -23,5 +24,26 @@ try {
   logger.error({ code: err.code, message: err.message }, 'Master key load failed — exiting');
   process.exit(1);
 }
+
+// Story 2.1: SIGTERM / SIGINT graceful shutdown — closes the service-role pool
+// and exits cleanly. Deferred from Story 1.1 (pg Pools never .end()ed).
+//
+// Failure handling: closeServiceRolePool can reject (pg fails to drain,
+// network error mid-end). Without try/catch the unhandled rejection would
+// suppress process.exit and leave the worker hung — the worst possible
+// SIGTERM outcome (orchestrator escalates to SIGKILL). On error, we exit(1)
+// instead of exit(0) so the orchestrator records the failure.
+async function shutdown (signal) {
+  logger.info({ signal }, 'worker shutting down');
+  try {
+    await closeServiceRolePool();
+    process.exit(0);
+  } catch (err) {
+    logger.error({ err }, 'worker shutdown — pool close failed; exiting with code 1');
+    process.exit(1);
+  }
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 startHeartbeat(logger);

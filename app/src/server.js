@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
 import { getEnv } from '../../shared/config/runtime-env.js';
 import { getFastifyLoggerOptions, FASTIFY_REQUEST_ID_LOG_LABEL } from '../../shared/logger.js';
+import { closeServiceRolePool } from '../../shared/db/service-role-client.js';
 import { healthRoutes } from './routes/health.js';
 import { publicRoutes } from './routes/_public/index.js';
 
@@ -45,6 +46,13 @@ try {
   await fastify.register(FastifyStatic, {
     root: join(__dirname, '../../public'),
     prefix: '/public/',
+  });
+
+  // Story 2.1: graceful shutdown — close service-role pool before Fastify
+  // exits. Deferred from Story 1.1 (pg Pools never .end()ed, Story 1.5
+  // endFounderAdminPool production shutdown hook).
+  fastify.addHook('onClose', async () => {
+    await closeServiceRolePool();
   });
 
   await fastify.register(healthRoutes);
