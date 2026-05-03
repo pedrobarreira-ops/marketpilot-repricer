@@ -1,26 +1,20 @@
-# MCP Forbidden Patterns — DynamicPriceIdea
+# MCP Forbidden Patterns — marketpilot-repricer
 
-Patterns that would cause silent production failures against the live Worten Mirakl instance. Verified via `scripts/mcp-probe.js` on 2026-04-18. If any of these appear in `src/workers/mirakl/*.js` or `src/workers/reportWorker.js`, it's a bug.
+Patterns that would cause silent production failures against the live Worten Mirakl
+instance, OR violate one of marketpilot-repricer's 27 architectural constraints, OR
+break the migration-immutability invariant. Mirakl-side patterns verified via the
+Mirakl MCP server (per CLAUDE.md — single source of truth). If any of these appear
+in `shared/mirakl/`, `worker/src/engine/`, `worker/src/safety/`, `app/src/routes/`,
+`shared/audit/`, `shared/state/`, `shared/money/`, or `supabase/migrations/`, it's
+a bug — flag as BLOCKING in Subagent A's audit.
 
----
-
-## Pattern 1 — `state === 'ACTIVE'` (or `state: 'ACTIVE'`)
-
-**Symptom:** Worker filters catalog offers by `offer.state === 'ACTIVE'` to identify "active" offers.
-
-**Why it's broken:** The `offer.state` field does not exist on OF21 responses (verified MISSING on live Worten). The field `offer.state_code` exists but represents offer *condition* (e.g. `"11"` for new), not active/inactive.
-
-**Correct pattern:** `offer.active === true` (boolean field, required).
-
-**Grep:**
-```bash
-grep -nE "state\s*===?\s*['\"]ACTIVE['\"]|state:\s*['\"]ACTIVE['\"]" src/workers/mirakl/
-```
-
-Live Worten probe result (OF21 GET /api/offers, first offer):
-- `active`: boolean ✓
-- `state`: MISSING
-- `state_code`: "11" (a condition code, not active flag)
+> **Pattern 1 (`state === 'ACTIVE'`) was REMOVED** — in marketpilot-repricer, the
+> string literal `'ACTIVE'` is the canonical UPPER_SNAKE_CASE value of `cron_state`
+> per F13 lock. The legacy DynamicPriceIdea pattern (filtering offers by `state ===
+> 'ACTIVE'` against an OF21 response that lacks the field) does not apply — our
+> Mirakl reads use `offer.active` (boolean) and our cron-state writes use the
+> UPPER_SNAKE_CASE string. Searching for `state === 'ACTIVE'` here would create
+> false positives on legitimate cron-state code.
 
 ---
 
@@ -34,7 +28,7 @@ Live Worten probe result (OF21 GET /api/offers, first offer):
 
 **Grep:**
 ```bash
-grep -nE "product_ids\s*:\s*.*eans" src/workers/mirakl/
+grep -nE "product_ids\s*:\s*.*eans" shared/mirakl/ worker/src/engine/
 ```
 
 Live probe results:
@@ -54,7 +48,7 @@ Live probe results:
 
 **Grep:**
 ```bash
-grep -nE "\b(o|offer)\.channel_code\s*===?" src/workers/mirakl/
+grep -nE "\b(o|offer)\.channel_code\s*===?" shared/mirakl/ worker/src/engine/
 ```
 
 Live probe result (P11 competitor offer keys):
@@ -74,7 +68,7 @@ Live probe result (P11 competitor offer keys):
 
 **Grep (flag if `offer.price` is used in comparison contexts):**
 ```bash
-grep -nE "\.price(\s|\)|\.)" src/workers/mirakl/scanCompetitors.js | grep -v total_price
+grep -nE "\.price(\s|\)|\.)" worker/src/engine/scan-competitors.js | grep -v total_price
 ```
 
 This is context-dependent — the existence of `offer.price` is fine (it's a valid field); the concern is using it *instead of* `offer.total_price` in competitor scoring.
@@ -83,7 +77,7 @@ This is context-dependent — the existence of `offer.price` is fine (it's a val
 
 ## Pattern 6 — Wrong Mirakl auth header name
 
-**Symptom:** API client sets the wrong auth header — most commonly `X-Mirakl-Front-Api-Key` when the instance expects `Authorization`.
+**Symptom:** API client sets the wrong auth header — most commonly `X-Mirakl-Front-Api-Key` when the instance expects `Authorization`, OR adds a `Bearer ` prefix to the key.
 
 **Why it's broken:** Mirakl operators configure auth differently per deployment. Worten's instance uses `Authorization: <key>` (raw key, no `Bearer` prefix). Verified via MCP security schema (`securitySchemes.shop_api_key.name === "Authorization"`). Some other Mirakl operators use `X-Mirakl-Front-Api-Key` — but NOT Worten. Using the wrong header name → every request 401s in production while tests pass (because tests mock the fetch call and don't verify the actual header value against reality).
 
@@ -91,10 +85,14 @@ This is context-dependent — the existence of `offer.price` is fine (it's a val
 
 **Grep:**
 ```bash
-grep -nE "'X-Mirakl-Front-Api-Key'|\"X-Mirakl-Front-Api-Key\"" src/workers/mirakl/
+grep -nE "'X-Mirakl-Front-Api-Key'|\"X-Mirakl-Front-Api-Key\"|Bearer\s+\$\{?(api_?key|apiKey|shop_api_key)" shared/mirakl/
 ```
 
-Live probe evidence: `scripts/mcp-probe.js` and `scripts/scale_test.js` both use `Authorization: <key>` and succeed. When `apiClient.js` used `X-Mirakl-Front-Api-Key` instead (fixed 2026-04-19), the end-to-end integration test hit 401 in 5 seconds at Phase A. This is the textbook "ATDD keyword-grep passes + live integration fails" pattern — the ATDD test happened to assert the wrong header literal, so it locked the bug in place.
+Live probe evidence (DynamicPriceIdea historical, applicable to Worten target):
+`Authorization: <key>` succeeds; `X-Mirakl-Front-Api-Key` 401s in 5 seconds; a
+`Bearer ` prefix also 401s. ATDD keyword-grep tests pass on the wrong literal,
+so the bug locks in until live integration. Empirical fact #10 in
+architecture-distillate confirms raw `Authorization: <key>` for Worten, no prefix.
 
 **Generalization:** when writing API-client code for any third-party service where the auth scheme is deployment-specific, **require a live probe before committing** — ATDD tests that assert a specific header value only verify you didn't have a typo, not that you picked the right scheme.
 
@@ -113,10 +111,203 @@ if (activeOffers.length !== total_count) throw new CatalogTruncationError(...)
 
 **Grep:**
 ```bash
-grep -nE "activeOffers\.length\s*!==?\s*total_count|activeOffers\.length\s*!==?\s*totalCount" src/workers/mirakl/
+grep -nE "activeOffers\.length\s*!==?\s*total_count|activeOffers\.length\s*!==?\s*totalCount" shared/mirakl/ worker/src/engine/
 ```
 
 Live probe confirms: OF21 has no server-side active filter param; active filtering is client-side only.
+
+---
+
+## Pattern 7 — `OF24` used for price updates
+
+**Symptom:** Code calls OF24 (`POST /api/offers`) to update an existing offer's price.
+
+**Why it's broken:** OF24 resets every offer field not present in the payload back
+to its default. A price-only OF24 wipes shipping, leadtime, condition, etc.
+Constraint #6 in architecture-distillate locks this as a permanent footgun.
+
+**Correct pattern:** PRI01 (`POST /api/offers/pricing/imports`) for ALL price-only
+updates. Multipart CSV: `"offer-sku";"price";"discount-price";"discount-start-date";"discount-end-date"`.
+
+**Grep:**
+```bash
+grep -rnE "/api/offers['\"\\s,)]|\bOF24\b|offers/import" shared/mirakl/ worker/src/engine/ \
+  | grep -v "/api/offers/pricing/imports" \
+  | grep -v "/api/offers/exports"
+```
+
+---
+
+## Pattern 8 — `product_sku` used as seller SKU in PRI01 CSV
+
+**Symptom:** PRI01 CSV builder writes the `product_sku` (Worten's UUID-like product
+identifier) into the `offer-sku` column.
+
+**Why it's broken:** PRI01's `offer-sku` column expects the SELLER's offer SKU
+(`shop_sku` in the OF21 response — typically the seller's internal SKU). Using
+`product_sku` either silently no-ops (no offer matches) or, worse, accidentally
+matches the wrong shop's offer if SKUs collide. Empirical fact #12.
+
+**Correct pattern:** map from `offer.shop_sku` (OF21) to the `offer-sku` column.
+
+**Grep:**
+```bash
+grep -rnE "product_sku.*offer.sku|offer.sku.*product_sku" shared/mirakl/ worker/src/
+# Also flag any PRI01 CSV builder using a field other than shop_sku
+grep -rnE "offer-?sku.*=.*(?!shop_sku)" shared/mirakl/pri01* worker/src/engine/
+```
+
+---
+
+## Pattern 9 — Float-price math outside `shared/money/index.js`
+
+**Symptom:** Any arithmetic on price values (`price * 0.95`, `price + shipping`,
+`Number(price).toFixed(2)`) outside the canonical money module.
+
+**Why it's broken:** Float arithmetic on EUR amounts produces 0.1+0.2 = 0.30000000000000004
+drift. Constraint #22 + AD8 STEP 3 lock all money math to `shared/money/index.js`,
+which uses integer cents internally and exposes Decimal-safe operations.
+
+**Correct pattern:** import from `shared/money/index.js` (`add`, `subtract`,
+`multiplyByMargin`, `format`). Never multiply or add raw price floats.
+
+**Grep:**
+```bash
+grep -rnE "\bprice\s*[\*\+\-]\s*[0-9.]|toFixed\s*\(\s*2\s*\)|parseFloat\s*\(.*price" \
+  app/ worker/ shared/ \
+  --exclude-dir=shared/money --exclude-dir=tests --exclude-dir=node_modules
+```
+
+---
+
+## Pattern 10 — Raw `INSERT INTO audit_log` outside `shared/audit/writer.js`
+
+**Symptom:** Any code outside the audit-writer SSoT inserts directly into `audit_log`.
+
+**Why it's broken:** Constraint #21 — the audit writer enforces hierarchical
+summarization, the 3-tier priority taxonomy (atenção/notável/rotina), and GDPR
+Art 17 retention semantics. Bypassing it produces flat-chronological rows that
+the dashboard cannot render and the deletion job cannot scope.
+
+**Correct pattern:** `import { writeAudit } from 'shared/audit/writer.js'` and call
+the typed entrypoint.
+
+**Grep:**
+```bash
+grep -rnE "INSERT\s+INTO\s+audit_log|FROM\s+audit_log\s+INSERT" \
+  app/ worker/ shared/ \
+  --exclude-dir=shared/audit --exclude-dir=tests --exclude-dir=node_modules
+```
+
+---
+
+## Pattern 11 — Direct `fetch(` for Mirakl outside `shared/mirakl/api-client.js`
+
+**Symptom:** Any module imports `node-fetch` / uses global `fetch` to call a Mirakl
+endpoint directly, bypassing the API-client SSoT.
+
+**Why it's broken:** Constraint #19 — the Mirakl client owns auth header injection
+(no Bearer prefix), retry/backoff, rate-limit handling (PRI01 max 1/min), and
+request/response logging redaction. Direct `fetch(` ships requests without these
+invariants — first symptom is silent 401s or rate-limit lockouts in production.
+
+**Correct pattern:** `import { miraklRequest } from 'shared/mirakl/api-client.js'`.
+
+**Grep:**
+```bash
+grep -rnE "fetch\s*\(\s*['\"\`].*\.mirakl|fetch\s*\(\s*['\"\`].*marketplace\.worten" \
+  app/ worker/ shared/ \
+  --exclude-dir=shared/mirakl --exclude-dir=tests --exclude-dir=node_modules
+```
+
+---
+
+## Pattern 12 — Raw `UPDATE customer_marketplaces SET cron_state` outside `shared/state/cron-state.js`
+
+**Symptom:** Any code mutates `customer_marketplaces.cron_state` via raw SQL
+instead of going through the state-machine module.
+
+**Why it's broken:** Constraint #23 — the cron-state module enforces valid
+transitions (e.g. `RUNNING` → `IDLE` only after a successful tick; `ERROR` is
+terminal until manual reset). Bypassing it produces illegal states that the
+engine treats as "stuck running forever" or worse.
+
+**Correct pattern:** `import { transitionCronState } from 'shared/state/cron-state.js'`
+with the explicit from→to argument.
+
+**Grep:**
+```bash
+grep -rnE "UPDATE\s+customer_marketplaces\s+SET\s+.*cron_state" \
+  app/ worker/ shared/ supabase/ \
+  --exclude-dir=shared/state --exclude-dir=tests --exclude-dir=node_modules
+```
+
+---
+
+## Pattern 13 — Worker queries missing `customer_marketplace_id` filter
+
+**Symptom:** A query in `worker/src/` reads or writes a customer-scoped table
+(offers, audit_log, prices) without a `WHERE customer_marketplace_id = $1` filter
+AND without a `// safe: cross-customer cron` comment justifying the omission.
+
+**Why it's broken:** Constraint #24 — RLS does not protect worker code (it runs as
+service_role). Missing the customer scope mixes data across tenants. The comment
+exception covers legitimate cron sweeps that intentionally span all customers.
+
+**Correct pattern:** every customer-scoped query gets `customer_marketplace_id = $1`,
+OR an explicit `// safe: cross-customer cron` comment on the line directly above.
+
+**Grep (manual review required — heuristic):**
+```bash
+grep -rnE "FROM\s+(offers|audit_log|prices|customer_marketplaces)" worker/src/ \
+  | grep -v "customer_marketplace_id"
+# Then verify each hit has a "safe: cross-customer cron" comment within 2 lines above.
+```
+
+---
+
+## Pattern 14 — `apply_migration` via Supabase MCP
+
+**Symptom:** Any code path or subagent transcript shows a call to the Supabase MCP
+`apply_migration` tool against the project.
+
+**Why it's broken:** Project rule (CLAUDE.md MCP rule) — migrations apply via
+`npx supabase db push` only, so the local migration files and the remote
+`schema_migrations` tracking table stay in lockstep. `apply_migration` via MCP
+writes to the remote without leaving a local file, producing exactly the kind of
+silent divergence that the immutability rule is designed to prevent.
+
+**Correct pattern:** create a file in `supabase/migrations/<timestamp>_<slug>.sql`,
+commit it, then run `npx supabase db push`.
+
+**Grep (across recent transcripts and any tooling scripts):**
+```bash
+grep -rnE "supabase__apply_migration|apply_migration\(" scripts/ .claude/ _bmad-output/
+```
+
+---
+
+## Pattern 15 — Modified migration in `supabase/migrations/`
+
+**Symptom:** A PR's diff modifies (not adds) any `.sql` file in `supabase/migrations/`
+that already exists in main's git history.
+
+**Why it's broken:** Migrations are append-only after first commit. `npx supabase
+db push` skips files already tracked in `supabase_migrations.schema_migrations`,
+so local-file edits never reach the remote DB. Multi-environment setups diverge
+silently — local dev regenerates with the edit, staging/prod still have the
+original — and the bug surfaces as "doesn't reproduce locally" days later.
+
+**Correct pattern:** create a NEW migration file with the schema delta. NEVER
+touch an existing migration after first commit, including for typo fixes,
+index additions, default-value changes, or comment edits.
+
+**Grep (deterministic, run in Phase 1 step 9 of bad-review):**
+```bash
+git log --diff-filter=M --name-only HEAD -- 'supabase/migrations/*.sql' | sort -u
+```
+
+If any output: BLOCKING. Severity: HIGH (multi-day production-incident class).
 
 ---
 
@@ -130,4 +321,9 @@ Live probe confirms: OF21 has no server-side active filter param; active filteri
 | PRI02 | `GET /api/offers/pricing/imports` | `data[].status` enum: `WAITING\|RUNNING\|COMPLETE\|FAILED`; `has_error_report` boolean; max once/minute |
 | PRI03 | `GET /api/offers/pricing/imports/{import_id}/error_report` | Returns CSV of errored rows; call only when `has_error_report: true` |
 
-For any NEW endpoint not in this table, or any NEW field/param on a known endpoint: run `scripts/mcp-probe.js` (or extend it) before finalizing the story spec. Distillate pins catch syntax errors; only live probes catch semantic errors like Pattern 2 above.
+For any NEW endpoint not in this table, or any NEW field/param on a known endpoint:
+verify against the Mirakl MCP server first (per CLAUDE.md). Only live MCP queries
+catch semantic errors like Pattern 2 above. Distillate pins catch syntax errors only.
+The 16-row "Cross-Cutting Empirically-Verified Mirakl Facts" table in
+`_bmad-output/planning-artifacts/architecture-distillate/_index.md` is the curated,
+stable reference; the MCP server is the source of truth.

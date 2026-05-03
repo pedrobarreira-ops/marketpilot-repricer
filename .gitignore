@@ -18,8 +18,15 @@ __pycache__/
 .claude/bad-statusline.sh
 skills-lock.json
 
-# BAD skill runtime copy — canonical source lives in .agents/skills/bad/
-.claude/skills/bad/
+# (Removed 2026-05-03) `.claude/skills/bad/` was previously gitignored as a
+# "runtime copy" of an `.agents/skills/bad/` canonical source. That canonical
+# location does not exist in this repo. The `.claude/skills/bad/` directory
+# IS the source — and it's been customized for marketpilot-repricer (paths,
+# Worker-Path Opus Gate, mcp-forbidden-patterns, etc. — see
+# `_bmad-output/implementation-artifacts/bad-customization-notes.md`). The
+# customizations are intentional and durable; track them. If you ever want
+# to update from upstream BAD, do a manual three-way merge with the
+# customization notes as the changelist.
 
 # BMAD per-user config — canonical module files stay in _bmad/
 _bmad/config.user.yaml

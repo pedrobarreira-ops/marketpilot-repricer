@@ -74,8 +74,15 @@ This guard is cheap (~2 minutes of local test time) and closes the hole where a 
 ### Live Smoke Evidence guard (Phase 1 step 7 — Mirakl-touching PRs only)
 
 **Trigger:** `gh pr diff <N> --name-only` (from Phase 1 step 2) includes any
-path matching `src/workers/mirakl/`. (This is the only Mirakl code path in
-the repo; `src/lib/mirakl` does not exist and is not included in the trigger.)
+path matching one of:
+  - `shared/mirakl/`                          (API client + helpers SSoT)
+  - `worker/src/engine/`                      (repricing engine — calls P11/PRI01)
+  - `worker/src/safety/`                      (safety gates around price writes)
+  - `app/src/routes/_public/onboarding-key.js` (initial key validation against Mirakl)
+  - `app/src/routes/_public/onboarding-*.js`   (other onboarding routes that probe Mirakl)
+  - `tests/fixtures/mirakl/`                  (P11/PRI01 fixtures — semantic drift risk)
+(There is no `src/workers/mirakl/` in this repo — that's the legacy
+DynamicPriceIdea path.)
 
 **Required in PR body — exactly one of:**
   (a) A `## Live Smoke Evidence` section summarising a real-credential run
@@ -106,7 +113,7 @@ was not load-bearing; this is the harness version. See also memory
 Extract candidate file-path tokens from the PR body using this regex:
 
 ```
-\b(?:[a-zA-Z0-9_\-./]+\.(?:js|md|yaml|yml|json|css|html|sql|ts|tsx|sh|py)|(?:src|tests|public|scripts|_bmad-output|\.claude|\.agents)/[a-zA-Z0-9_\-./]+)\b
+\b(?:[a-zA-Z0-9_\-./]+\.(?:js|md|yaml|yml|json|css|html|sql|ts|tsx|sh|py)|(?:app|worker|shared|supabase/migrations|db|tests|tests/integration|tests/fixtures|scripts|_bmad-output|\.claude|\.agents|\.githooks|eslint-rules)/[a-zA-Z0-9_\-./]+)\b
 ```
 
 For each extracted token:
@@ -124,6 +131,41 @@ that memory rule `feedback_bad_pipeline_trust.md` alone was not deterministicall
 catching. This offloads 80%+ of the hallucination class into a Phase 1
 pre-check.
 
+### Migration immutability guard (Phase 1 step 9 — deterministic, hard halt)
+
+**Trigger:** runs on every PR, not just Mirakl-touching ones.
+
+Check whether the PR modifies any migration file that already exists in main:
+
+```bash
+git log --diff-filter=M --name-only HEAD -- 'supabase/migrations/*.sql' | sort -u
+```
+
+(Equivalent for the legacy path if encountered: `db/migrations/*.sql`. Architecture
+treats `supabase/migrations/` as the canonical location going forward.)
+
+**What to do:**
+1. If the command returns ANY filenames: HALT. Do not enter Phase 2. Report:
+   `❌ Migration immutability violation. PR modifies {file}. Migrations are
+   append-only after first commit — never edit after the migration is part
+   of git history. Create a NEW migration file with the schema delta and
+   re-open the PR.`
+2. If empty: proceed to Phase 2.
+
+Rationale: Story 1.1's CR pass edited an already-applied migration to add an
+index instead of creating a new migration. Practical consequence: `npx supabase
+db push` skips already-tracked migrations, so the local file diverges silently
+from the remote DB. In a multi-environment setup (local dev / staging / prod),
+this surfaces as bug reports that don't reproduce locally and forces manual
+schema reconciliation under pressure. The remote `schema_migrations` table is
+invisible from subagent reasoning — this requires a mechanical gate. Higher
+priority than path-pattern updates because the failure mode is a multi-day
+production incident, not just a performance miss.
+
+The same rule is mirrored in `references/mcp-forbidden-patterns.md` (Pattern: Modified
+migration in `supabase/migrations/`) so Subagent A flags it as BLOCKING during
+code-vs-spec audit.
+
 **Purpose of `PRIOR_DEFERRED_ITEMS`:** used in Phase 3 to (a) deduplicate observations — if an audit subagent surfaces a finding that's already recorded in deferred-work, label it as "previously deferred" rather than a new finding; (b) flag patterns — if the same kind of observation appears across two or more PRs in the same story-family, that's signal for a retro discussion. Without this step, fresh `/bad-review` sessions would re-log the same observation on every PR.
 
 ---
@@ -135,7 +177,7 @@ Launch all four in a **single message** (parallel execution). Each is self-conta
 ### Subagent A: Code vs spec
 
 ```
-You are auditing story implementation vs spec for DynamicPriceIdea
+You are auditing story implementation vs spec for marketpilot-repricer
 (a Mirakl marketplace repricing MVP in Node.js).
 
 Story spec:
@@ -176,14 +218,16 @@ Return only the report, no preamble.
 ### Subagent B: MCP alignment
 
 ```
-You are checking Mirakl MCP alignment for DynamicPriceIdea.
+You are checking Mirakl MCP alignment for marketpilot-repricer.
 
 Files to grep:
   {CODE_FILES}
 
-The authoritative endpoint reference is in
-  _bmad-output/planning-artifacts/epics-distillate.md
-under the section "MCP-Verified Endpoint Reference".
+The authoritative endpoint reference is the Mirakl MCP server itself
+(see CLAUDE.md — never assume from training data). Cross-reference
+against the empirical-facts table in
+  _bmad-output/planning-artifacts/architecture-distillate/_index.md
+under the section "Cross-Cutting Empirically-Verified Mirakl Facts".
 
 Load the file at:
   .claude/skills/bad-review/references/mcp-forbidden-patterns.md
@@ -196,18 +240,23 @@ Report:
 ## Forbidden patterns
 | Pattern | Found? | File:line (if found) |
 |---------|--------|----------------------|
-| state === 'ACTIVE' | ✓ or ✗ | |
-| product_ids: <with EANs> | | |
-| o.channel_code / offer.channel_code | | |
-| offer.price without offer.total_price alongside | | |
-| Compare activeOffers.length to total_count | | |
+| product_ids: <with EANs>                          | ✓ or ✗ | |
+| o.channel_code / offer.channel_code               | | |
+| offer.price without offer.total_price alongside   | | |
+| Compare activeOffers.length to total_count        | | |
+| Bearer prefix on Mirakl Authorization header      | | |
+| product_sku used as seller SKU in PRI01 CSV       | | |
+| OF24 used for price-only update                   | | |
+| Float-price math outside shared/money/index.js    | | |
+| Direct fetch( for Mirakl outside shared/mirakl/   | | |
+| Modified migration in supabase/migrations/        | | |
 
 ## Correct-pattern confirmation
-- Files using {offer.active, product_references=EAN|, pricing_channel_code, offer.total_price, allOffers.length===total_count}: list or "none applicable"
+- Files using {offer.active, product_references=EAN|, pricing_channel_code, offer.total_price, allOffers.length===total_count, shop_sku in PRI01, raw Authorization header without Bearer}: list or "none applicable"
 
 ## New endpoints / unusual patterns worth live-probing
 - Any endpoint name, param, or field accessed that is NOT documented in
-  epics-distillate.md's MCP-Verified section. List or "none".
+  architecture-distillate's empirical-facts table. List or "none".
 
 ## Verdict
 Aligned / Drift found / Needs live probe
@@ -218,7 +267,7 @@ Return only the report, stay under 300 words.
 ### Subagent C: Test quality
 
 ```
-You are assessing test quality for a DynamicPriceIdea story PR.
+You are assessing test quality for a marketpilot-repricer story PR.
 
 Target test files (any combination of ATDD, .additional, .unit):
   {TEST_FILES}
@@ -514,9 +563,15 @@ Run these in main context:
    - Do not batch if Phase 4.5 was skipped ([N]) or didn't fire (no deferred findings) — reconciliation stands on its own.
 3. **MCP alignment smoke test** — confirm no regression:
    ```bash
-   grep -rE "state === 'ACTIVE'|product_ids: batchEans|o\.channel_code ===" src/workers/mirakl
+   grep -rE "product_ids:\s*.*eans|\b(o|offer)\.channel_code\s*===|'X-Mirakl-Front-Api-Key'|\bBearer \$\{?(api_?key|apiKey)" \
+     shared/mirakl worker/src/engine app/src/routes 2>/dev/null
    ```
    Expected: no matches (comments ok; only flag live param/field access).
+   Also confirm migration immutability:
+   ```bash
+   git log --diff-filter=M --name-only origin/main -- 'supabase/migrations/*.sql' | sort -u
+   ```
+   Expected: empty (no modified migrations in main's history).
 4. **Run `npm test`** — report pass/fail counts. If a new test file landed in this PR that's not in `npm test`'s allowlist, note it and offer to add it (until the `skipUnlessImplExists()` helper is in place).
 5. **CI state on main** — `gh run list --branch main --limit 1 --json conclusion,displayTitle`. Should be `success` or in_progress. If failure, show the user the link.
 6. **Final report** — a compact status:
@@ -551,9 +606,19 @@ Main is clean. Ready for next batch.
 
 ## Repo-specific context (edit when things change)
 
-- Stack: Node.js >=22 ESM, Fastify, BullMQ, SQLite/Drizzle, Resend
+- Stack: Node.js >=22 ESM, Fastify v5, Postgres on Supabase Cloud EU, Pino, Resend
+  (NO BullMQ — single in-process cron worker; NO SQLite/Drizzle — pg + raw SQL via `shared/db/`)
+- Two services: `app/` (Fastify HTTP) + `worker/` (cron loop). Shared modules in `shared/`.
+- Migrations: `supabase/migrations/` (NOT `db/migrations/` — Supabase CLI requirement).
+  Append-only after commit — see Migration immutability guard (Phase 1 step 9).
+- Mirakl: `marketplace.worten.pt`. Verify via Mirakl MCP server (per CLAUDE.md).
+  Optional local probe: `scripts/mirakl-empirical-verify.js` (TBD — to be created at Story 3.x).
+- pg Pool MUST include `ssl: { rejectUnauthorized: false }` (Supabase certs don't pass strict).
+  Connection URL: direct `db.PROJECT_REF.supabase.co:5432` ONLY — session pooler returns
+  "tenant not found".
 - Current epic: track via `_bmad-output/implementation-artifacts/sprint-status.yaml`
-- Mirakl MCP: run `scripts/mcp-probe.js` for live verification against `marketplace.worten.pt`
+- Authoritative planning: `_bmad-output/planning-artifacts/architecture-distillate/_index.md`
+  (NOT `epics-distillate.md` — that's a single-file legacy reference; our distillate is split).
 - Pre-emptive ATDD files for unimplemented stories: see `_bmad-output/implementation-artifacts/deferred-work.md`
 - Known merge-race pattern: see `references/merge-procedure.md`
 - Known forbidden patterns: see `references/mcp-forbidden-patterns.md`
