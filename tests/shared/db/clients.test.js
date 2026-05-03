@@ -118,7 +118,10 @@ test('db-clients suite lifecycle', async (t) => {
       assert.equal(rows.length, 1, `RLS must return exactly 1 row for customer A; got ${rows.length}`);
       assert.equal(rows[0].id, idA, `RLS row id must equal customer A's id`);
     } finally {
-      clientA.release();
+      // The wrapped release() in getRlsAwareClient is async (runs RESET ROLE +
+      // clears request.jwt.claims before returning the connection). Must be
+      // awaited or those reset queries race with subsequent tests' beforeEach.
+      await clientA.release();
     }
   });
 
@@ -267,6 +270,9 @@ test('db-clients suite lifecycle', async (t) => {
 
   // ---------------------------------------------------------------------------
   // AC#1 (second clause) — rls-context middleware binds request.db
+  // Spec requirement (story line ~302): the test must verify that after a
+  // request completes, the pool client has been released. Asserted via
+  // pool.totalCount === pool.idleCount after the inject + onResponse cycle.
   // ---------------------------------------------------------------------------
   await t.test('rls_context_middleware_binds_request_db', async () => {
     // Dynamic import so this test file can be parsed before rls-context.js exists;
@@ -320,6 +326,28 @@ test('db-clients suite lifecycle', async (t) => {
       const body = JSON.parse(res.body);
       assert.equal(body.hasDb, true, 'request.db must be bound by rlsContext middleware');
       assert.equal(body.dbIsObject, true, 'request.db must be an object (pg PoolClient)');
+
+      // Pool-release verification (story spec line ~302):
+      // After the inject+onResponse cycle, the pool client MUST have been
+      // released. The wrapped release() in rls-aware-client is async (runs
+      // RESET ROLE + clears request.jwt.claims), so allow the microtask
+      // queue to drain before observing pool counters. Then assert that
+      // every checked-out connection has been returned to idle.
+      const pool = getServiceRoleClient();
+      // Drain pending microtasks (the wrapped async release from releaseRlsClient
+      // chains a few SQL roundtrips before the underlying pg release fires).
+      await new Promise((resolve) => setImmediate(resolve));
+      // One short retry covers the residual SQL roundtrip latency from the
+      // wrapped release without making the assertion flaky.
+      let attempts = 0;
+      while (pool.totalCount !== pool.idleCount && attempts < 20) {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+        attempts += 1;
+      }
+      assert.equal(
+        pool.totalCount, pool.idleCount,
+        `pool client must be released after onResponse; totalCount=${pool.totalCount} idleCount=${pool.idleCount} (waiting clients: ${pool.waitingCount})`
+      );
     } finally {
       await fastify.close();
     }
@@ -541,13 +569,22 @@ export async function getPool () { return pool; }
       ...await walk('app/src/middleware', ['.js']),
     ];
     const hits = [];
+    // Match all four forbidden import shapes per AC#5:
+    //   import pg from 'pg'
+    //   import { Pool } from 'pg'
+    //   import { Client } from 'pg'
+    //   import { Pool, Client } from 'pg' (any named import from 'pg')
+    // The `\bfrom\s+['"]pg['"]` anchor catches any ESM import whose source is
+    // the bare 'pg' specifier — covering all default + named import shapes
+    // without enumerating each one. Comment-only mentions of 'pg' are not
+    // matched because they would not contain the `from 'pg'` syntax.
+    const PG_IMPORT_RE = /import\s+[^;]*?\bfrom\s+['"]pg['"]/;
     for (const f of files) {
       const text = await readFile(f, 'utf8');
-      // Flag direct 'pg' import or new Pool() — allow import in shared/db/ only
-      if (/import\s+(?:\{[^}]*Pool[^}]*\}|pg)\s+from\s+['"]pg['"]/.test(text)) {
+      if (PG_IMPORT_RE.test(text)) {
         hits.push(f);
       }
     }
-    assert.deepEqual(hits, [], `direct pg Pool import found in app/ layer (must use getRlsAwareClient): ${hits.join(', ')}`);
+    assert.deepEqual(hits, [], `direct pg import found in app/ layer (must use getRlsAwareClient or getServiceRoleClient): ${hits.join(', ')}`);
   });
 });

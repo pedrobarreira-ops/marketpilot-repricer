@@ -84,6 +84,7 @@ export async function tx (client, callback) {
     throw new TransactionNestingError();
   }
 
+  let releaseErr; // set if rollback or callback raises a connection-level error
   try {
     txClient._txActive = true;
     await txClient.query('BEGIN');
@@ -93,13 +94,23 @@ export async function tx (client, callback) {
   } catch (err) {
     try {
       await txClient.query('ROLLBACK');
-    } catch {
-      // ROLLBACK failure is ignored — the connection will be cleaned up
-      // by the pool automatically when released with an error flag.
+    } catch (rollbackErr) {
+      // ROLLBACK failure means the underlying connection is likely poisoned
+      // (network drop, server-side abort). Capture so the finally block can
+      // release with an error flag — pg.Pool then discards the connection
+      // rather than returning it to the idle pool. Without this flag, the
+      // next pool.connect() can hand out a connection still mid-aborted-tx,
+      // producing 25P02 "current transaction is aborted" on the next query.
+      releaseErr = rollbackErr;
     }
     throw err;
   } finally {
     txClient._txActive = false;
-    if (mustRelease) txClient.release();
+    if (mustRelease) {
+      // Pass releaseErr so a poisoned connection is discarded by the pool.
+      // Undefined when COMMIT/ROLLBACK both succeeded — pool reuses the
+      // connection normally.
+      txClient.release(releaseErr);
+    }
   }
 }
