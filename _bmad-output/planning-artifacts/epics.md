@@ -986,6 +986,8 @@ So that the admin status page in Epic 8 has a working access gate the moment its
 
 ### Story 2.1: RLS-aware app DB client + service-role worker DB client + transaction helper
 
+> **Carried requirements (Bob: read before sharding):** see `_bmad-output/implementation-artifacts/epic-1-retro-2026-05-03.md` Item 3 for spec constraints — (1) centralize conditional-SSL-by-host into a single helper (`getDbClientForHost` or similar; this is the SSL drift root cause Library Empirical Contract #9 documents); (2) explicitly enumerate the 3 pools being absorbed (`app/src/routes/health.js`, `worker/src/jobs/heartbeat.js`, `app/src/middleware/founder-admin-only.js`) — `endFounderAdminPool` test-teardown export must survive absorption; (3) honor the `mp_session` cookie empirical contract (auth.js decorates `request.user.access_token`, rls-context.js consumes it directly — do NOT re-derive from cookie); (4) pre-load Library Empirical Contracts entries #2 (unsignCookie), #3 (CA pinning), #5 (auth.users DELETE) when sharding.
+
 **Implements:** AD2 · **FRs:** FR5 (foundation) · **NFRs:** NFR-S3 · **Size:** M
 **SSoT modules created:** `shared/db/rls-aware-client.js`, `shared/db/service-role-client.js`, `shared/db/tx.js`, `app/src/middleware/rls-context.js`
 **Depends on:** Story 1.4
