@@ -1,0 +1,53 @@
+<% layout('/layouts/default', { ...it, title: 'Cria a tua conta MarketPilot' }) %>
+<section class="mp-auth-card">
+  <h1>Cria a tua conta MarketPilot</h1>
+  <% if (it.topError) { %>
+    <div class="mp-form-top-error" role="alert"><%= it.topError %></div>
+  <% } %>
+  <form method="POST" action="/signup" novalidate>
+    <div class="mp-field">
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" required maxlength="254"
+             value="<%= it.formValues.email ?? '' %>" />
+      <% if (it.fieldErrors.email) { %>
+        <p class="mp-field-error" role="alert"><%= it.fieldErrors.email %></p>
+      <% } %>
+    </div>
+    <div class="mp-field">
+      <label for="password">Palavra-passe (mínimo 8 caracteres)</label>
+      <input type="password" id="password" name="password" required minlength="8" maxlength="72" />
+      <% if (it.fieldErrors.password) { %>
+        <p class="mp-field-error" role="alert"><%= it.fieldErrors.password %></p>
+      <% } %>
+    </div>
+    <div class="mp-field">
+      <label for="first_name">Nome próprio</label>
+      <input type="text" id="first_name" name="first_name" required maxlength="100"
+             value="<%= it.formValues.first_name ?? '' %>" />
+      <% if (it.fieldErrors.first_name) { %>
+        <p class="mp-field-error" role="alert"><%= it.fieldErrors.first_name %></p>
+      <% } %>
+    </div>
+    <div class="mp-field">
+      <label for="last_name">Apelido</label>
+      <input type="text" id="last_name" name="last_name" required maxlength="100"
+             value="<%= it.formValues.last_name ?? '' %>" />
+      <% if (it.fieldErrors.last_name) { %>
+        <p class="mp-field-error" role="alert"><%= it.fieldErrors.last_name %></p>
+      <% } %>
+    </div>
+    <div class="mp-field">
+      <label for="company_name">Nome da empresa</label>
+      <input type="text" id="company_name" name="company_name" required maxlength="200"
+             value="<%= it.formValues.company_name ?? '' %>" />
+      <% if (it.fieldErrors.company_name) { %>
+        <p class="mp-field-error" role="alert"><%= it.fieldErrors.company_name %></p>
+      <% } %>
+    </div>
+    <button type="submit" class="mp-btn mp-btn-primary">Criar conta</button>
+  </form>
+  <p class="mp-auth-link">
+    <a href="/login">Já tens conta? Iniciar sessão</a>
+  </p>
+</section>
+<script src="/public/js/signup.js" defer></script>

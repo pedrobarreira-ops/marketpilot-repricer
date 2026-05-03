@@ -164,9 +164,52 @@ During Story 1.1's code review pass, the CR subagent **edited an already-applied
 
 ### Story 1.4 — Signup + atomic customer_profiles trigger + source-context capture (Bundle A)
 
-**Status**: not yet started.
+**Status**: spec ready, env vars in place, awaiting Amelia.
 
-(Same subsections — populate after run. Special focus: Bundle A atomicity — does the manual flow correctly land the trigger + endpoint + JSON Schema validation + safe-error mapping in a single PR? Or does it fragment?)
+**Pre-implementation infrastructure work** (large detour — captured here so future sessions don't re-debate):
+
+**Local Supabase stack on Pedro's machine** (Windows + WSL2 + AMD Ryzen 7 5800XT):
+- Docker Desktop installed, working, disk image moved to `D:\DockerData` (C: was full)
+- BIOS SVM enabled (was off after motherboard swap)
+- Three Supabase services confirmed segfault on this hardware combo and are disabled in `supabase/config.toml`:
+  - **`realtime`** (Elixir/Erlang BEAM VM) — `[realtime] enabled = false`
+  - **`analytics`** (logflare, also Elixir/Erlang BEAM VM) — `[analytics] enabled = false`
+  - **`storage`** (storage-api v1.54.0 — Go binary; segfaults specific to this version on Ryzen) — `[storage] enabled = false`
+- None of these are used by MVP architecture; AD18 mandates polling-only (no realtime), no file uploads in scope, analytics dashboard is not needed locally. Production Coolify environment doesn't hit these (different runtime).
+- Docker Desktop disk-image relocation pattern works: `Settings → Resources → Advanced → Disk image location` → moved from `C:\Users\pedro\AppData\Local\Docker\` to `D:\DockerData\DockerDesktopWSL\`.
+
+**Migration ordering deferral (Story 1.2 vault → Story 4.1 customer_marketplaces forward FK)**:
+- `supabase/migrations/202604301204_create_shop_api_key_vault.sql` references `customer_marketplaces(id)` which is created by Story 4.1's not-yet-shipped migration.
+- Story 1.2's spec (Option A) deferred Cloud apply until Story 4.1. Local `npx supabase start` reveals that local apply also needs deferral.
+- Resolution: file renamed to `202604301204_create_shop_api_key_vault.sql.deferred-until-story-4.1` so Supabase CLI ignores it. Filename encodes restore action.
+- **MUST DO when Story 4.1 ships**: rename file back to `.sql`, run `npx supabase db reset` locally + `npx supabase db push` to Cloud. Add to Story 4.1's task list at sharding time.
+- **Generalized rule for BAD customization**: when a story's migration references a forward-FK target from a future story, defer via `.deferred-until-story-X.Y` suffix (NOT by editing the migration content — immutability rule still applies). Restore at the target story's sharding.
+
+**Three env vars added for Story 1.4 in `.env.local`**:
+- `COOKIE_SECRET` — generated via `openssl rand -base64 32`; signed-cookie HMAC for `mp_session` + `mp_source_ctx`. Distinct from `MASTER_KEY_BASE64`.
+- `APP_BASE_URL=http://localhost:3000` (dev) / `https://app.marketpilot.pt` (prod) — Supabase Auth redirect target for `emailRedirectTo` and password-recovery link.
+- `SUPABASE_ANON_KEY` already present from Supabase project setup. Distinct from `SUPABASE_SERVICE_ROLE_KEY` and from `SUPABASE_SERVICE_ROLE_DATABASE_URL`.
+
+**Operational pre-flights for Pedro before Amelia runs**:
+- Configure Supabase Auth → URL Configuration → Redirect URLs allowlist:
+  - `http://localhost:3000/verify-email`
+  - `http://localhost:3000/reset-password`
+- Without these, Supabase Auth confirmation/recovery emails redirect to URLs Supabase doesn't trust → flow breaks.
+
+**Notes for BAD customization (additive)**:
+- **Hardware-compat triplet captured**: WSL2 + AMD Ryzen + Supabase local stack — known-segfault services (realtime, analytics, storage-api, edge_runtime; studio + pg_meta health-check cascade-fail). Final working set after triage: db, gateway, api, auth, mailpit. None of MVP requires the disabled ones.
+- **Forward-FK migration deferral pattern**: `.deferred-until-story-X.Y` suffix is the canonical pattern. Bob's create-story workflow should add a "post-Story-X.Y restore" task to the future story's task list when sharding.
+- **Don't pre-emptively `npx supabase db push` for forward-FK migrations**: Cloud and local share the same deferral discipline.
+
+**Two empirical library contracts caught during Story 1.4 integration verification — promote to project-context.md if they recur**:
+
+- **GoTrue strips Postgres HINT codes from `auth.signUp` errors**. Trigger-raised `RAISE EXCEPTION ... USING HINT = 'SOMETHING'` does NOT propagate the HINT through Supabase Auth to the client. Empirical contract (Supabase Auth ≥ 2.x, verified 2026-05-02): `error.message = "Database error saving new user"`, `error.code = "unexpected_failure"`, no HINT anywhere in the response. The substring-match-on-HINT pattern in error mappers DOES NOT WORK. **Pattern**: any story relying on a trigger HINT for user-facing field errors must mirror the trigger's validation at the route level (so the user sees the field-specific message), with the trigger remaining as defense-in-depth for non-route DB writes. Story 1.4 applied this pattern in `app/src/routes/_public/signup.js` — first instance.
+- **`@fastify/cookie` v11+ does NOT auto-unwrap signed cookies**. `request.cookies[name]` returns the raw `s:<value>.<signature>` string. To verify signature and extract the original value: `const { valid, value } = request.unsignCookie(raw)`. **Pattern**: any story that reads a signed cookie must use `request.unsignCookie()` explicitly. Story 1.4 corrected `source-context-capture.js` — first instance. Future stories with session-cookie reads (Story 2.1's RLS middleware reading `mp_session`, Story 11.x's billing webhooks if signed) must follow this pattern.
+
+**Test infrastructure patterns captured**:
+
+- **`auth.users` reset between integration tests**: use `DELETE FROM auth.users`, NOT `TRUNCATE`. The `auth.refresh_tokens_id_seq` and other auth-schema sequences are owned by `supabase_auth_admin`, not the `postgres` connection user — TRUNCATE CASCADE fails with "must be owner of sequence". DELETE relies on Supabase-defined ON DELETE CASCADE chains and works without ownership.
+- **Integration test readiness probe**: do NOT poll `GET /health` if the test only spawns the app process. `/health` requires worker_heartbeats < 90s freshness; without a worker, it always returns 503. Use a simpler endpoint that the test exercises anyway (e.g., `GET /` for the placeholder, or one of the routes under test). The Story 1.1 scaffold-smoke test spawns BOTH app and worker, so it can use `/health`; per-feature integration tests typically don't need the worker.
 
 ---
 

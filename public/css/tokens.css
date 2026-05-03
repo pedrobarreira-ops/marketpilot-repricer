@@ -1,0 +1,151 @@
+/*
+ * Story 1.4 — tokens.css placeholder.
+ *
+ * Visual-DNA tokens (Manrope/Inter, navy primary, radius scale per UX
+ * skeleton §10) are owned by Epic 8. This file ships a minimal subset so
+ * the auth surfaces are not unstyled while we wait for the full token
+ * system. Extend (do not rewrite) when Epic 8 lands.
+ */
+
+:root {
+  --mp-color-bg: #f7f8fa;
+  --mp-color-fg: #0f1f3a;
+  --mp-color-primary: #0b3a8c;
+  --mp-color-primary-fg: #ffffff;
+  --mp-color-danger: #c0392b;
+  --mp-color-success: #1f7a4d;
+  --mp-color-border: #d8dee8;
+  --mp-radius-sm: 4px;
+  --mp-radius-md: 8px;
+  --mp-spacing-xs: 4px;
+  --mp-spacing-sm: 8px;
+  --mp-spacing-md: 16px;
+  --mp-spacing-lg: 24px;
+  --mp-font-body: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  --mp-font-display: 'Manrope', var(--mp-font-body);
+}
+
+* { box-sizing: border-box; }
+
+.mp-body {
+  margin: 0;
+  background: var(--mp-color-bg);
+  color: var(--mp-color-fg);
+  font-family: var(--mp-font-body);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.mp-header {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  border-bottom: 1px solid var(--mp-color-border);
+  padding: var(--mp-spacing-md) var(--mp-spacing-lg);
+  z-index: 10;
+}
+
+.mp-header-brand {
+  font-family: var(--mp-font-display);
+  font-weight: 700;
+  color: var(--mp-color-primary);
+  text-decoration: none;
+  font-size: 1.25rem;
+}
+
+.mp-main {
+  flex: 1;
+  padding: var(--mp-spacing-lg);
+  display: flex;
+  justify-content: center;
+}
+
+.mp-footer {
+  border-top: 1px solid var(--mp-color-border);
+  padding: var(--mp-spacing-md) var(--mp-spacing-lg);
+  text-align: center;
+  color: #6b7280;
+}
+
+.mp-auth-card {
+  background: #fff;
+  border: 1px solid var(--mp-color-border);
+  border-radius: var(--mp-radius-md);
+  padding: var(--mp-spacing-lg);
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.mp-auth-card h1 {
+  font-family: var(--mp-font-display);
+  margin: 0 0 var(--mp-spacing-md);
+  font-size: 1.5rem;
+}
+
+.mp-field {
+  margin-bottom: var(--mp-spacing-md);
+}
+
+.mp-field label {
+  display: block;
+  font-size: 0.875rem;
+  margin-bottom: var(--mp-spacing-xs);
+  font-weight: 600;
+}
+
+.mp-field input {
+  width: 100%;
+  padding: var(--mp-spacing-sm) var(--mp-spacing-md);
+  border: 1px solid var(--mp-color-border);
+  border-radius: var(--mp-radius-sm);
+  font: inherit;
+}
+
+.mp-field-error {
+  color: var(--mp-color-danger);
+  font-size: 0.875rem;
+  margin: var(--mp-spacing-xs) 0 0;
+}
+
+.mp-form-top-error {
+  background: #fde8e6;
+  color: var(--mp-color-danger);
+  border-radius: var(--mp-radius-sm);
+  padding: var(--mp-spacing-sm) var(--mp-spacing-md);
+  margin-bottom: var(--mp-spacing-md);
+}
+
+.mp-form-top-success {
+  background: #e3f5ec;
+  color: var(--mp-color-success);
+  border-radius: var(--mp-radius-sm);
+  padding: var(--mp-spacing-sm) var(--mp-spacing-md);
+  margin-bottom: var(--mp-spacing-md);
+}
+
+.mp-btn {
+  display: inline-block;
+  padding: var(--mp-spacing-sm) var(--mp-spacing-lg);
+  border: 0;
+  border-radius: var(--mp-radius-sm);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mp-btn-primary {
+  background: var(--mp-color-primary);
+  color: var(--mp-color-primary-fg);
+}
+
+.mp-auth-link {
+  margin-top: var(--mp-spacing-md);
+  text-align: center;
+  font-size: 0.875rem;
+}
+
+.mp-auth-link a {
+  color: var(--mp-color-primary);
+}

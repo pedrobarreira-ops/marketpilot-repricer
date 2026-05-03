@@ -103,3 +103,29 @@ test('+++ file headers are skipped', { skip: !BASH_AVAILABLE && 'bash not on PAT
   const { code } = await runScanner(input);
   assert.equal(code, 0, '+++ file headers should be filtered out');
 });
+
+test('COOKIE_SECRET assignment blocks (Story 1.4)', { skip: !BASH_AVAILABLE && 'bash not on PATH' }, async () => {
+  const input = "+COOKIE_SECRET=YWJjZGVmZ2hpamtsbW5vcGFiY2RlZg==\n";
+  const { code, stderr } = await runScanner(input);
+  assert.equal(code, 1);
+  assert.ok(/COOKIE_SECRET/.test(stderr));
+});
+
+test('COOKIE_SECRET mention in code passes (Story 1.4)', { skip: !BASH_AVAILABLE && 'bash not on PATH' }, async () => {
+  const input = "+const REQUIRED = ['COOKIE_SECRET'];\n";
+  const { code } = await runScanner(input);
+  assert.equal(code, 0, 'string-literal usage with no =/: substantial-value assignment must pass');
+});
+
+test('SUPABASE_ANON_KEY (JWT) assignment blocks (Story 1.4)', { skip: !BASH_AVAILABLE && 'bash not on PATH' }, async () => {
+  const input = "+SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.payload.signature\n";
+  const { code, stderr } = await runScanner(input);
+  assert.equal(code, 1);
+  assert.ok(/SUPABASE_ANON_KEY/.test(stderr));
+});
+
+test('SUPABASE_ANON_KEY mention in code passes (Story 1.4)', { skip: !BASH_AVAILABLE && 'bash not on PATH' }, async () => {
+  const input = "+const REQUIRED = ['SUPABASE_ANON_KEY'];\n";
+  const { code } = await runScanner(input);
+  assert.equal(code, 0, 'string-literal usage must pass — only JWT-shaped assignments block');
+});

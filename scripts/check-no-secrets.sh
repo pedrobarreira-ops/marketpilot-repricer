@@ -20,13 +20,15 @@
 
 set -euo pipefail
 
-# 5 patterns per AC#4 (POSIX ERE).
+# Patterns per AD3 + Story 1.4 extension (POSIX ERE).
 PATTERNS=(
   'MASTER_KEY[A-Z0-9_]*[ \t]*[=:][ \t]*['\''"]?[A-Za-z0-9+/=_-]{16,}'
   '(shop_api_key|SHOP_API_KEY)[ \t]*[=:][ \t]*['\''"]?[A-Za-z0-9+/=_-]{8,}'
   'sk_live_[A-Za-z0-9]{16,}'
   'sk_test_[A-Za-z0-9]{16,}'
   'Authorization:[ \t]*['\''"]?Bearer[ \t]+[A-Za-z0-9._-]{16,}'
+  'COOKIE_SECRET[ \t]*[=:][ \t]*['\''"]?[A-Za-z0-9+/=_-]{16,}'
+  'SUPABASE_ANON_KEY[ \t]*[=:][ \t]*['\''"]?eyJ[A-Za-z0-9._-]{16,}'
 )
 
 PATTERN_NAMES=(
@@ -35,6 +37,8 @@ PATTERN_NAMES=(
   'Stripe live secret (sk_live_)'
   'Stripe test secret (sk_test_)'
   'Authorization Bearer token'
+  'COOKIE_SECRET assignment'
+  'SUPABASE_ANON_KEY (JWT) assignment'
 )
 
 # Load input — piped stdin (tests) takes precedence over staged diff (real

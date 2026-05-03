@@ -1,0 +1,32 @@
+<% layout('/layouts/default', { ...it, title: 'Iniciar sessão' }) %>
+<section class="mp-auth-card">
+  <h1>Iniciar sessão</h1>
+  <% if (it.msg === 'password_reset_ok') { %>
+    <div class="mp-form-top-success" role="status">
+      Palavra-passe reposta com sucesso. Inicia sessão com a nova palavra-passe.
+    </div>
+  <% } %>
+  <% if (it.topError) { %>
+    <div class="mp-form-top-error" role="alert"><%= it.topError %></div>
+  <% } %>
+  <form method="POST" action="/login" novalidate>
+    <input type="hidden" name="next" value="<%= it.next ?? '/' %>" />
+    <div class="mp-field">
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" required maxlength="254"
+             value="<%= it.formValues.email ?? '' %>" />
+    </div>
+    <div class="mp-field">
+      <label for="password">Palavra-passe</label>
+      <input type="password" id="password" name="password" required maxlength="72" />
+    </div>
+    <button type="submit" class="mp-btn mp-btn-primary">Entrar</button>
+  </form>
+  <p class="mp-auth-link">
+    <a href="/signup">Ainda não tens conta? Cria uma agora</a>
+  </p>
+  <p class="mp-auth-link">
+    <a href="/forgot-password">Esqueceste-te da palavra-passe?</a>
+  </p>
+</section>
+<script src="/public/js/login.js" defer></script>

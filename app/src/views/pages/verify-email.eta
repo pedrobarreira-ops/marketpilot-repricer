@@ -1,0 +1,10 @@
+<% layout('/layouts/default', { ...it, title: 'Confirma o teu email' }) %>
+<section class="mp-auth-card">
+  <h1>Confirma o teu email</h1>
+  <p>
+    Enviámos-te um link para confirmares o teu endereço de email. Verifica também a pasta de spam.
+  </p>
+  <p class="mp-auth-link">
+    <a href="/">Já confirmaste? Clica aqui</a>
+  </p>
+</section>

@@ -49,4 +49,21 @@ export default [
       'no-useless-assignment': 'off',
     },
   },
+  {
+    // Public-facing browser scripts (Story 1.4+ — F9 defer-loaded page JS).
+    // These run in the browser, not Node, so they need browser globals
+    // (window, document, URLSearchParams, etc.) and don't share the
+    // shared-pino-logger constraint that applies to server code.
+    files: ['public/js/**/*.js'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+      },
+    },
+    rules: {
+      'jsdoc/require-jsdoc': 'off',
+      'no-console': 'off',
+      'no-unused-vars': ['warn', { varsIgnorePattern: '^_', argsIgnorePattern: '^_' }],
+    },
+  },
 ];

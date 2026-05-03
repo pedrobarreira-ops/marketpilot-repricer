@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="pt-PT">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title><%= it.title %> — <%= it.appName %></title>
+    <link rel="stylesheet" href="/public/css/tokens.css" />
+  </head>
+  <body class="mp-body">
+    <header class="mp-header" role="banner">
+      <a class="mp-header-brand" href="/"><%= it.appName %></a>
+    </header>
+    <main class="mp-main" role="main">
+      <%~ it.body %>
+    </main>
+    <footer class="mp-footer" role="contentinfo">
+      <small>&copy; <%= new Date().getFullYear() %> <%= it.appName %></small>
+    </footer>
+  </body>
+</html>

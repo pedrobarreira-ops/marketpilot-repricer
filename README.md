@@ -25,6 +25,18 @@ scripts/    — Operational scripts
 _bmad-output/ — Planning and implementation artifacts (AI context)
 ```
 
+## Auth & Signup
+
+Story 1.4 ships **Atomicity Bundle A (F3 + AD29)** — the load-bearing primitive that guarantees a customer never lands in a broken `auth.users`-without-`customers`-or-`customer_profiles` state.
+
+When a customer hits `POST /signup`, Supabase Auth's `auth.signUp()` runs an INSERT on `auth.users` inside a Postgres transaction. The `trg_handle_new_auth_user` trigger fires in the same transaction and:
+
+1. Reads `first_name` / `last_name` / `company_name` / `source` / `campaign` out of `raw_user_meta_data`.
+2. Validates the three required B2B fields (`length(trim(...)) > 0`); raises with `ERRCODE='23502'` + a `PROFILE_*_REQUIRED` HINT on missing fields — which **rolls the entire transaction back**, including the `auth.users` row.
+3. On valid input, INSERTs both `customers` and `customer_profiles` rows — atomically with `auth.users`.
+
+The route layer does NOT carry partial-state cleanup logic. Postgres atomicity is the contract; do not add catch-and-DELETE code that would break under concurrent load. The PT-localized field error mapping lives in [`app/src/lib/signup-error-mapper.js`](app/src/lib/signup-error-mapper.js); the source-context (`?source=`/`?campaign=`, FR7) cookie middleware lives in [`app/src/middleware/source-context-capture.js`](app/src/middleware/source-context-capture.js). See [`_bmad-output/implementation-artifacts/1-4-signup-endpoint-atomic-profile-trigger-source-context-capture.md`](_bmad-output/implementation-artifacts/1-4-signup-endpoint-atomic-profile-trigger-source-context-capture.md) for the full spec, ACs, and review checklist.
+
 ## Local development
 
 ```sh

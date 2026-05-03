@@ -79,14 +79,23 @@ allowed_cidrs_v6 = ["::/0"]
 # enabled = true
 
 [realtime]
-enabled = true
+# Disabled: Erlang BEAM VM segfaults on WSL2 + AMD Ryzen 5800XT (known compat issue).
+# Architecture is polling-only (AD18: Mirakl webhooks unavailable for Seller users,
+# no real-time subscriptions in engine). Enable in Phase 2 only if a customer-facing
+# live-feed feature surfaces.
+enabled = false
 # Bind realtime via either IPv4 or IPv6. (default: IPv4)
 # ip_version = "IPv6"
 # The maximum length in bytes of HTTP request headers. (default: 4096)
 # max_header_length = 4096
 
 [studio]
-enabled = true
+# Disabled: Studio + pg_meta health checks fail on this hardware combo
+# (likely waiting on analytics/edge_runtime which are disabled — known
+# upstream cascade). Studio is inspection-only; for local dev we use
+# `psql` via the DB connection string + Supabase MCP for Cloud inspection.
+# Re-enable in Phase 2 if a Studio-specific feature is needed.
+enabled = false
 # Port to use for Supabase Studio.
 port = 54323
 # External URL of the API server that frontend connects to.
@@ -107,7 +116,7 @@ port = 54324
 # sender_name = "Admin"
 
 [storage]
-enabled = true
+enabled = false
 # The maximum file size allowed (e.g. "5MB", "500KB").
 file_size_limit = "50MiB"
 
@@ -367,7 +376,11 @@ authorization_url_path = "/oauth/consent"
 allow_dynamic_registration = false
 
 [edge_runtime]
-enabled = true
+# Disabled: Deno runtime segfaults on WSL2 + AMD Ryzen 5800XT (4th confirmed
+# segfault service after realtime/analytics/storage). MVP does not use Edge
+# Functions — architecture has no Deno-runtime code paths. Re-enable in
+# Phase 2 only if Edge Functions become a deliberate choice.
+enabled = false
 # Supported request policies: `oneshot`, `per_worker`.
 # `per_worker` (default) — enables hot reload during local development.
 # `oneshot` — fallback mode if hot reload causes issues (e.g. in large repos or with symlinks).
@@ -381,7 +394,11 @@ deno_version = 2
 # secret_key = "env(SECRET_VALUE)"
 
 [analytics]
-enabled = true
+# Disabled: analytics is logflare, which runs on Elixir/Erlang BEAM VM and
+# segfaults on WSL2 + AMD Ryzen 5800XT (same root cause as realtime). We don't
+# use Supabase's analytics dashboard locally; production observability lives
+# in Coolify logs + UptimeRobot per AD27.
+enabled = false
 port = 54327
 # Configure one of the supported backends: `postgres`, `bigquery`.
 backend = "postgres"

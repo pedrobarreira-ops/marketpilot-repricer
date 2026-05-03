@@ -43,3 +43,10 @@ verification-stderr.log
 dist/
 coverage/
 .env.test
+
+# Transient diagnostic / debug output (e.g. supabase CLI --debug captures)
+supabase-debug*.log
+supabase-*-attempt.log
+
+# Review-process scratch artifacts (e.g. .review-N.M/ diff bundles)
+_bmad-output/implementation-artifacts/.review-*/
