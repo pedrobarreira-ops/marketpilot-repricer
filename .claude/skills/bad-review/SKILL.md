@@ -77,10 +77,12 @@ This guard is cheap (~2 minutes of local test time) and closes the hole where a 
 path matching one of:
   - `shared/mirakl/`                          (API client + helpers SSoT)
   - `worker/src/engine/`                      (repricing engine — calls P11/PRI01)
-  - `worker/src/safety/`                      (safety gates around price writes)
+  - `worker/src/safety/`                      (circuit-breaker, anomaly-freeze, reconciliation — all Mirakl-adjacent)
+  - `worker/src/jobs/`                        (cron entry points — pri02-poll, monthly-partition, etc.)
   - `app/src/routes/_public/onboarding-key.js` (initial key validation against Mirakl)
   - `app/src/routes/_public/onboarding-*.js`   (other onboarding routes that probe Mirakl)
   - `tests/fixtures/mirakl/`                  (P11/PRI01 fixtures — semantic drift risk)
+  - `tests/fixtures/p11-*.json`               (the 17 P11 fixtures — bound to Bundle C gate)
 (There is no `src/workers/mirakl/` in this repo — that's the legacy
 DynamicPriceIdea path.)
 
@@ -176,6 +178,8 @@ Launch all four in a **single message** (parallel execution). Each is self-conta
 
 ### Subagent A: Code vs spec
 
+**Model: `opus`** — judgment-heavy AC coverage classification (✓/⚠️/✗ per AC requires reading code intent vs spec intent). Use the Agent tool's `model: "opus"` parameter regardless of `subagent_type`.
+
 ```
 You are auditing story implementation vs spec for marketpilot-repricer
 (a Mirakl marketplace repricing MVP in Node.js).
@@ -266,11 +270,20 @@ Return only the report, stay under 300 words.
 
 ### Subagent C: Test quality
 
+**Model selection:**
+- **Default: `sonnet`** for Subagent C — classification (behavioral / keyword-grep / skeleton) is largely mechanical pattern-matching.
+- **Critical-path: `opus`** when ANY file in `CODE_FILES` is under: `worker/src/`, `app/src/routes/`, `app/src/middleware/`, `shared/mirakl/`, `shared/audit/`, `shared/state/`, `shared/money/`, `shared/crypto/`, `supabase/migrations/`. Same path list as the BAD Step 5 Worker/Critical-Path Opus Gate. The judgment of "critical gaps" on these files is too important for Sonnet.
+
+The verdict thresholds also tighten on critical-path stories — see the prompt below.
+
 ```
 You are assessing test quality for a marketpilot-repricer story PR.
 
 Target test files (any combination of ATDD, .additional, .unit):
   {TEST_FILES}
+
+Implementation files (passed by coordinator — used to detect critical-path):
+  {CODE_FILES}
 
 Classify each test() call:
 - BEHAVIORAL: calls the actual implementation with fixtures; asserts on
@@ -279,25 +292,51 @@ Classify each test() call:
   src.includes('...') or regex patterns against source.
 - SKELETON: asserts export existence, function type, class name only.
 
+CRITICAL-PATH detection: a file is critical-path if its path starts with any
+of: `worker/src/`, `app/src/routes/`, `app/src/middleware/`, `shared/mirakl/`,
+`shared/audit/`, `shared/state/`, `shared/money/`, `shared/crypto/`,
+`supabase/migrations/`. If ANY file in CODE_FILES is critical-path, this PR
+is critical-path and the stricter thresholds below apply.
+
+For critical-path PRs, additionally check **fixture binding**: every fixture
+filename referenced in the test files (e.g., `p11-tier1-undercut-succeeds.json`,
+`pri01-csv/single-channel-undercut.csv`) must have at least one BEHAVIORAL
+test that loads the fixture and asserts on the result. List any unbound fixtures.
+
 Report:
 
 ## Test classification
 - N behavioral / M keyword-grep / K skeleton (total: N+M+K)
 - Behavioral %: X%
 
+## Fixture binding (critical-path PRs only — omit section otherwise)
+- Fixtures referenced: {list}
+- Fixtures with ≥1 behavioral binding: {list}
+- Unbound fixtures: {list or "none"}
+
 ## Critical gaps
 List checks that SHOULD exist but don't, focused on:
 - Security invariants (no api_key leak, no err.message in logs)
 - Error paths (what if the dependency throws?)
 - Edge cases (empty input, null, boundary values)
+- Atomicity / state-machine invariants for state-touching code
 Use your judgement on what "critical" means for the specific code.
 
 ## Verdict
-Strong (>=50% behavioral, no critical gaps) /
-Acceptable (>=20% behavioral OR has .additional supplement) /
-Weak (mostly keyword-grep, no behavioral supplement)
 
-Stay under 300 words.
+For critical-path PRs (stricter):
+- Strong: ≥80% behavioral, no critical gaps, every named fixture bound.
+- Acceptable: ≥50% behavioral, no critical gaps, every named fixture bound (some keyword-grep tolerated as supplements).
+- Weak: <50% behavioral OR any unbound fixture OR any critical gap.
+
+For non-critical-path PRs (legacy thresholds):
+- Strong: ≥50% behavioral, no critical gaps.
+- Acceptable: ≥20% behavioral OR has .additional supplement.
+- Weak: mostly keyword-grep, no behavioral supplement.
+
+State explicitly which threshold set you applied (critical-path / standard).
+
+Stay under 350 words.
 ```
 
 ### Subagent D: PR body vs diff (hallucination check)
@@ -342,6 +381,39 @@ story" or "adds tests".
 
 Once all four subagents return, synthesize a short verdict in main context. Before writing the verdict, **cross-reference each subagent's findings against `PRIOR_DEFERRED_ITEMS`** (from Phase 1 step 6). For any new observation that duplicates a prior deferred item (same file:line, same root cause, same security-invariant class), don't re-surface it as a new finding — flag it as "previously deferred, still not fixed" in the recommendation. This prevents fresh `/bad-review` sessions from re-logging the same observation across every PR in a story-family.
 
+### Phase 3 pre-step: merge-block check (atomicity bundles)
+
+Before writing the verdict, check whether the current story is part of an atomicity bundle that hasn't completed yet:
+
+1. Read `_bmad-output/implementation-artifacts/sprint-status.yaml`. Look for a top-level `merge_blocks:` block.
+2. If the current story's key (e.g. `6-1-shared-mirakl-pri01-writer-js-...`) appears in `merge_blocks`, extract the `until_story` value and the `bundle` + `reason` fields. Save as `MERGE_BLOCK_STATE`.
+3. Look up the `until_story` value in `development_status:`. If its status is `done`, the block is satisfied — clear `MERGE_BLOCK_STATE`. Otherwise the block is active.
+4. If `MERGE_BLOCK_STATE` is active, the verdict template MUST omit `[M] Merge now` from the menu — only `[F] Fix first` and `[S] Stop` are offered, regardless of subagent verdicts. The bundle-complete state of `main` is a hard invariant that overrides "all four green."
+
+Save `MERGE_BLOCK_STATE` for use in the verdict template's recommendation section. If empty, normal merge-eligibility rules apply.
+
+### Phase 3 pre-step: build the manual smoke checklist (non-developer review surface)
+
+The technical verdict alone isn't actionable for a non-developer reviewer. Build a story-specific manual smoke checklist Pedro can work through after merge — concrete, observable steps in the deployed app or supabase or via `scripts/`.
+
+Sources for the checklist (in priority order):
+1. The story's Acceptance Criteria (already plain-language in BMAD spec format — "Given/When/Then").
+2. Any `Pattern A/B/C contract` block in the story spec (visual references in `_bmad-output/design-references/screens/`).
+3. UX-DR mappings cited in the story.
+
+Categorize each smoke step by surface type — only include the categories that apply to this story:
+
+- **UI surfaces** (story touches `app/src/views/` or `app/src/routes/` for HTML responses): observable click-throughs in the deployed app. E.g. "Open `/onboarding/key`, paste a known-bad key, click Validar — confirm inline red error in PT."
+- **Backend routes** (`app/src/routes/` for JSON or no UI surface): curl + observable side effect. E.g. "POST `/audit/anomaly/<sku_id>/accept` with valid session — confirm 200 + sku_channel.frozen_for_anomaly_review = false in supabase."
+- **Worker / cron** (`worker/src/`): trigger + observe audit log. E.g. "Trigger one cycle via `node worker/src/cli/trigger-cycle.js <customer_marketplace_id>` — confirm `cycle-start` and `cycle-end` rows appear in audit_log."
+- **Schema / migrations** (`supabase/migrations/`): supabase-studio verification. E.g. "Supabase Studio → Tables → confirm `customer_marketplaces` row has `cron_state = 'PROVISIONING'` after signup; CHECK constraint blocks INSERT with `DRY_RUN` + null A01."
+- **ESLint rules** (`eslint-rules/`): manual rule verification. E.g. "Add a `console.log` to any `worker/src/` file, run `npm run lint` — confirm rule fires."
+- **Mirakl-touching** (`shared/mirakl/` or anything reaching live Worten): live-probe via `scripts/mirakl-empirical-verify.js`.
+
+If the story is purely backend / no observable surface (e.g. an internal SSoT module with no caller yet), state explicitly: `No manual smoke applicable — verify via CI green + post-merge MCP grep (Phase 5 step 3).` Don't pad the checklist with synthetic steps.
+
+Aim for **3–5 items**. Prefer the AC's most user-visible behavior over comprehensive coverage. The point isn't to re-test everything — it's to confirm the feature actually does the observable thing the spec promised.
+
 ```
 # PR #{N} audit — {one-line verdict}
 
@@ -370,9 +442,23 @@ Flag if this PR ignored or contradicts a prior deferred item; otherwise just lis
 - **Merge with awareness** — one or two minor issues (e.g. body
   hallucination, acceptable test weakness); doesn't block
 - **Needs fixes first** — AC deviation, MCP drift, or security gap
+- **Bundle-blocked** — merge prevented by `merge_blocks:` until the gate
+  story (`{until_story}`) reaches `done`; subagent verdicts are otherwise
+  fine, but this story participates in atomicity bundle `{bundle}` and
+  cannot ship to `main` until the bundle gate lands. Reason: `{reason}`.
+
+## Manual smoke checklist  ← ALWAYS emit this section
+Built from the story's AC + UX-DRs. After [M] Merge or after applying [F] Fix
+fixes, work through these in the deployed app and report back. If a step
+fails, the merge was premature — open a follow-up PR or revert.
+
+{2-5 categorized steps from Phase 3 pre-step "build the manual smoke checklist".
+Use the category headers from that step. Skip categories that don't apply.
+If purely backend/no observable surface, state explicitly:
+"No manual smoke applicable — verify via CI green + post-merge MCP grep (Phase 5 step 3)."}
 
 ## Recommendation
-{1-2 sentences — what to do next}
+{1-2 sentences — what to do next, including merge-block status if applicable}
 
 ## Deferred findings  ← ONLY emit this section when verdict is "Merge with awareness"
   OR when verdict is "Safe to merge" but a subagent flagged non-blocking
@@ -401,10 +487,28 @@ Example:
     body overstatement per the known BAD Step 6 hallucination pattern.
 ```
 
-Then **HALT and wait for user confirmation** before doing anything destructive. Present the three options (or four, when deferred findings exist):
+Then **HALT and wait for user confirmation** before doing anything destructive. Present the menu — its shape depends on `MERGE_BLOCK_STATE`:
 
+**Default menu (no merge block, verdict is "Safe to merge" or "Merge with awareness"):**
 ```
 [M] Merge now — execute the safe-merge procedure
+[F] Fix first — tell me what needs fixing, I'll wait
+[S] Stop — I'll read your report and merge manually later
+```
+
+**Merge-block-active menu (verdict is "Bundle-blocked"):**
+```
+This story participates in atomicity bundle {bundle} and cannot merge until
+{until_story} reaches `done`. {reason}
+
+[F] Fix first — tell me what needs fixing, I'll wait
+[S] Stop — I'll read your report and revisit when the gate lands
+```
+
+[M] Merge now is intentionally unavailable. The bundle invariant is hard.
+
+**Blocking-issue menu (verdict is "Needs fixes first"):**
+```
 [F] Fix first — tell me what needs fixing, I'll wait
 [S] Stop — I'll read your report and merge manually later
 ```
@@ -591,6 +695,34 @@ Run these in main context:
 
 Main is clean. Ready for next batch.
 ```
+
+---
+
+## Phase 5.5: Manual smoke prompt (non-developer review surface)
+
+After Phase 5's final report prints, re-present the **Manual smoke checklist** from the Phase 3 verdict (the same checklist, verbatim — already built from the story's AC + UX-DRs in the Phase 3 pre-step). This is the user's actionable role in the safety net: the technical verdict + auto-merge handled the code-correctness layer; this checklist is the observable-behavior layer the user can verify on the deployed app.
+
+Format:
+
+```
+🧪 Manual smoke — Story {epic}.{story}
+
+The technical layers passed (code review, MCP alignment, test quality, PR body,
+CI). Now verify the observable behavior on the deployed instance:
+
+{Re-emit the Phase 3 Manual smoke checklist verbatim, with empty checkboxes:
+  [ ] Open https://<deployed-url>/onboarding/key — confirm trust block...
+  [ ] Click "Como gerar a chave?" — confirm modal opens...
+  [ ] etc.
+}
+
+When you've worked through these, just say "smoke clean" or report any failure.
+If anything fails, the next batch is on hold until we open a follow-up PR or
+revert. If purely backend (no observable surface), this section reads:
+"No manual smoke applicable for this story — verified via Phase 5 grep + CI."
+```
+
+The user's response to this prompt isn't gated by anything — `/bad-review` exits cleanly after Phase 5.5 emits the checklist. It's a reminder, not a blocking gate. The next BAD batch starting before the user works through the checklist is fine; the asymmetry is that **the checklist must be emitted every time**, even if the user habitually skips working through it. Discoverability over enforcement.
 
 ---
 

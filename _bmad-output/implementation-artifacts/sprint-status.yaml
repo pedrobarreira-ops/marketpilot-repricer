@@ -277,3 +277,67 @@ calendar_early_overrides:
   9-1-audit-log-partitioned-base-table-priority-derivation-trigger-initial-partition-monthly-partition-cron:
     after_epic: 2
     test_design_epic: 9
+
+# =============================================================================
+# MERGE BLOCKS — atomicity-bundle gates (BAD customization)
+# =============================================================================
+# Stories listed here MUST NOT be merged to `main` until their `until_story`
+# reaches `done` status in development_status:. Read by:
+#   - BAD Phase 3 (Auto-Merge): skips blocked stories, leaves PR open
+#   - bad-review Phase 3 verdict: removes [M] Merge now from the menu when
+#     the until_story isn't `done` yet; presents only [F]/[S]
+#
+# Purpose: keep `main` always-deployable as a coherent bundle-complete state.
+# An atomicity bundle is a set of stories whose joint correctness is verified
+# by a single gate test (or whose joint completion is required for the feature
+# to be usable). Merging participants before the gate lands leaves `main` in
+# an unverified-but-syntactically-valid state.
+#
+# Bundle B (F4 atomicity): Story 4.3's key-entry route creates customer_marketplaces
+#   rows in PROVISIONING. Without Story 4.4 (scan orchestration) in main, those
+#   rows have no path forward — CHECK constraint blocks transition until A01/PC01
+#   columns populate. Story 4.1 (schema only) is safe to merge alone since it
+#   creates no rows; only 4.3 → 4.4 needs the gate.
+#
+# Bundle C (AD7+AD8+AD9+AD11): Story 7.8's integration gate validates the full
+#   engine + writer + cooperative-absorption + circuit-breaker chain against
+#   all 17 P11 fixtures. Merging participants before 7.8 lands leaves engine
+#   internals on main without a CI-enforced atomicity invariant.
+# =============================================================================
+merge_blocks:
+  4-3-key-entry-form-onboarding-key-inline-5s-validation-encrypted-persistence-worten-key-one-page-guide-modal:
+    until_story: 4-4-async-catalog-scan-orchestration-a01-pc01-of21-p11-tier-classify-baseline-atomicity-sibling-of-story-4-1
+    bundle: B
+    reason: "4.3 creates customer_marketplaces rows in PROVISIONING. Without 4.4 in main, rows have no path forward — CHECK constraint blocks transition until A01/PC01 populate."
+  5-1-master-cron-dispatcher-sql-per-customer-advisory-locks-worker-must-filter-by-customer-eslint-rule:
+    until_story: 7-8-end-to-end-integration-gate-full-cycle-test-on-all-17-p11-fixtures-atomicity-bundle-gate-for-ad7-ad8-ad9-ad11
+    bundle: C
+    reason: "Bundle C participant — atomicity gate at 7.8 must pass before any participant ships to main."
+  5-2-pri01-staging-schema-cycle-assembly-skeleton:
+    until_story: 7-8-end-to-end-integration-gate-full-cycle-test-on-all-17-p11-fixtures-atomicity-bundle-gate-for-ad7-ad8-ad9-ad11
+    bundle: C
+    reason: "Bundle C participant — atomicity gate at 7.8 must pass before participant ships."
+  6-1-shared-mirakl-pri01-writer-js-per-sku-aggregation-multipart-submit-pending-import-id-atomicity-no-raw-csv-building-eslint-rule:
+    until_story: 7-8-end-to-end-integration-gate-full-cycle-test-on-all-17-p11-fixtures-atomicity-bundle-gate-for-ad7-ad8-ad9-ad11
+    bundle: C
+    reason: "Bundle C participant (AD7) — atomicity gate at 7.8 must pass before writer ships."
+  6-2-shared-mirakl-pri02-poller-js-worker-src-jobs-pri02-poll-js-cron-entry-complete-failed-handling:
+    until_story: 7-8-end-to-end-integration-gate-full-cycle-test-on-all-17-p11-fixtures-atomicity-bundle-gate-for-ad7-ad8-ad9-ad11
+    bundle: C
+    reason: "Bundle C participant — atomicity gate at 7.8 must pass before participant ships."
+  6-3-shared-mirakl-pri03-parser-js-per-sku-rebuild-semantics:
+    until_story: 7-8-end-to-end-integration-gate-full-cycle-test-on-all-17-p11-fixtures-atomicity-bundle-gate-for-ad7-ad8-ad9-ad11
+    bundle: C
+    reason: "Bundle C participant — atomicity gate at 7.8 must pass before participant ships."
+  7-2-worker-src-engine-decide-js-full-ad8-decision-flow-with-filter-chain-via-self-filter:
+    until_story: 7-8-end-to-end-integration-gate-full-cycle-test-on-all-17-p11-fixtures-atomicity-bundle-gate-for-ad7-ad8-ad9-ad11
+    bundle: C
+    reason: "Bundle C participant (AD8) — atomicity gate at 7.8 must pass before engine ships."
+  7-3-worker-src-engine-cooperative-absorb-js-step-2-absorption-skip-on-pending:
+    until_story: 7-8-end-to-end-integration-gate-full-cycle-test-on-all-17-p11-fixtures-atomicity-bundle-gate-for-ad7-ad8-ad9-ad11
+    bundle: C
+    reason: "Bundle C participant (AD9) — atomicity gate at 7.8 must pass before absorption ships."
+  7-6-worker-src-safety-circuit-breaker-js-per-sku-15-per-cycle-20:
+    until_story: 7-8-end-to-end-integration-gate-full-cycle-test-on-all-17-p11-fixtures-atomicity-bundle-gate-for-ad7-ad8-ad9-ad11
+    bundle: C
+    reason: "Bundle C participant (AD11) — atomicity gate at 7.8 must pass before circuit-breaker ships."
