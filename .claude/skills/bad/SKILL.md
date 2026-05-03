@@ -862,11 +862,9 @@ Using the assessment report from Step 2, follow the applicable branch:
 
 ---
 
-## Phase 4.5: Pedro Integration Test Gate
+## Phase 4.5: Integration Test Gate (automated)
 
-Discipline checkpoint that fires between Phase 4 Step 2 (Epic Completion Check) and Phase 4 Step 3 (Gate & Continue). Captures the systemic discovery from Epic 1 retro: library empirical-contract violations are a permanent property of integration work, and static review (even adversarial 3-layer code review) cannot catch them. Pedro's hands-on `npm run test:integration` against a working local Supabase is what catches them.
-
-This gate is informational/coordinator-tracked, NOT automated CI. BAD does not shell out to `npm test`. Pedro runs the script locally and reports the result back. The blocking comes from `[F]` halting BAD until the failures are investigated.
+Discipline checkpoint that fires between Phase 4 Step 2 (Epic Completion Check) and Phase 4 Step 3 (Gate & Continue). Captures the systemic discovery from Epic 1 retro: library empirical-contract violations cannot be caught by static review — only by running tests against real infrastructure. BAD runs the tests automatically; Pedro is only interrupted if Supabase is unreachable and won't auto-start, or if tests fail.
 
 ### Step 1: Determine the batch
 
@@ -884,13 +882,15 @@ Read `_bmad-output/implementation-artifacts/sprint-status.yaml`. Extract:
      - the inline YAML comment after the `true` value (e.g.
        "pg Pool + RLS + auth contract surface") — this is the per-story reason
 
-3. Run `cat package.json | grep '"test:integration"'` to verify the
-   `npm run test:integration` script exists. Save as `SCRIPT_EXISTS` (boolean).
+3. Read package.json and extract the full `test:integration` script value.
+   Save as `TEST_INTEGRATION_CMD` (string) and `SCRIPT_EXISTS` (boolean).
 
 4. Return:
    - INTEGRATION_TEST_BATCH: list of {story, pr_number, reason} for batch
      stories tagged `true`
    - SCRIPT_EXISTS: boolean
+   - TEST_INTEGRATION_CMD: the raw script string (e.g.
+     "node --env-file=.env.test --test --test-concurrency=1 ...")
 
 The PR numbers come from Phase 4 Step 2's batch summary; the coordinator
 substitutes them as `BATCH_STORIES_WITH_PRS`.
@@ -907,45 +907,67 @@ No halt. Coordinator continues to Step 3 immediately.
 
 **Branch B — `INTEGRATION_TEST_BATCH` non-empty AND `SCRIPT_EXISTS = true`:**
 
-Halt with this message:
-```
-📋 Phase 4.5 — Pedro Integration Test Gate
+BAD runs the tests automatically using the following procedure (no Pedro halt unless a blocker is hit):
 
-The following stories in this batch carry integration_test_required: true:
-{numbered list — one line per story:
-  - Story {N} (PR #{pr}) — {reason from inline YAML comment}}
+**Sub-step B1 — Supabase health check:**
+Run `npx supabase status 2>&1` from REPO_ROOT. Inspect output:
+- If output contains `stopped` or `not running`, or if the command errors → Supabase is down. Proceed to B2.
+- Otherwise → Supabase is running. Skip to B3.
 
-Before running /bad-review on these PRs, run integration tests locally
-against a working local Supabase:
+**Sub-step B2 — Auto-start Supabase:**
+Run `npx supabase start` from REPO_ROOT (allow up to 120 seconds). 📣 **Notify:** `⏳ Phase 4.5: Supabase not running — attempting auto-start...`
+- If start succeeds (exit 0) → proceed to B3.
+- If start fails or times out → halt and ask Pedro:
+  ```
+  ⚠ Phase 4.5 — Supabase could not be auto-started.
 
-  npm run test:integration
+  Stories requiring integration tests: {numbered list}
 
-Report:
+  Please start Supabase manually (`npx supabase start`) then report:
 
-[P] All passed — proceed to Phase 4 Step 3 (wait for PR merges)
-[F] One or more failed — halt BAD; investigate failures before merging
-[S] Stop BAD entirely
-```
+  [R] Ready — Supabase is now running, proceed with tests
+  [S] Stop BAD entirely
+  ```
+  📣 **Notify:** `⚠ Phase 4.5 blocked — Supabase start failed, waiting for Pedro`.
+  On `[R]`: proceed to B3. On `[S]`: stop BAD.
 
-📣 **Notify:** `📋 Integration test gate fired — {N} stories require local test run before merge`.
+**Sub-step B3 — Run tests:**
+Derive the test command from `TEST_INTEGRATION_CMD`:
+- Take the raw script string from package.json.
+- Replace `--env-file=.env.test` with `--env-file="{REPO_ROOT}/.env.test"` (absolute path so it works from any worktree).
+- Run this modified command from the worktree of the first tagged story (the worktree contains the latest test files).
+
+Parse exit code and output:
+- Exit 0, `fail 0` in output → **auto-pass**: log `✅ Phase 4.5 auto-passed: {N} stories, all tests green ({pass} tests)`. Proceed to Phase 4 Step 3 immediately — no halt. 📣 **Notify:** `✅ Integration tests passed — proceeding`.
+- Exit non-zero OR `fail N` in output → **auto-fail**: collect the failure lines and halt:
+  ```
+  ❌ Phase 4.5 — Integration tests failed.
+
+  Stories tested: {list}
+  Failures:
+  {failing test names and error output, trimmed to ≤40 lines}
+
+  PRs left open. Investigate failures before re-running BAD.
+
+  [S] Stop BAD entirely
+  ```
+  📣 **Notify:** `❌ Integration tests failed — BAD halted at Phase 4.5`.
+  Do NOT auto-recover. Pedro investigates, fixes, then re-runs `/bad`.
 
 **Branch C — `INTEGRATION_TEST_BATCH` non-empty AND `SCRIPT_EXISTS = false`:**
 
-Item 0 (test-harness chore PR) hasn't landed yet. The script the gate asks Pedro to run doesn't exist. Halt with this message instead:
+Item 0 (test-harness chore PR) hasn't landed yet. Halt with this message:
 ```
-📋 Phase 4.5 — Pedro Integration Test Gate (script not yet available)
+📋 Phase 4.5 — Integration Test Gate (script not yet available)
 
 The following stories in this batch carry integration_test_required: true:
 {numbered list with reasons}
 
-⚠ However, `npm run test:integration` does not exist in package.json yet —
-Item 0 of the Epic 1 retro (test-harness chore PR) has not landed. The
-gate cannot be honored mechanically this batch.
+⚠ `npm run test:integration` does not exist in package.json yet —
+Item 0 of the Epic 1 retro (test-harness chore PR) has not landed.
+The gate cannot run this batch.
 
-Report:
-
-[K] Skip this batch — Item 0 not yet landed; will be audit-logged. Once
-    Item 0 lands the script becomes available and [K] is no longer offered.
+[K] Skip this batch — Item 0 not yet landed; will be audit-logged.
 [S] Stop BAD entirely (recommended if you want to land Item 0 first)
 ```
 
@@ -953,11 +975,7 @@ Report:
 
 ### Step 3: Action handlers
 
-- **[P]**: log `Phase 4.5 passed: {N} stories, batch {batch_id}, {timestamp}`. Proceed to Phase 4 Step 3.
-
-- **[F]**: HALT BAD. Print `❌ Phase 4.5 failed — Pedro reported integration test failures. PRs left open. Resolve failures before resuming BAD.` 📣 **Notify:** `❌ Integration tests failed — BAD halted at Phase 4.5`. Do NOT auto-recover; do NOT continue to Phase 4 Step 3. Pedro investigates manually, fixes, then either resumes BAD with a new `/bad` invocation (which re-runs Phase 0 → Phase 4.5 from clean state) or merges hotfix PRs and skips back to Phase 0.
-
-- **[S]**: Stop BAD entirely. Print final summary. 📣 **Notify:** `🛑 BAD stopped at Phase 4.5 by user`.
+- **[R]** (Branch B Sub-step B2 only): Supabase confirmed running by Pedro. Proceed to B3.
 
 - **[K]** (Branch C only): log `Phase 4.5 SKIPPED — npm run test:integration unavailable; Item 0 not yet landed`. Append to `_bmad-output/implementation-artifacts/deferred-work.md` under a new section:
   ```
@@ -965,13 +983,13 @@ Report:
 
   Batch: {batch_id} — {N} stories tagged integration_test_required:
   - Story {N} (PR #{pr}) — {reason}
-  - Story {M} (PR #{pr}) — {reason}
 
   npm run test:integration script did not exist at gate fire-time.
-  Bypass acceptable until Item 0 (test-harness chore PR) lands; once it
-  does, [K] is no longer offered and Phase 4.5 becomes mandatory.
+  Bypass acceptable until Item 0 lands; once it does, [K] is no longer offered.
   ```
   Then proceed to Phase 4 Step 3.
+
+- **[S]**: Stop BAD entirely. Print final summary. 📣 **Notify:** `🛑 BAD stopped at Phase 4.5 by user`.
 
 ### Rationale
 
