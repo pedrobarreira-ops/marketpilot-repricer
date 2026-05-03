@@ -35,6 +35,15 @@ export class TransactionNestingError extends Error {
  * inside an active transaction. Callers that need nested transactions must
  * use Postgres savepoints directly.
  *
+ * Nesting-detection limitation: detection relies on the `_txActive` sentinel
+ * property that tx() itself manages. A caller that issues BEGIN manually on
+ * a PoolClient and then calls tx() with that same client will NOT trigger the
+ * nesting error — Postgres will silently NOTICE "there is already a
+ * transaction in progress" on the inner BEGIN, and the inner COMMIT will
+ * commit the outer transaction prematurely. Callers MUST NOT mix manual
+ * BEGIN/COMMIT with tx(); use one or the other on a given client lifetime.
+ * The tx()-from-tx() nesting case (the realistic misuse) IS detected.
+ *
  * Advisory-lock compatibility: if a pg.Pool is passed instead of a client,
  * a client is checked out from the pool before BEGIN and released on
  * COMMIT/ROLLBACK.
@@ -71,26 +80,10 @@ export async function tx (client, callback) {
     mustRelease = true;
   }
 
-  // Nesting detection (Option A): pg surfaces the active-transaction state via
-  // the _queryable property when in a transaction. We detect it by running a
-  // lightweight BEGIN and checking the transaction status character.
-  // Simpler approach: attempt BEGIN and inspect the pg internal state.
-  // The most reliable runtime check: query pg_current_xact_id_if_assigned()
-  // or look at the connection's _queryable / _connected properties.
-  //
-  // Reliable cross-version approach: use the connection's transaction status
-  // exposed via the libpq protocol. pg.PoolClient exposes the underlying
-  // connection via ._connection; its `_connectionParameters` or the response
-  // to a BEGIN command reveals if we're already in a transaction.
-  //
-  // Pragmatic approach: attempt BEGIN. If pg responds with a warning
-  // "there is already a transaction in progress", that means we're nested.
-  // We catch this by listening for a 'notice' event before BEGIN.
-  //
-  // Even simpler: track transaction state with a custom property that tx()
-  // sets on the client after BEGIN and clears after COMMIT/ROLLBACK.
-  // This is reliable for the tx()-to-tx() nesting case the test exercises.
-
+  // Nesting detection (Option A): track an `_txActive` sentinel property that
+  // tx() sets on the client after BEGIN and clears in `finally`. Reliable for
+  // the tx()-from-tx() nesting case (the realistic misuse). For the limitation
+  // around manual-BEGIN-then-tx(), see the JSDoc above.
   if (txClient._txActive === true) {
     if (mustRelease) txClient.release();
     throw new TransactionNestingError();

@@ -12,6 +12,8 @@
 //   import { Client } from 'pg'
 //   new Pool(...)
 //   new Client(...)
+//   new pg.Pool(...)        — MemberExpression form (e.g., default-imported pg)
+//   new pg.Client(...)      — same
 //
 // The rule does NOT apply to:
 //   shared/db/        — the SSoT modules own raw pg access
@@ -53,11 +55,24 @@ const rule = {
         }
       },
 
-      // Flag: new Pool(...) or new Client(...) in app/src/ files
+      // Flag: new Pool(...) or new Client(...) in app/src/ files.
+      // Covers both bare-identifier form (named import) and MemberExpression
+      // form (`new pg.Pool(...)` / `new pg.Client(...)`) so a default-imported
+      // pg alias does not silently bypass the rule.
       NewExpression (node) {
+        const { callee } = node;
         if (
-          node.callee.type === 'Identifier' &&
-          (node.callee.name === 'Pool' || node.callee.name === 'Client')
+          callee.type === 'Identifier' &&
+          (callee.name === 'Pool' || callee.name === 'Client')
+        ) {
+          context.report({ node, messageId: 'noDirectPg' });
+          return;
+        }
+        if (
+          callee.type === 'MemberExpression' &&
+          callee.property &&
+          callee.property.type === 'Identifier' &&
+          (callee.property.name === 'Pool' || callee.property.name === 'Client')
         ) {
           context.report({ node, messageId: 'noDirectPg' });
         }

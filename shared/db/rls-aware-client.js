@@ -30,13 +30,28 @@ import { getServiceRoleClient } from './service-role-client.js';
  * Node's base64 decoder being lenient about padding (works today, but fragile
  * across platforms). `'base64url'` is the documented contract.
  *
+ * Validates the payload is a plain JSON object containing a non-empty `sub`
+ * claim. Without these checks, a malformed JWT body of `null`, an array, or a
+ * primitive would silently round-trip through JSON.stringify and end up as the
+ * `request.jwt.claims` GUC value — at which point `auth.uid()` resolves to
+ * NULL and RLS policies relying on it (`USING (id = auth.uid())`) silently
+ * filter to zero rows or, worse, expose `IS NULL` clauses unexpectedly.
+ * Failing fast here is the safer default.
+ *
  * @param {string} jwt - raw JWT string (header.payload.signature)
- * @returns {object} decoded JWT payload object
+ * @returns {object} decoded JWT payload object with a `sub` claim
  */
 function decodeJwtPayload (jwt) {
   const parts = jwt.split('.');
   if (parts.length !== 3) throw new Error('getRlsAwareClient: invalid JWT format');
-  return JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+  const decoded = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+  if (decoded === null || typeof decoded !== 'object' || Array.isArray(decoded)) {
+    throw new Error('getRlsAwareClient: JWT payload is not a JSON object');
+  }
+  if (typeof decoded.sub !== 'string' || decoded.sub.length === 0) {
+    throw new Error('getRlsAwareClient: JWT payload missing required "sub" claim');
+  }
+  return decoded;
 }
 
 /**
@@ -98,12 +113,18 @@ export async function getRlsAwareClient (jwt) {
     // query() calls on the same connection without wrapping everything in BEGIN/COMMIT.
     // We wrap the client's release() method to auto-reset settings before returning
     // the connection to the pool — preventing cross-request JWT claim leakage.
+    //
+    // NOTE: only set request.jwt.claims here — the role is established below via
+    // `SET ROLE authenticated` (the canonical Postgres command). A duplicate
+    // `set_config('role', 'authenticated', false)` was previously issued
+    // alongside the claims; it was redundant since `SET ROLE` writes the same
+    // GUC, and dropping it shaves one extra round-trip per request.
     await client.query(
-      `SELECT set_config('request.jwt.claims', $1, false), set_config('role', 'authenticated', false)`,
+      `SELECT set_config('request.jwt.claims', $1, false)`,
       [claimsJson]
     );
-    // Belt-and-suspenders: explicitly set the role so RLS policies targeting
-    // the 'authenticated' Postgres role fire correctly.
+    // Switch the connection's effective Postgres role so RLS policies targeting
+    // the 'authenticated' role fire correctly.
     await client.query(`SET ROLE authenticated`);
   } catch (err) {
     // Release with error flag so pg marks this client as unusable and removes
@@ -117,8 +138,18 @@ export async function getRlsAwareClient (jwt) {
   // If the RESET round-trip itself fails, force release with an error flag so
   // the pool discards the connection rather than handing it to the next caller
   // with stale request.jwt.claims still set.
+  //
+  // Double-release guard: pg's PoolClient.release is idempotent (a second call
+  // is a no-op once the underlying client is back in the pool), but the wrapped
+  // version awaits SQL queries first — calling it twice would issue RESET
+  // queries on a connection no longer owned by us, potentially racing the next
+  // caller's session settings. Track release state so a duplicate call resolves
+  // immediately without touching the connection.
   const originalRelease = client.release.bind(client);
+  let released = false;
   client.release = async (err) => {
+    if (released) return;
+    released = true;
     const resetErr = await resetRlsSettings(client);
     return originalRelease(err ?? resetErr ?? undefined);
   };

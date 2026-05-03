@@ -60,12 +60,24 @@ export async function rlsContext (request, _reply) {
  * @returns {Promise<void>}
  */
 export async function releaseRlsClient (request) {
-  if (request.db) {
-    // request.db.release() is the wrapped version from getRlsAwareClient() that
-    // auto-resets RLS session settings (RESET ROLE + clear request.jwt.claims)
-    // before returning the connection to the pool, preventing cross-request
-    // JWT claim leakage when connections are reused.
-    await request.db.release();
-    request.db = null;
+  if (!request.db) return;
+  // request.db.release() is the wrapped version from getRlsAwareClient() that
+  // auto-resets RLS session settings (RESET ROLE + clear request.jwt.claims)
+  // before returning the connection to the pool, preventing cross-request
+  // JWT claim leakage when connections are reused.
+  //
+  // Defensive try/finally: an error from the wrapped release would propagate
+  // out of an onResponse hook as an unhandled rejection (Fastify cannot do
+  // anything useful with it post-response), so we log and swallow. The
+  // wrapped release already discards poisoned connections via release(err)
+  // semantics; surfacing the error here only as a log line is the right
+  // trade-off. We always null out request.db to prevent a downstream onError
+  // hook from attempting a second release on an already-released client.
+  const client = request.db;
+  request.db = null;
+  try {
+    await client.release();
+  } catch (err) {
+    request.log?.warn?.({ err }, 'rls-context: release() threw');
   }
 }

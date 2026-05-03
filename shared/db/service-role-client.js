@@ -67,13 +67,12 @@ export function buildPgPoolConfig (connectionString, caCertStr = null, opts = {}
 }
 
 let _pool = null;
-let _initPromise = null;
+let _closingPromise = null;
 
 /**
- * Construct the service-role pool — extracted so the singleton accessor can
- * memoise the in-flight init under a one-shot promise (prevents the
- * first-call race where two parallel callers each create a Pool and one is
- * leaked).
+ * Construct the service-role pool — extracted from the singleton accessor so
+ * the wiring (pool.on('error') handler, Pool config) stays separate from the
+ * lifecycle logic (lazy init, shutdown guard).
  *
  * @returns {import('pg').Pool} a fully wired service-role pg Pool
  */
@@ -104,25 +103,28 @@ function buildPool () {
  * Lazy init so SUPABASE_SERVICE_ROLE_DATABASE_URL need not be set at
  * module-import time (test scenarios that stub env after import).
  *
- * Concurrency-safe: the first call's pool construction is memoised on
- * `_initPromise` (synchronously assigned before any await), so any parallel
- * caller arriving during the same tick observes the in-flight construction
- * and shares the resulting pool. Without this guard, two parallel first-
- * callers would each construct a Pool and one would be leaked (never
- * `.end()`d) — the exact failure mode flagged in deferred-work.md for the
- * absorbed `founder-admin-only.js` getPool helper.
+ * Concurrency-safe: `new Pool(...)` is synchronous, so the first caller
+ * populates `_pool` before yielding the event loop — any parallel caller
+ * arriving in the same tick observes the populated singleton without
+ * constructing a duplicate pool (the failure mode flagged in deferred-work.md
+ * for the absorbed `founder-admin-only.js` getPool helper).
+ *
+ * Shutdown guard: throws if the pool is currently being drained
+ * (`closeServiceRolePool()` initiated and not yet resolved). Without this
+ * guard, a parallel caller during graceful-shutdown would race the close,
+ * see `_pool === null`, and construct a fresh pool that outlives the
+ * shutdown — defeating the entire onClose contract. Failing loud here lets
+ * misbehaving callers surface the bug rather than silently leaking the new pool.
  *
  * @returns {import('pg').Pool} the service-role pool singleton
+ * @throws {Error} when called after closeServiceRolePool() has begun draining
  */
 export function getServiceRoleClient () {
-  if (_pool !== null) return _pool;
-  if (_initPromise === null) {
-    // Synchronous assignment of the singleton — `new Pool(...)` is sync; no
-    // await happens before _pool is set, so subsequent callers in the same
-    // tick see the populated _pool. The _initPromise is kept only for the
-    // symmetry needed if buildPool ever becomes async.
+  if (_closingPromise !== null) {
+    throw new Error('service-role pool is shutting down; getServiceRoleClient() rejected');
+  }
+  if (_pool === null) {
     _pool = buildPool();
-    _initPromise = Promise.resolve(_pool);
   }
   return _pool;
 }
@@ -131,18 +133,36 @@ export function getServiceRoleClient () {
  * Gracefully close the service-role pool and reset the singleton.
  * Called by SIGTERM/SIGINT handlers (worker) and Fastify onClose hook (app).
  *
- * Idempotent + crash-safe: nullifies the singleton in `finally` so a
- * `_pool.end()` rejection does not strand a dead pool reference. A second
- * call after a rejected end() is a no-op rather than retrying against the
- * already-closed pool (which would itself reject with "Called end on pool
- * more than once").
+ * Concurrency model:
+ *   - `_closingPromise` is set synchronously on first call; any parallel
+ *     `closeServiceRolePool()` returns the same in-flight promise (idempotent).
+ *   - During the drain window, `getServiceRoleClient()` throws (see its
+ *     shutdown guard) so a Fastify onClose hook running concurrently with a
+ *     last-second request can't construct a fresh pool that outlives the
+ *     shutdown.
+ *   - Once `pool.end()` resolves (or rejects), `_pool` and `_closingPromise`
+ *     are both cleared in `finally`, so a process that survives shutdown
+ *     (test harness, watch mode) can re-init a fresh pool on the next
+ *     `getServiceRoleClient()` call.
+ *
+ * Idempotent + crash-safe: a second call after a resolved drain re-runs as
+ * a no-op (no pool to close); a second call after a rejected drain likewise
+ * starts fresh rather than retrying against the already-closed underlying
+ * pool (which would reject with "Called end on pool more than once").
  *
  * @returns {Promise<void>} resolves once the pool is fully drained (or rejects with end()'s error after the singleton is cleared)
  */
 export async function closeServiceRolePool () {
+  if (_closingPromise !== null) return _closingPromise;
   if (_pool === null) return;
   const poolToClose = _pool;
-  _pool = null;
-  _initPromise = null;
-  await poolToClose.end();
+  _closingPromise = (async () => {
+    try {
+      await poolToClose.end();
+    } finally {
+      _pool = null;
+      _closingPromise = null;
+    }
+  })();
+  return _closingPromise;
 }
