@@ -8,6 +8,7 @@ import js from '@eslint/js';
 import jsdoc from 'eslint-plugin-jsdoc';
 import globals from 'globals';
 import noDirPgInApp from './eslint-rules/no-direct-pg-in-app.js';
+import noRawInsertAuditLog from './eslint-rules/no-raw-INSERT-audit-log.js';
 
 export default [
   js.configs.recommended,
@@ -20,6 +21,19 @@ export default [
     plugins: { 'no-direct-pg': noDirPgInApp },
     rules: {
       'no-direct-pg/no-direct-pg-in-app': 'error',
+    },
+  },
+  {
+    // Story 9.0: no-raw-INSERT-audit-log rule — forbids raw INSERT INTO audit_log
+    // or Supabase .from('audit_log').insert(...) outside shared/audit/writer.js.
+    // Scoped to production source code only (app/, worker/, shared/).
+    // Tests are excluded: integration tests legitimately use raw SQL for fixture
+    // setup and ATDD scaffolding. The allowlist (shared/audit/writer.js) is also
+    // enforced inside the rule itself via context.filename.
+    files: ['app/**/*.js', 'worker/**/*.js', 'shared/**/*.js'],
+    plugins: { 'no-raw-audit': noRawInsertAuditLog },
+    rules: {
+      'no-raw-audit/no-raw-INSERT-audit-log': 'error',
     },
   },
   {
