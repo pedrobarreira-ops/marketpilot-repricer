@@ -1,5 +1,5 @@
 # generated: 2026-05-01
-# last_updated: 2026-05-04  # bmad-retrospective: Epic 2 retro complete (epic-2: in-progress → done; epic-2-retrospective: optional → done); doc saved at epic-2-retro-2026-05-04.md; 6 sequenced action items + 1 watch-deferred (Items 1-2 P0 blocking Epic 3: distillate directory-tree fix + Cloud migrations push + MCP verify; Items 3-5 strongly-recommended pre-Epic-3: BAD Phase 4 worktree-cleanup investigation + Step 6 PR-body data-grounding + sprint-status main-only flips Option B; Item 6 calendar-ahead forward-debt note for Story 4.1; Item 7 deferred filename-convention watch); 5 decisions recorded (Q1-Q5); 1st confirmed slipped Epic-1-retro item (distillate db/migrations→supabase/migrations); systemic prediction confirmed empirically: Library Empirical Contract #12 (RLS JWT set_config pattern) surfaced through Phase 4.5 gate exactly as Epic 1 retro predicted
+# last_updated: 2026-05-04  # bmad-retrospective: Epic 2 retro complete (epic-2: in-progress → done; epic-2-retrospective: optional → done); doc saved at epic-2-retro-2026-05-04.md; 6 sequenced action items + 1 watch-deferred (Items 1-2 P0 blocking Epic 3: distillate directory-tree fix + Cloud migrations push + MCP verify; Items 3-5 strongly-recommended pre-Epic-3: BAD Phase 4 worktree-cleanup investigation + Step 6 PR-body data-grounding + sprint-status main-only flips Option B; Item 6 calendar-ahead forward-debt note for Story 4.1; Item 7 deferred filename-convention watch); 5 decisions recorded (Q1-Q5); 1st confirmed slipped Epic-1-retro item (distillate db/migrations→supabase/migrations); systemic prediction confirmed empirically: Library Empirical Contract #12 (RLS JWT set_config pattern) surfaced through Phase 4.5 gate exactly as Epic 1 retro predicted; bmad-create-story: Story 9.0 sharded 2026-05-04 (Bob); 9-0-writeauditevent-ssot → ready-for-dev
 # project: marketpilot-repricer
 # project_key: NOKEY
 # tracking_system: file-system
@@ -103,7 +103,7 @@ development_status:
   # Stories 9.0 + 9.1 ship HERE, before Epic 3, unblocking 12 Batch-2 dependents.
   # Numerical Epic 9 slot retains 9.2-9.6 only (post-Epic 8).
   # =========================================================================
-  9-0-writeauditevent-ssot-module-audit-log-event-types-lookup-table-26-row-ad20-taxonomy-seed: backlog  # CALENDAR-EARLY; ships eslint-rules/no-raw-INSERT-audit-log.js
+  9-0-writeauditevent-ssot-module-audit-log-event-types-lookup-table-26-row-ad20-taxonomy-seed: ready-for-dev  # CALENDAR-EARLY; ships eslint-rules/no-raw-INSERT-audit-log.js; bmad-create-story: Story 9.0 sharded 2026-05-04 (Bob)
   9-1-audit-log-partitioned-base-table-priority-derivation-trigger-initial-partition-monthly-partition-cron: backlog  # CALENDAR-EARLY; depends on 9.0 + 2.1 (RLS clients)
 
   # =========================================================================
