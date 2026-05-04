@@ -241,6 +241,16 @@ INPUTS:
    SSoT module the epic introduces has at least one test file targeting it.
 4. The atomicity bundles cross-cutting from epics-distillate _index.md —
    used to verify atomicity-bundle gates are scaffolded where required.
+5. **Iteration context** — the coordinator passes:
+   - `ITERATION_NUMBER` (0 = first review, 1 = after one Auto-Fix pass,
+     2 = after two passes / final allowed)
+   - `CURRENT_STORY` (the specific story being shipped this batch — e.g.
+     "9.0", "3.1") so you can classify gaps as "in current-story scope"
+     vs "in future-story scope only"
+   - `PREVIOUS_ITERATION_SUMMARY` (only when ITERATION_NUMBER > 0) — a
+     short note on what the previous Auto-Fix did, e.g.
+     "9 of 11 closed cleanly, 2 degraded to soft-passes (assert.ok(true)),
+     6 new gaps surfaced." Used to detect diminishing-returns trajectory.
 
 CHECKS (apply each, list findings):
 
@@ -284,9 +294,49 @@ VERDICT TIERS:
   spec-quality (the AC itself is too vague for any test to bind to) —
   flag this in the verdict so the user knows auto-fix may not converge.
 
-REPORT FORMAT (stay under 600 words, plain language for a non-developer):
+REPORT FORMAT (stay under 700 words, plain language for a non-developer):
 
-## Verdict: Strong / Acceptable / Weak
+## Verdict: Strong / Acceptable / Weak (iteration {ITERATION_NUMBER})
+
+## For non-developer reader (TL;DR)
+
+Three required lines, mapped from the decision-rule table below:
+
+1. **Recommended action: [C] / [Auto-Fix] / [S].** One bracketed letter, no ambiguity.
+2. **Reasoning in one sentence.** Plain language, no jargon. Cover the load-bearing
+   reason — typically one of: convergence trajectory, current-vs-future-story scope,
+   architectural-mismatch gaps, iteration-budget exhaustion, semantic gaps present.
+3. **When to pause and ask Claude before clicking.** One line. Trigger conditions:
+   any gap in the current shipping story, any "semantic gap" finding, or any
+   architectural-mismatch indicator (NFR timing tests at unit-test layer, perf
+   budgets that can't be reliably asserted, etc.).
+
+DECISION RULE TABLE — derive the recommendation from these scenarios:
+
+| Scenario                                                                    | Recommend       |
+|-----------------------------------------------------------------------------|-----------------|
+| Strong verdict, any iteration                                               | [C] Continue    |
+| Iteration 0, Acceptable, mechanical gaps in current-story scope             | [Auto-Fix]      |
+| Iteration 0, Acceptable, mechanical gaps only in future-story scope, ≤5     | [Auto-Fix]      |
+| Iteration 0, Acceptable, mechanical gaps only in future-story scope, ≥10    | [C] Continue    |
+| Iteration 0/1, Weak verdict, mechanical-only                                | [Auto-Fix]      |
+| Iteration 1, Acceptable, previous pass converged cleanly, current-story gaps | [Auto-Fix]      |
+| Iteration 1, Acceptable, previous pass had soft-passes / arch-mismatch       | [C] Continue    |
+| Iteration 2 (final allowed), any state                                      | [C] Continue    |
+| Any iteration, semantic gaps present                                        | [S] Stop        |
+
+Architectural-mismatch examples (justifying [C] over [Auto-Fix] in iteration 1+):
+- NFR-P8 timing/perf assertions at node:test unit-test layer (flaky wall-clock,
+  belongs in production monitoring or staging load tests, not unit tests)
+- Cross-environment query-plan checks that need real DB sizing
+- Integration-flaky tests that degraded to `test.skip(...)` or `assert.ok(true)`
+
+Convergence-trajectory signals (good = lean Auto-Fix, bad = lean Continue):
+- GOOD: "8 of 10 closed cleanly with behavioral assertions, 2 minor stragglers"
+- BAD: "9 of 11 closed but 2 are pseudo-fixes; 6 new gaps surfaced on re-review"
+
+When iteration 2 hits, [Auto-Fix] is no longer offered (3rd attempt halts BAD).
+Only [C] and [S] are valid menu options at iteration 2.
 
 ## Summary (2-3 sentences in plain language)
 {What's good about the test plan, what's missing if anything. No jargon.}
@@ -296,10 +346,13 @@ REPORT FORMAT (stay under 600 words, plain language for a non-developer):
 
 ## Mechanical gaps (auto-fixable)
 {List items in A-D that a fix subagent could close. Format as a numbered
-todo list — exact file:line OR exact test name to add.}
+todo list — exact file:line OR exact test name to add. For each item, tag
+its scope: "[current-story]" if the gap affects {CURRENT_STORY}, otherwise
+"[future-story: {N.M}]". The TL;DR uses these tags to apply the decision rules.}
 
 ## Semantic gaps (need spec rework, NOT auto-fixable)
-{List items in E. If non-empty, recommend [S]top — auto-fix won't converge.}
+{List items in E. If non-empty, the TL;DR MUST recommend [S] — auto-fix
+won't converge.}
 
 ## Confidence: high / medium / low
 {Your confidence the verdict is right. Low if the epic touches code or
@@ -310,29 +363,33 @@ Return only the verdict report.
 
 ### Halt with verdict-driven menu
 
-After the auto-review returns, present the user with the verdict and a menu shaped by the verdict tier:
+After the auto-review returns, present the user with the **full auto-review report (verbatim — including the "For non-developer reader (TL;DR)" section at the top of the report)**, followed by the verdict-shaped menu. The TL;DR section gives the user the recommended action and reasoning before the menu options — Pedro can scan TL;DR alone for the call, or read the full report to verify.
 
 **Strong verdict:**
 ```
-⏸ Epic-Start Test Design — verdict: ✓ Strong
-
-{auto-review summary}
+{full auto-review report verbatim — includes TL;DR section at top}
 
 [C] Continue to Phase 2  |  [S] Stop BAD
 ```
 
-**Acceptable verdict:**
+**Acceptable verdict (iteration 0 or 1):**
 ```
-⏸ Epic-Start Test Design — verdict: ⚠ Acceptable
-
-{auto-review summary}
-
-Mechanical gaps (auto-fixable):
-{list of numbered items from auto-review report}
+{full auto-review report verbatim — includes TL;DR section at top}
 
 [C] Continue to Phase 2 (accept gaps as-is)
 [Auto-Fix] Run a fix subagent on the listed gaps, then re-review
 [S] Stop BAD
+```
+
+**Acceptable verdict (iteration 2 — final allowed):**
+```
+{full auto-review report verbatim — includes TL;DR section at top}
+
+⚠ Iteration 2 reached. [Auto-Fix] is no longer offered (a 3rd auto-fix
+attempt halts BAD). Choose [C] to ship with remaining gaps (Step 4 Test
+Review per-story will catch them), or [S] to halt for manual investigation.
+
+[C] Continue to Phase 2  |  [S] Stop BAD
 ```
 
 **Weak verdict:**
