@@ -565,6 +565,22 @@ Read `references/merge-procedure.md` and follow it exactly. Core steps:
 7. **Check for conflict markers left behind** before continuing: `grep -c "<<<<<<< HEAD" <spec-file>`. If non-zero, fix them before pushing.
 8. `git push origin main` — this completes the merge safely.
 9. Pop the stash.
+10. **Worktree + local-branch cleanup (UNCONDITIONAL after successful merge).** The PR's worktree (`.worktrees/story-{N}-<slug>/`) and local branch (`story-{N}-<slug>`) are no longer needed. Cleanup must run on every successful merge — never assume a future BAD Phase 0 will do it (with halt-after-batch, BAD may not run again for days):
+    ```bash
+    # Derive paths from the PR (title typically: "story-{N}-<slug> - fixes #M")
+    WORKTREE=".worktrees/story-{N}-<slug>"
+    BRANCH="story-{N}-<slug>"
+
+    # Remove worktree — fails silently if already removed
+    git worktree remove "$WORKTREE" 2>&1 || echo "(worktree already removed)"
+
+    # Force-delete local branch — squash-merge gives different SHA so -D is required
+    git branch -D "$BRANCH" 2>&1 || echo "(branch already removed)"
+
+    # Verify cleanup
+    git worktree list
+    ```
+    **If `git worktree remove` reports uncommitted changes**: halt and report — do NOT use `--force`. Uncommitted changes in a post-merge worktree are unusual and warrant Pedro's eyeball. The merge has already succeeded; Phase 5 can still proceed. The cleanup just doesn't complete in this session.
 
 ### Mechanical-conflict resolution (step 2 CONFLICTING case)
 

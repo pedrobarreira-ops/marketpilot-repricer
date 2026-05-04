@@ -57,7 +57,7 @@ Before doing anything destructive:
 If local main is at the same commit as origin/main:
 
 1. `gh pr merge <N> --squash --delete-branch` — GitHub squashes and merges.
-   - `--delete-branch` will fail with a warning if a worktree still holds the branch. Ignore that — the remote branch is deleted regardless. BAD's next Phase 0 cleans up worktrees.
+   - `--delete-branch` will fail with a warning if a worktree still holds the branch. Ignore that — the remote branch is deleted regardless. The local worktree + branch are cleaned up unconditionally in Phase 4 step 10 of `SKILL.md` (do NOT rely on a future BAD Phase 0 — with halt-after-batch, BAD may not run again for days).
 2. Verify merge succeeded: `gh pr view <N> --json state,mergedAt` — expect `state: MERGED`.
 3. `git fetch origin main && git pull --ff-only origin main` — fast-forward local to the new tip.
 4. Skip to Post-merge verification.
