@@ -72,7 +72,7 @@
 # by design; pre-dates the rule).
 
 generated: 2026-05-01
-last_updated: 2026-05-04  # bmad-create-story: Story 2.2 sharded 2026-05-04 (Bob); 2-2-rls-regression-suite-ci-block → ready-for-dev; integration_test_required: true; bmad-dev-story: Story 2.2 → review 2026-05-04 (Amelia)
+last_updated: 2026-05-04  # bmad-create-story: Story 2.2 sharded 2026-05-04 (Bob); 2-2-rls-regression-suite-ci-block → ready-for-dev; integration_test_required: true; bmad-dev-story: Story 2.2 → review 2026-05-04 (Amelia); bmad-code-review: Story 2.2 → done 2026-05-04 (PR #65 Step 7 review, 4 patches applied)
 project: marketpilot-repricer  # updated by bmad-create-story: Story 1.1 sharded 2026-05-01; Story 1.2 sharded 2026-05-01; Story 1.3 sharded 2026-05-02; Story 1.4 sharded 2026-05-02; Story 1.5 sharded 2026-05-03; Story 1.5 → review 2026-05-03; Story 1.5 → done 2026-05-03 (post-review); Story 2.1 sharded 2026-05-03 (Bob) → ready-for-dev
 project_key: NOKEY
 tracking_system: file-system
@@ -95,7 +95,7 @@ development_status:
   # =========================================================================
   epic-2: in-progress
   2-1-rls-aware-app-db-client-service-role-worker-db-client-transaction-helper: done  # sharded 2026-05-03 (Bob); integration_test_required: true; carried Epic 1 retro Item 3 requirements (SSL helper centralization, pool absorption x3, mp_session contract, SIGTERM shutdown); atdd-done 2026-05-03 (Quinn); dev-done 2026-05-03 (Amelia) — 36/36 integration tests pass, 0 ESLint errors, 5 new files, 3 pools absorbed, SIGTERM wired; pr-review 2026-05-03 (Step 7) — 7 hardening fixes applied (release-wrapper idempotency, shutdown race, JWT validation, MemberExpression rule, etc.)
-  2-2-rls-regression-suite-ci-block: review  # sharded 2026-05-04 (Bob); atdd-done 2026-05-04; dev-done 2026-05-04 (Amelia) — all 5 tasks complete: seed file, regression-suite.js, integration test (parameterized isolation + 4 convention tests), package.json + CI, auth.uid() IS NOT NULL fix; integration_test_required: true
+  2-2-rls-regression-suite-ci-block: done  # sharded 2026-05-04 (Bob); atdd-done 2026-05-04; dev-done 2026-05-04 (Amelia) — all 5 tasks complete: seed file, regression-suite.js, integration test (parameterized isolation + 4 convention tests), package.json + CI, auth.uid() IS NOT NULL fix; integration_test_required: true; pr-review 2026-05-04 (Step 7, PR #65) — 4 patches applied: tightened test SQLSTATE allow-list (replaced bare catch {} with assertInsertBlockedByRls), env-var preflight in script, let→const, CI push trigger restricted to main
   epic-2-retrospective: optional
 
   # =========================================================================
