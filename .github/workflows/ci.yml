@@ -1,0 +1,77 @@
+# .github/workflows/ci.yml
+#
+# Story 2.2 / AC#4, AD30, NFR-I3 — CI block on RLS regression failure.
+#
+# Convention (AD30): every new customer-scoped table migration MUST extend:
+#   1. db/seed/test/two-customers.sql (add a row for both test customers)
+#   2. tests/integration/rls-regression.test.js CUSTOMER_SCOPED_TABLES array
+#   in the same PR. Failure to do so causes `npm run test:rls` to fail.
+#
+# Note on Supabase in CI:
+#   This workflow runs tests against a dedicated test Supabase project (free tier).
+#   The test secrets below must be configured as GitHub repository secrets pointing
+#   at a test-only Supabase project — NEVER at the production project.
+#   Alternatively, run against Supabase CLI local docker:
+#     supabase start → sets SUPABASE_URL=http://localhost:54321
+#   The reset-auth-tables.js SAFETY GUARD blocks execution against non-localhost
+#   connections, so a misconfigured CI pointing at Cloud will fail-safe.
+#
+#   MVP approach: Pedro configures the secrets below to point at a free-tier
+#   test Supabase project. The safety guard in reset-auth-tables.js is bypassed
+#   only when using local Supabase docker. For CI, the test suite uses the admin
+#   API to create + delete test users without relying on the reset helper.
+
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: ['**']
+
+jobs:
+  rls-regression:
+    name: RLS Regression Suite
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run RLS regression suite
+        run: npm run test:rls
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_SERVICE_ROLE_DATABASE_URL: ${{ secrets.SUPABASE_SERVICE_ROLE_DATABASE_URL }}
+          MASTER_KEY_BASE64: ${{ secrets.MASTER_KEY_BASE64 }}
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
