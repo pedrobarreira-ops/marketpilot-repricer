@@ -616,18 +616,54 @@ Auto-approve all tool calls (yolo mode).
    Include "Fixes #{gh_issue_number}" in the PR description body (omit only if
    no issue number was found in step 3).
 
-   PR BODY HALLUCINATION GUARD — after /commit-commands:commit-push-pr drafts the
-   PR body, review it against the actual diff (`git diff main`) BEFORE pushing.
-   Only cite specific filenames, function names, table/column names, exact string
-   values, env var names, CLI flags, or explicit behavioural claims (e.g. "adds
-   retry logic", "emits X field") that you can confirm are present in the diff.
-   For anything else, use general prose ("adds the route", "extends the worker").
+   PR BODY DATA-GROUNDING RULE — BEFORE drafting the body, run these commands
+   in the worktree and COPY from their outputs. Do NOT reason about
+   file counts, file lists, env var names, or CI status — read them.
+
+     1. File-count + file list (always run first):
+          git -C {worktree_path} diff main --stat
+          git -C {worktree_path} diff main --name-only
+        Use the EXACT line from `--stat` (e.g. "5 files changed, 142 insertions(+), 18 deletions(-)")
+        for any "X files changed" claim. Use `--name-only` output verbatim for any
+        list of changed files. Never invent file paths or hand-count.
+
+     2. Env var names referenced in the diff:
+          git -C {worktree_path} diff main | grep -oE "process\.env\.[A-Z_][A-Z0-9_]*" | sort -u
+        Only cite env var names that appear in this output. Never construct
+        "X + Y" env-var pairs unless BOTH names appear in the grep output.
+
+     3. CI status (only after the PR has been pushed and CI has run):
+          gh pr checks {PR_NUMBER}
+        Use the actual check names and statuses verbatim. Do NOT claim
+        "CI skipped" or "GitHub Actions skipped: RUN_CI_LOCALLY=true" unless
+        BOTH of these are true: (a) `gh pr checks` returns zero check rows,
+        AND (b) the BAD config in `.claude/settings.json` actually has
+        `RUN_CI_LOCALLY=true`. If RUN_CI_LOCALLY is not set, GitHub Actions
+        ran — describe its actual result, do not claim it was skipped.
+
+     4. Test counts:
+          (parse the test runner's own output — `# pass N` / `# fail N` lines from
+           node:test, or jest's summary). Never aggregate across categories
+           ("8 tests" lumping cases + sub-assertions).
+
+   PR BODY HALLUCINATION GUARD (post-draft check) — after /commit-commands:commit-push-pr
+   drafts the body, review against the actual diff BEFORE pushing. Only cite
+   specific filenames, function names, table/column names, exact string values,
+   env var names, CLI flags, or explicit behavioural claims (e.g. "adds retry
+   logic", "emits X field") that you can confirm are present in the diff. For
+   anything else, use general prose ("adds the route", "extends the worker").
    If the draft contains a specific claim you cannot verify in the diff,
-   generalise it or remove it before the PR is created. This rule applies only
-   to the PR BODY — the PR TITLE can be the story slug as-is. Repeating pattern
-   observed across Epics 2, 3, and 4: PR bodies hallucinate filenames, header
-   values, and "enforces X" claims that the diff does not support. Do not
-   continue the pattern.
+   generalise it or remove it. This rule applies only to the PR BODY — the
+   PR TITLE can be the story slug as-is.
+
+   Why both the data-grounding rule AND the post-draft check exist: PRs #64
+   and #65 (Epic 2) both shipped with data-grounded errors that the
+   post-draft prose check alone didn't catch — "16 files changed" (actual: 15),
+   invented "DATABASE_URL + SUPABASE_SERVICE_ROLE_KEY" pair (only
+   SUPABASE_SERVICE_ROLE_DATABASE_URL existed), and "GitHub Actions skipped:
+   RUN_CI_LOCALLY=true" claim while CI actually ran green. Reading command
+   outputs first removes the temptation to reason about facts that have a
+   ground-truth source.
 
    COUNT-CATEGORY LABELLING — when citing counts in the PR body (tests, ACs,
    assertions, changed files, findings), explicitly label what's being counted.
