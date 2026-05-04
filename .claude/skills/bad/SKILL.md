@@ -831,20 +831,115 @@ Using the assessment report from Step 2, follow the applicable branch:
    - `current_epic_prs_open = true` (all stories have PRs, waiting for merges): `⏸ Epic {current_epic_name} in review — {N} PR(s) open: {list PR numbers}.`
    - Otherwise (more stories to develop in current epic): `✅ Batch complete.`
 
-2. Halt BAD. Print:
+2. Halt BAD with the option to run bad-review inline. Print:
    ```
    ⏸ BAD halted — batch complete.
 
    Open PRs: {list — PR #N (Story X.Y) for each unmerged PR, or "none" if all merged}
 
-   Next steps:
-   1. Run /bad-review on any open PRs
-   2. Merge reviewed PRs
-   3. Run /bad to start the next batch
-   ```
-   📣 **Notify:** `⏸ BAD halted — batch complete. Run /bad-review then /bad to continue.`
+   How do you want to proceed?
 
-   BAD does not auto-restart. No timer is set. Pedro starts the next batch by running `/bad` in a new session when ready.
+   [R] Run /bad-review on the open PR(s) now (recommended)
+       Spawns bad-review as a fresh-context subagent. After it returns,
+       you'll see the verdict and decide whether to merge.
+   [S] Stop BAD
+       Don't run bad-review. You can run it manually in a new session.
+   ```
+   📣 **Notify:** `⏸ BAD halted — batch complete. [R] Run bad-review now, or [S] stop.`
+
+   If no open PRs (`current_epic_merged = true` and no leftover PRs from earlier batches): omit the `[R]` option and just print `Run /bad in a new session to start the next batch.` Then stop BAD.
+
+3. **[R] handler — Inline bad-review with fresh context:**
+
+   For each open PR (sequentially — wait for each to fully resolve before starting the next):
+
+   **3a. Spawn the audit subagent** (`general-purpose` type — needs `Agent` tool to spawn its own audit subagents):
+   ```
+   Agent type: general-purpose
+   Description: bad-review audit on PR #{N}
+
+   Prompt:
+   You are running the `bad-review` skill on PR #{N}. Read
+   `.claude/skills/bad-review/SKILL.md` and follow its instructions for
+   Phases 1, 2, and 3 ONLY.
+
+   Hard rules:
+   - Do NOT execute Phase 4 (merge), Phase 4.5 (deferred capture), or
+     Phase 5 (post-merge verify). The parent session will handle those
+     based on user input.
+   - Do NOT print or offer [M]/[F]/[S] options. Return immediately after
+     Phase 3 produces its verdict report.
+   - You have no prior context about this PR or BAD's verdicts. Run the
+     audit independently. The 4 audit subagents you spawn (Subagents A,
+     B, C, D per the SKILL.md) get fresh contexts as well.
+   - Use the model directives in bad-review's SKILL.md for inner
+     subagents (Subagents A and C use Opus; B and D use Sonnet).
+
+   Return your output as the full Phase 3 verdict report verbatim
+   (markdown), including all required sections: PR title line, Prior
+   deferred context (if any), Code vs spec, MCP alignment, Test quality,
+   PR body accuracy, Overall verdict, Manual smoke checklist,
+   Recommendation, and Deferred findings.
+   ```
+
+   **3b. Print the returned verdict report verbatim**, then halt with:
+   ```
+   What's your call on PR #{N}?
+
+   [M] Merge now — execute bad-review Phase 4 (safe-merge) and Phase 5 (post-merge verify)
+   [F] Fix first — halt; you'll fix issues and re-run later
+   [S] Stop — read the report and merge manually later
+   [N] Skip this PR — leave it open, move to the next PR (if any)
+   ```
+   📣 **Notify:** `📋 bad-review verdict ready for PR #{N} — awaiting your call`.
+
+   **3c. Action handlers:**
+
+   - **[M]:** Spawn a `general-purpose` subagent to execute Phase 4 + Phase 4.5 (deferred capture, only if the verdict's "Deferred findings" section was non-empty) + Phase 5:
+     ```
+     Description: bad-review merge + verify PR #{N}
+
+     Prompt:
+     Execute Phase 4 (merge), Phase 4.5 (capture deferred findings to
+     `_bmad-output/implementation-artifacts/deferred-work.md` — only if
+     deferred findings were emitted; details below), and Phase 5
+     (post-merge verify) of `.claude/skills/bad-review/SKILL.md` on
+     PR #{N}.
+
+     For Phase 4.5, use these deferred findings (already extracted from
+     the audit verdict — append them under a section titled
+     "Deferred from: PR #{N} review ({YYYY-MM-DD})"):
+
+     {paste the "Deferred findings" section from the audit verdict, or
+     "(none — skip Phase 4.5)" if the verdict had no deferred findings}
+
+     Skip Phase 5.5 (manual smoke prompt) — the parent session will print
+     it after you return.
+
+     Return: a one-paragraph confirmation of merge SHA, sprint-status
+     update, deferred-work commit (if any), and Phase 5 verification
+     results.
+     ```
+     After the subagent returns, print its confirmation, then print bad-review's Phase 5.5 manual smoke prompt for this story (verbatim from the audit verdict's "Manual smoke checklist" section).
+
+   - **[F]** or **[S]:** halt without merging. Print `BAD halted — PR #{N} left open. Address findings, then re-run /bad in a new session.` 📣 **Notify:** `⏸ BAD halted — {action} on PR #{N}`. Do NOT proceed to remaining open PRs.
+
+   - **[N]:** print `Skipping PR #{N} — leaving open.` Continue to the next open PR (loop back to 3a).
+
+   **3d. After all open PRs processed:**
+   ```
+   ✅ All open PRs reviewed. Run /bad in a new session to start the next batch.
+   ```
+   📣 **Notify:** `✅ Batch fully reviewed — ready for next /bad run`. BAD stops.
+
+4. **[S] handler:** halt without running bad-review. Print:
+   ```
+   BAD stopped. Run /bad-review manually in a new session, then /bad
+   for the next batch.
+   ```
+   📣 **Notify:** `🛑 BAD stopped by user`.
+
+BAD does not auto-restart in any branch. No timer is set. Pedro always starts the next batch by running `/bad` in a new session.
 
 ---
 
