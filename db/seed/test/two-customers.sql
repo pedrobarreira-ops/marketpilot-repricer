@@ -1,0 +1,43 @@
+-- db/seed/test/two-customers.sql
+--
+-- Test seed file for the RLS regression suite (Story 2.2 / AC#1).
+--
+-- IMPORTANT: auth.users rows are NOT seeded here.
+-- The handle_new_auth_user trigger fires on INSERT INTO auth.users and
+-- automatically creates the public.customers + public.customer_profiles rows.
+-- Auth users must be created via the Supabase JS admin API in the test JS code
+-- (see tests/integration/rls-regression.test.js seedTwoCustomers()) to avoid
+-- coupling against Supabase's internal auth.users schema layout.
+--
+-- This file seeds ONLY public.* tables that are not created by the trigger.
+-- At Epic 2 baseline there are no such rows — the two customers and their
+-- profiles are fully created by the trigger.
+--
+-- Convention note (Story 2.2 AC#4):
+--   Every new customer-scoped table that needs a row in this file MUST also
+--   have a corresponding entry in the CUSTOMER_SCOPED_TABLES registry in
+--   tests/integration/rls-regression.test.js.
+--   Failing to add to the registry causes the
+--   convention_every_seed_table_is_in_regression_config test to fail with:
+--   "table <name> present in seed but missing from CUSTOMER_SCOPED_TABLES registry"
+--
+-- ============================================================================
+-- Epic 4 extension (Story 4.2 — add customer_marketplaces migration first):
+-- ============================================================================
+-- INSERT INTO customer_marketplaces (id, customer_id, operator, marketplace_instance_url, cron_state, max_discount_pct)
+-- VALUES
+--   ('00000000-0000-0000-0000-000000000011', '<customer-a-id>', 'WORTEN', 'https://marketplace.worten.pt', 'PROVISIONING', 0.015),
+--   ('00000000-0000-0000-0000-000000000022', '<customer-b-id>', 'WORTEN', 'https://marketplace.worten.pt', 'PROVISIONING', 0.015);
+--
+-- INSERT INTO shop_api_key_vault (customer_marketplace_id, ciphertext, nonce, auth_tag, master_key_version)
+-- VALUES
+--   ('00000000-0000-0000-0000-000000000011', '\xdeadbeef', '\xdeadbeef', '\xdeadbeef', 1),
+--   ('00000000-0000-0000-0000-000000000022', '\xdeadbeef', '\xdeadbeef', '\xdeadbeef', 1);
+-- ============================================================================
+--
+-- Idempotency: this file is NOT idempotent on its own.
+-- Run resetAuthAndCustomers() before each test to clear auth.users (which
+-- cascades to customers and customer_profiles), then re-seed via JS admin API.
+
+-- No rows to insert at Epic 2 baseline — trigger handles customers + customer_profiles.
+SELECT 1; -- Dummy statement so the file is valid SQL and can be parsed by the convention test.
