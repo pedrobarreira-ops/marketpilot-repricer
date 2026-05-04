@@ -179,26 +179,29 @@ marketpilot-repricer/
 │   └── config/
 │       └── runtime-env.js              # validates required env vars at process start
 │
+├── supabase/                            # Supabase CLI directory (config + migrations)
+│   ├── config.toml                      # local-stack config
+│   └── migrations/                      # Supabase CLI-managed; append-only
+│       ├── 202604301200_create_customers.sql
+│       ├── 202604301201_create_customer_profiles_with_trigger.sql  # F3: includes handle_new_auth_user trigger on auth.users
+│       ├── 202604301202_create_founder_admins.sql
+│       ├── 202604301203_create_customer_marketplaces.sql
+│       ├── 202604301204_create_shop_api_key_vault.sql
+│       ├── 202604301205_create_skus.sql
+│       ├── 202604301206_create_sku_channels.sql
+│       ├── 202604301207_create_baseline_snapshots.sql
+│       ├── 202604301207b_create_audit_log_event_types.sql  # F5: lookup table seeded with AD20 taxonomy; MUST run before audit_log
+│       ├── 202604301208_create_audit_log_partitioned.sql
+│       ├── 202604301209_create_daily_kpi_snapshots.sql
+│       ├── 202604301210_create_cycle_summaries.sql
+│       ├── 202604301211_create_scan_jobs.sql
+│       ├── 202604301212_create_worker_heartbeats.sql
+│       ├── 202604301213_create_moloni_invoices.sql
+│       ├── 202604301214_create_pri01_staging.sql
+│       ├── 202604301215_add_pri01_consecutive_failures_to_sku_channels.sql  # Story 6.3 escalation tracking (AD24)
+│       └── 202604301216_add_day5_reminder_sent_at_to_customers.sql          # Story 10.3 day-5 reminder idempotency (AD21)
+│
 ├── db/
-│   ├── migrations/                     # Supabase CLI-managed; append-only
-│   │   ├── 202604301200_create_customers.sql
-│   │   ├── 202604301201_create_customer_profiles_with_trigger.sql  # F3: includes handle_new_auth_user trigger on auth.users
-│   │   ├── 202604301202_create_founder_admins.sql
-│   │   ├── 202604301203_create_customer_marketplaces.sql
-│   │   ├── 202604301204_create_shop_api_key_vault.sql
-│   │   ├── 202604301205_create_skus.sql
-│   │   ├── 202604301206_create_sku_channels.sql
-│   │   ├── 202604301207_create_baseline_snapshots.sql
-│   │   ├── 202604301207b_create_audit_log_event_types.sql  # F5: lookup table seeded with AD20 taxonomy; MUST run before audit_log
-│   │   ├── 202604301208_create_audit_log_partitioned.sql
-│   │   ├── 202604301209_create_daily_kpi_snapshots.sql
-│   │   ├── 202604301210_create_cycle_summaries.sql
-│   │   ├── 202604301211_create_scan_jobs.sql
-│   │   ├── 202604301212_create_worker_heartbeats.sql
-│   │   ├── 202604301213_create_moloni_invoices.sql
-│   │   ├── 202604301214_create_pri01_staging.sql
-│   │   ├── 202604301215_add_pri01_consecutive_failures_to_sku_channels.sql  # Story 6.3 escalation tracking (AD24)
-│   │   └── 202604301216_add_day5_reminder_sent_at_to_customers.sql          # Story 10.3 day-5 reminder idempotency (AD21)
 │   └── seed/
 │       ├── dev/                        # local-dev seed data (2 fake customers for RLS tests)
 │       └── test/                       # test-runner seed data

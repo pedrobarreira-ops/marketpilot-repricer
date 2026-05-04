@@ -529,6 +529,14 @@ Story 1.3 + Story 1.5 patches added `access_token`, `refresh_token`, `mp_session
 
 **Failure mode if violated**: redaction list drifts between distillate (truth) and runtime (effect). Audit reviews trust the distillate; production logs leak the secret. Latent bug class — only surfaces in a production incident or a careful log audit.
 
+### 13. RLS-disabled on system-only tables is intentional, not a bug
+
+`founder_admins` ships with `ALTER TABLE ... DISABLE ROW LEVEL SECURITY` — confirmed on Cloud (Epic 2 retro 2026-05-04 MCP probe: `rls_enabled = false`). This is the spec, not a regression. The table is read only by service-role workers (founder admin lookup at server boot), never by `authenticated` or `anon` roles. Access control is via Postgres GRANTs (no GRANT on the table for non-service roles) rather than RLS predicates. Story 2.2's RLS regression suite explicitly classifies it as "system-only exempt" and excludes it from the `CUSTOMER_SCOPED_TABLES` registry.
+
+**Pattern**: tables that have no per-tenant scoping (system lookup, taxonomy, infra metadata) MAY ship with `DISABLE ROW LEVEL SECURITY`. The RLS regression suite's `CUSTOMER_SCOPED_TABLES` registry is the exemption boundary — any new system-only table MUST be omitted from that registry, and its migration MUST contain a `DISABLE ROW LEVEL SECURITY` line.
+
+**Failure mode if violated** (a future dev sees `rls_enabled = false` and "fixes" it): turning RLS on without writing predicates would break the worker boot path (service role still reads it, but `anon`/`authenticated` reads on a future audit would suddenly fail with permission errors instead of returning the previously-empty result that grants control). Worse: a developer might add a permissive `USING (true)` policy to silence the audit, which would expose the founder list to any logged-in user.
+
 ---
 
 ## F1-F13 Amendments — Quick Reference

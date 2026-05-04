@@ -1,5 +1,5 @@
 # generated: 2026-05-01
-# last_updated: 2026-05-03  # bmad-retrospective: Epic 1 retro complete (epic-1-retrospective: optional → done); doc saved at epic-1-retro-2026-05-03.md; 5 sequenced action items (Items 0-4: test-harness chore + distillate housekeeping + BAD pipeline updates + Story 2.1 + Story 2.2); 5 decisions recorded (Q1-Q5); systemic discovery: library empirical-contract violations are permanent property of integration work, requiring `integration_test_required: true` story tag + Phase 4.5 BAD gate before Story 2.1 dev kicks off
+# last_updated: 2026-05-04  # bmad-retrospective: Epic 2 retro complete (epic-2: in-progress → done; epic-2-retrospective: optional → done); doc saved at epic-2-retro-2026-05-04.md; 6 sequenced action items + 1 watch-deferred (Items 1-2 P0 blocking Epic 3: distillate directory-tree fix + Cloud migrations push + MCP verify; Items 3-5 strongly-recommended pre-Epic-3: BAD Phase 4 worktree-cleanup investigation + Step 6 PR-body data-grounding + sprint-status main-only flips Option B; Item 6 calendar-ahead forward-debt note for Story 4.1; Item 7 deferred filename-convention watch); 5 decisions recorded (Q1-Q5); 1st confirmed slipped Epic-1-retro item (distillate db/migrations→supabase/migrations); systemic prediction confirmed empirically: Library Empirical Contract #12 (RLS JWT set_config pattern) surfaced through Phase 4.5 gate exactly as Epic 1 retro predicted
 # project: marketpilot-repricer
 # project_key: NOKEY
 # tracking_system: file-system
@@ -72,7 +72,7 @@
 # by design; pre-dates the rule).
 
 generated: 2026-05-01
-last_updated: 2026-05-04  # bmad-create-story: Story 2.2 sharded 2026-05-04 (Bob); 2-2-rls-regression-suite-ci-block → ready-for-dev; integration_test_required: true; bmad-dev-story: Story 2.2 → review 2026-05-04 (Amelia); bmad-code-review: Story 2.2 → done 2026-05-04 (PR #65 Step 7 review, 4 patches applied)
+last_updated: 2026-05-04  # bmad-create-story: Story 2.2 sharded 2026-05-04 (Bob); 2-2-rls-regression-suite-ci-block → ready-for-dev; integration_test_required: true; bmad-dev-story: Story 2.2 → review 2026-05-04 (Amelia); bmad-code-review: Story 2.2 → done 2026-05-04 (PR #65 Step 7 review, 4 patches applied); bmad-retrospective: Epic 2 retro complete 2026-05-04 (Bob); epic-2: in-progress → done; epic-2-retrospective: optional → done; doc at epic-2-retro-2026-05-04.md
 project: marketpilot-repricer  # updated by bmad-create-story: Story 1.1 sharded 2026-05-01; Story 1.2 sharded 2026-05-01; Story 1.3 sharded 2026-05-02; Story 1.4 sharded 2026-05-02; Story 1.5 sharded 2026-05-03; Story 1.5 → review 2026-05-03; Story 1.5 → done 2026-05-03 (post-review); Story 2.1 sharded 2026-05-03 (Bob) → ready-for-dev
 project_key: NOKEY
 tracking_system: file-system
@@ -93,10 +93,10 @@ development_status:
   # =========================================================================
   # EPIC 2 -- Multi-Tenant Isolation  (architecture S-I phase 2)
   # =========================================================================
-  epic-2: in-progress
+  epic-2: done  # bmad-retrospective: flipped in-progress → done 2026-05-04 (manual per CLAUDE.md "all stories done" rule); 2 stories shipped end-to-end through BAD pipeline (first epic to do so with Phase 4.5 gate live)
   2-1-rls-aware-app-db-client-service-role-worker-db-client-transaction-helper: done  # sharded 2026-05-03 (Bob); integration_test_required: true; carried Epic 1 retro Item 3 requirements (SSL helper centralization, pool absorption x3, mp_session contract, SIGTERM shutdown); atdd-done 2026-05-03 (Quinn); dev-done 2026-05-03 (Amelia) — 36/36 integration tests pass, 0 ESLint errors, 5 new files, 3 pools absorbed, SIGTERM wired; pr-review 2026-05-03 (Step 7) — 7 hardening fixes applied (release-wrapper idempotency, shutdown race, JWT validation, MemberExpression rule, etc.)
   2-2-rls-regression-suite-ci-block: done  # sharded 2026-05-04 (Bob); atdd-done 2026-05-04; dev-done 2026-05-04 (Amelia) — all 5 tasks complete: seed file, regression-suite.js, integration test (parameterized isolation + 4 convention tests), package.json + CI, auth.uid() IS NOT NULL fix; integration_test_required: true; pr-review 2026-05-04 (Step 7, PR #65) — 4 patches applied: tightened test SQLSTATE allow-list (replaced bare catch {} with assertInsertBlockedByRls), env-var preflight in script, let→const, CI push trigger restricted to main
-  epic-2-retrospective: optional
+  epic-2-retrospective: done  # 2026-05-04 — Bob facilitated; saved at epic-2-retro-2026-05-04.md; 6 sequenced action items + 1 deferred watch (Items 1-2 P0 distillate directory-tree + Cloud migration push; Items 3-5 BAD-pipeline upstream patches; Item 6 Story 4.1 forward-debt note; Item 7 filename-convention watch); 5 decisions Q1-Q5 (Q2 sprint-status flips → main-only Option B; Q3 Step 6 PR-body data-grounding via git diff --stat + gh pr checks); Library Empirical Contract #12 surfaced (RLS JWT set_config pattern); 1st confirmed slipped Epic-1-retro item (distillate db/migrations→supabase/migrations); 4½/6 Epic-1-retro items verifiable as done
 
   # =========================================================================
   # CALENDAR-EARLY INSERTION -- Audit-log foundation (Story 1.x siblings)
@@ -119,7 +119,7 @@ development_status:
   # EPIC 4 -- Customer Onboarding  (architecture S-I phase 4)
   # =========================================================================
   epic-4: backlog
-  4-1-customer-marketplaces-schema-with-f4-provisioning-cron-state-machine-transitions-matrix: backlog  # ATOMICITY BUNDLE B (1/2); ESLint: no-raw-cron-state-update ships here
+  4-1-customer-marketplaces-schema-with-f4-provisioning-cron-state-machine-transitions-matrix: backlog  # ATOMICITY BUNDLE B (1/2); ESLint: no-raw-cron-state-update ships here; RLS regression debt from Story 2.2 — Bob's shard MUST extend db/seed/test/two-customers.sql + tests/integration/rls-regression.test.js CUSTOMER_SCOPED_TABLES registry + replace rls_isolation_shop_api_key_vault_deferred_awaiting_epic4 with row-level test (Epic 2 retro 2026-05-04 Item 6)
   4-2-skus-sku-channels-baseline-snapshots-scan-jobs-schemas-rls: backlog
   4-3-key-entry-form-onboarding-key-inline-5s-validation-encrypted-persistence-worten-key-one-page-guide-modal: backlog
   4-4-async-catalog-scan-orchestration-a01-pc01-of21-p11-tier-classify-baseline-atomicity-sibling-of-story-4-1: backlog  # ATOMICITY BUNDLE B (2/2)
