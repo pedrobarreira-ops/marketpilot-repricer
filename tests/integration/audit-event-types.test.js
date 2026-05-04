@@ -222,11 +222,14 @@ test('audit_log_event_types has NO outbound foreign key constraints (FKs flow in
 test('audit_log_event_types has exactly 26 base rows (Story 9.0 seed)', async () => {
   const db = getServiceRoleClient();
   const { rows } = await db.query('SELECT COUNT(*)::int AS cnt FROM audit_log_event_types');
-  // Allow >= 26 so future Story 12.1 (27th row) and Story 12.3 (28th row)
-  // don't break this assertion retroactively; the important invariant is the base 26.
-  assert.ok(
-    rows[0].cnt >= 26,
-    `Expected at least 26 rows in audit_log_event_types (base seed is 26; Story 12.1 adds a 27th). Got: ${rows[0].cnt}`
+  // Story 9.0 baseline: exactly 26 rows (7 Atenção + 8 Notável + 11 Rotina).
+  // A loose `>=` would allow a typo seed (e.g. 27 rows shipped early under
+  // the wrong story) to slip through silently. The 27th and 28th rows arrive
+  // in Stories 12.1 / 12.3 — those PRs update this assertion to 27 / 28.
+  assert.equal(
+    rows[0].cnt,
+    26,
+    `Expected exactly 26 rows in audit_log_event_types at Story 9.0 baseline (7 Atenção + 8 Notável + 11 Rotina). Story 12.1 adds the 27th row (cycle-fail-sustained) in its own PR. Got: ${rows[0].cnt}`
   );
 });
 

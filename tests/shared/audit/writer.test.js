@@ -45,8 +45,12 @@ const SKIP = !writeAuditEvent;
 test('EVENT_TYPES is a non-empty object with exactly 26 base entries', { skip: SKIP }, () => {
   assert.ok(typeof EVENT_TYPES === 'object' && EVENT_TYPES !== null, 'EVENT_TYPES must be an object');
   const keys = Object.keys(EVENT_TYPES);
-  // 26 base entries (Stories 12.1 + 12.3 add 2 more — this suite tests baseline)
-  assert.ok(keys.length >= 26, `Expected >= 26 keys, got ${keys.length}`);
+  // Story 9.0 ships exactly 26 base entries (7 Atenção + 8 Notável + 11 Rotina).
+  // Stories 12.1 and 12.3 will append a 27th and 28th entry in their own PRs;
+  // this baseline assertion enforces NUMERIC equality at Story 9.0 time so a typo
+  // (extra/missing key) cannot slip through. When 12.1 lands, this assertion is
+  // updated to 27 in that story's PR.
+  assert.equal(keys.length, 26, `Expected exactly 26 base keys at Story 9.0 (7 Atenção + 8 Notável + 11 Rotina). Got ${keys.length}`);
 });
 
 test('EVENT_TYPES includes all 7 Atenção event types', { skip: SKIP }, () => {
@@ -335,15 +339,44 @@ test('eslint-rules/no-raw-INSERT-audit-log.js file exists', async () => {
 });
 
 test('eslint.config.js loads no-raw-INSERT-audit-log rule (AC#4)', async () => {
-  const { readFile } = await import('node:fs/promises');
+  // Behavioral check: import the actual eslint.config.js module and assert that
+  // one of its config blocks registers the no-raw-INSERT-audit-log rule under a
+  // recognised plugin namespace. This is stricter than a substring grep — a
+  // grep would pass even if the rule is mentioned in a comment but never
+  // registered. Importing the config and inspecting the rules tree confirms
+  // the rule is wired into ESLint, not just textually present.
   const path = await import('node:path');
-  const { fileURLToPath } = await import('node:url');
+  const { pathToFileURL, fileURLToPath } = await import('node:url');
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const configFile = path.resolve(__dirname, '..', '..', '..', 'eslint.config.js');
-  const content = await readFile(configFile, 'utf8');
+
+  // Windows: dynamic import() requires a file:// URL, not a raw absolute path.
+  const configModule = await import(pathToFileURL(configFile).href);
+  const configs = configModule.default;
+  assert.ok(Array.isArray(configs), 'eslint.config.js must default-export an array');
+
+  // Find a config block that registers our rule (under any plugin namespace).
+  // The rule is registered as `<plugin>/no-raw-INSERT-audit-log` (currently
+  // `no-raw-audit/no-raw-INSERT-audit-log`); we accept any namespace so a
+  // future rename of the plugin alias does not break this test.
+  const found = configs.some((block) => {
+    const rules = block?.rules ?? {};
+    return Object.keys(rules).some((ruleName) => ruleName.endsWith('/no-raw-INSERT-audit-log'));
+  });
   assert.ok(
-    content.includes('no-raw-INSERT-audit-log'),
-    'eslint.config.js must import and register the no-raw-INSERT-audit-log rule (AC#4)'
+    found,
+    'eslint.config.js must register a rule whose name ends in "/no-raw-INSERT-audit-log" in at least one config block (AC#4 — actual wiring, not just a comment)'
+  );
+
+  // Additionally confirm the rule's plugin is listed in the same block, so the
+  // ESLint runtime can resolve the rule namespace.
+  const blockWithRule = configs.find((block) => {
+    const rules = block?.rules ?? {};
+    return Object.keys(rules).some((ruleName) => ruleName.endsWith('/no-raw-INSERT-audit-log'));
+  });
+  assert.ok(
+    blockWithRule?.plugins && typeof blockWithRule.plugins === 'object',
+    'the config block that registers no-raw-INSERT-audit-log must also declare a `plugins` map so ESLint can resolve the rule (AC#4)'
   );
 });
 
@@ -354,118 +387,301 @@ test('eslint.config.js loads no-raw-INSERT-audit-log rule (AC#4)', async () => {
 // full ESLint CLI (which requires a live project setup).
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// AC#4 — Resolve the actual rule object from the plugin export shape.
+//
+// The module exports a plugin object `{ rules: { 'no-raw-INSERT-audit-log': rule } }`
+// (the ESLint flat-config plugin shape used in eslint.config.js). Tests below
+// must drill down through `.rules['no-raw-INSERT-audit-log']` to access the
+// actual rule's `create()` function. Earlier versions of these tests only
+// looked for `exported.create` directly and silently early-returned on the
+// plugin shape — that left the behavioral assertions never executing
+// (soft-pass: the tests passed against a buggy implementation just as easily
+// as against a working one). The helper below resolves both shapes so the
+// behavioral assertions actually run.
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract the rule object (with .create + .meta) from the module's export
+ * regardless of whether the module exports the rule directly or wrapped in a
+ * plugin `{ rules: { 'no-raw-INSERT-audit-log': rule } }` object.
+ * @param {object} mod - Imported rule module (await import(...))
+ * @returns {object|null} - The rule object (with .create), or null if not resolvable
+ */
+function resolveRuleObject (mod) {
+  const exported = mod?.default ?? mod;
+  if (!exported) return null;
+  if (typeof exported.create === 'function') return exported;
+  if (exported.rules && typeof exported.rules === 'object') {
+    const rule = exported.rules['no-raw-INSERT-audit-log'];
+    if (rule && typeof rule.create === 'function') return rule;
+  }
+  return null;
+}
+
 test('no-raw-INSERT-audit-log rule module exports a valid ESLint rule shape', async () => {
   const path = await import('node:path');
-  const { fileURLToPath } = await import('node:url');
+  const { pathToFileURL, fileURLToPath } = await import('node:url');
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const rulePath = path.resolve(__dirname, '..', '..', '..', 'eslint-rules', 'no-raw-INSERT-audit-log.js');
 
-  let ruleModule;
-  try {
-    ruleModule = await import(rulePath);
-  } catch {
-    // Rule not yet implemented — skip behavioral tests; structural file-existence
-    // test above already covers the missing-file case.
-    return;
-  }
+  // Windows: dynamic import() requires a file:// URL, not a raw absolute path.
+  const ruleModule = await import(pathToFileURL(rulePath).href);
 
-  // The module must export either:
-  //   { default: { create: fn, meta: {...} } }   — plugin rule
-  //   { default: { rules: { ... } } }             — plugin object
-  const exported = ruleModule.default ?? ruleModule;
-  const hasRuleShape =
-    (typeof exported?.create === 'function') ||
-    (typeof exported?.rules === 'object' && exported?.rules !== null);
+  // Resolve the rule object from either { create: fn } or { rules: { ... } } shapes.
+  const rule = resolveRuleObject(ruleModule);
   assert.ok(
-    hasRuleShape,
-    `no-raw-INSERT-audit-log.js must export a rule with a 'create' function or a plugin 'rules' object. Got: ${JSON.stringify(Object.keys(exported ?? {}))}`
+    rule !== null && typeof rule.create === 'function',
+    `no-raw-INSERT-audit-log.js must export a rule with a 'create' function (directly or under 'rules.no-raw-INSERT-audit-log'). Got export keys: ${JSON.stringify(Object.keys(ruleModule.default ?? ruleModule ?? {}))}`
   );
 });
 
-test('no-raw-INSERT-audit-log rule forbids raw INSERT INTO audit_log in strings (AC#4)', async () => {
-  // This test validates the rule's detection logic by invoking the rule's
-  // visitor on a synthetic AST node constructed to represent a forbidden pattern.
-  // If the rule module is not yet implemented, the test is skipped gracefully.
+test('no-raw-INSERT-audit-log rule forbids raw INSERT INTO audit_log in template literals (AC#4)', async () => {
+  // Behavioral check: the rule MUST report a violation when a TemplateLiteral
+  // containing `INSERT INTO audit_log` is encountered in a non-allowlisted file.
+  // This invokes the rule's create() with a mock ESLint context and runs the
+  // TemplateLiteral visitor against a synthetic AST node.
   const path = await import('node:path');
-  const { fileURLToPath } = await import('node:url');
+  const { pathToFileURL, fileURLToPath } = await import('node:url');
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const rulePath = path.resolve(__dirname, '..', '..', '..', 'eslint-rules', 'no-raw-INSERT-audit-log.js');
 
-  let ruleModule;
-  try {
-    ruleModule = await import(rulePath);
-  } catch {
-    return;
-  }
-
-  const exported = ruleModule.default ?? ruleModule;
-  // Only test if the module exposes a create() function directly (rule shape)
-  if (typeof exported?.create !== 'function') return;
+  // Windows: dynamic import() requires a file:// URL, not a raw absolute path.
+  const ruleModule = await import(pathToFileURL(rulePath).href);
+  const rule = resolveRuleObject(ruleModule);
+  assert.ok(rule !== null, 'rule object must be resolvable from module export');
 
   const reported = [];
   const mockContext = {
+    filename: 'app/src/routes/some-route.js',
     getFilename: () => 'app/src/routes/some-route.js',
     report: (descriptor) => reported.push(descriptor),
     options: [],
   };
 
-  // Simulate a TemplateLiteral node with a raw INSERT string
-  const visitor = exported.create(mockContext);
+  const visitor = rule.create(mockContext);
+  assert.ok(
+    typeof visitor?.TemplateLiteral === 'function',
+    'rule must register a TemplateLiteral visitor for AC#4 detection of forbidden raw INSERT'
+  );
+
   const fakeTemplateLiteralNode = {
     type: 'TemplateLiteral',
     quasis: [{ value: { raw: 'INSERT INTO audit_log (customer_marketplace_id) VALUES ($1)' } }],
   };
 
-  // Call the TemplateLiteral visitor if registered
-  if (typeof visitor?.TemplateLiteral === 'function') {
-    visitor.TemplateLiteral(fakeTemplateLiteralNode);
-    assert.ok(
-      reported.length > 0,
-      'no-raw-INSERT-audit-log rule must report an error for INSERT INTO audit_log in a template literal outside shared/audit/writer.js (AC#4)'
-    );
-    assert.ok(
-      /forbidden|writeAuditEvent/i.test(reported[0]?.message ?? ''),
-      `Rule error message should mention 'forbidden' or 'writeAuditEvent'. Got: "${reported[0]?.message}"`
-    );
+  visitor.TemplateLiteral(fakeTemplateLiteralNode);
+  assert.equal(
+    reported.length,
+    1,
+    `no-raw-INSERT-audit-log rule must report exactly one error for INSERT INTO audit_log in a TemplateLiteral outside shared/audit/writer.js (AC#4). Got ${reported.length} reports.`
+  );
+  assert.match(
+    reported[0]?.message ?? '',
+    /forbidden|writeAuditEvent/i,
+    `Rule error message must mention 'forbidden' or 'writeAuditEvent'. Got: "${reported[0]?.message}"`
+  );
+});
+
+test('no-raw-INSERT-audit-log rule forbids string-literal INSERT INTO audit_log (AC#4)', async () => {
+  // Behavioral check for the Literal visitor — covers `'INSERT INTO audit_log ...'`
+  // string literals (not just template literals). Without this, a developer who
+  // builds raw SQL via string concatenation would slip past the rule.
+  const path = await import('node:path');
+  const { pathToFileURL, fileURLToPath } = await import('node:url');
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const rulePath = path.resolve(__dirname, '..', '..', '..', 'eslint-rules', 'no-raw-INSERT-audit-log.js');
+
+  // Windows: dynamic import() requires a file:// URL, not a raw absolute path.
+  const ruleModule = await import(pathToFileURL(rulePath).href);
+  const rule = resolveRuleObject(ruleModule);
+  assert.ok(rule !== null, 'rule object must be resolvable from module export');
+
+  const reported = [];
+  const mockContext = {
+    filename: 'app/src/routes/some-route.js',
+    getFilename: () => 'app/src/routes/some-route.js',
+    report: (descriptor) => reported.push(descriptor),
+    options: [],
+  };
+
+  const visitor = rule.create(mockContext);
+  if (typeof visitor?.Literal !== 'function') {
+    // Rule may not implement Literal coverage — accept that as a known limitation.
+    // The TemplateLiteral test above is the primary behavioral guarantee.
+    return;
   }
+
+  const fakeLiteralNode = {
+    type: 'Literal',
+    value: 'INSERT INTO audit_log (customer_marketplace_id) VALUES ($1)',
+  };
+
+  visitor.Literal(fakeLiteralNode);
+  assert.ok(
+    reported.length >= 1,
+    'no-raw-INSERT-audit-log rule must report a violation for INSERT INTO audit_log in a string literal (AC#4 Pattern 1 — string concatenation form)'
+  );
+});
+
+test('no-raw-INSERT-audit-log rule forbids Supabase .from(\'audit_log\').insert(...) chain (AC#4 Pattern 2)', async () => {
+  // Behavioral check for AC#4 Pattern 2: the Supabase-client style chain that
+  // bypasses raw SQL but still INSERTs into audit_log. Without this test, a
+  // developer using @supabase/supabase-js would slip past the rule even though
+  // the spec explicitly enumerates this pattern. Pattern 2 was previously
+  // uncovered by any test (D-category gap).
+  const path = await import('node:path');
+  const { pathToFileURL, fileURLToPath } = await import('node:url');
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const rulePath = path.resolve(__dirname, '..', '..', '..', 'eslint-rules', 'no-raw-INSERT-audit-log.js');
+
+  // Windows: dynamic import() requires a file:// URL, not a raw absolute path.
+  const ruleModule = await import(pathToFileURL(rulePath).href);
+  const rule = resolveRuleObject(ruleModule);
+  assert.ok(rule !== null, 'rule object must be resolvable from module export');
+
+  const reported = [];
+  const mockContext = {
+    filename: 'app/src/routes/some-route.js',
+    getFilename: () => 'app/src/routes/some-route.js',
+    report: (descriptor) => reported.push(descriptor),
+    options: [],
+  };
+
+  const visitor = rule.create(mockContext);
+  assert.ok(
+    typeof visitor?.CallExpression === 'function',
+    'rule must register a CallExpression visitor for AC#4 Pattern 2 (.from(\'audit_log\').insert(...))'
+  );
+
+  // Synthetic AST shape for: someClient.from('audit_log').insert({ ... })
+  //
+  // CallExpression                                  ← outer .insert(...)
+  //   callee: MemberExpression
+  //     object: CallExpression                       ← .from('audit_log')
+  //       callee: MemberExpression
+  //         property: Identifier('from')
+  //       arguments: [ Literal('audit_log') ]
+  //     property: Identifier('insert')
+  const insertCallNode = {
+    type: 'CallExpression',
+    callee: {
+      type: 'MemberExpression',
+      object: {
+        type: 'CallExpression',
+        callee: {
+          type: 'MemberExpression',
+          property: { type: 'Identifier', name: 'from' },
+        },
+        arguments: [{ type: 'Literal', value: 'audit_log' }],
+      },
+      property: { type: 'Identifier', name: 'insert' },
+    },
+    arguments: [],
+  };
+
+  visitor.CallExpression(insertCallNode);
+  assert.equal(
+    reported.length,
+    1,
+    `no-raw-INSERT-audit-log rule must report exactly one error for .from('audit_log').insert(...) chain outside shared/audit/writer.js (AC#4 Pattern 2). Got ${reported.length} reports.`
+  );
+  assert.match(
+    reported[0]?.message ?? '',
+    /forbidden|writeAuditEvent/i,
+    `Rule error message must mention 'forbidden' or 'writeAuditEvent'. Got: "${reported[0]?.message}"`
+  );
+});
+
+test('no-raw-INSERT-audit-log rule does NOT flag .from(\'other_table\').insert(...) (AC#4 negative — false-positive guard)', async () => {
+  // Negative behavioral check: the rule must be precisely scoped to audit_log.
+  // Inserting into any other table via Supabase client is legitimate and must
+  // not trigger a violation. Without this test, a future regex-tightening that
+  // accidentally matches `.from(<any>).insert(...)` would slip through.
+  const path = await import('node:path');
+  const { pathToFileURL, fileURLToPath } = await import('node:url');
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const rulePath = path.resolve(__dirname, '..', '..', '..', 'eslint-rules', 'no-raw-INSERT-audit-log.js');
+
+  // Windows: dynamic import() requires a file:// URL, not a raw absolute path.
+  const ruleModule = await import(pathToFileURL(rulePath).href);
+  const rule = resolveRuleObject(ruleModule);
+  assert.ok(rule !== null);
+
+  const reported = [];
+  const mockContext = {
+    filename: 'app/src/routes/some-route.js',
+    getFilename: () => 'app/src/routes/some-route.js',
+    report: (descriptor) => reported.push(descriptor),
+    options: [],
+  };
+
+  const visitor = rule.create(mockContext);
+
+  const otherInsertCallNode = {
+    type: 'CallExpression',
+    callee: {
+      type: 'MemberExpression',
+      object: {
+        type: 'CallExpression',
+        callee: {
+          type: 'MemberExpression',
+          property: { type: 'Identifier', name: 'from' },
+        },
+        arguments: [{ type: 'Literal', value: 'customers' }],
+      },
+      property: { type: 'Identifier', name: 'insert' },
+    },
+    arguments: [],
+  };
+
+  if (typeof visitor?.CallExpression === 'function') {
+    visitor.CallExpression(otherInsertCallNode);
+  }
+  assert.equal(
+    reported.length,
+    0,
+    `no-raw-INSERT-audit-log rule must NOT flag .from('customers').insert(...) — only audit_log is forbidden. Got ${reported.length} false-positive reports.`
+  );
 });
 
 test('no-raw-INSERT-audit-log rule allows INSERT inside shared/audit/writer.js (allowlist — AC#4)', async () => {
   const path = await import('node:path');
-  const { fileURLToPath } = await import('node:url');
+  const { pathToFileURL, fileURLToPath } = await import('node:url');
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const rulePath = path.resolve(__dirname, '..', '..', '..', 'eslint-rules', 'no-raw-INSERT-audit-log.js');
 
-  let ruleModule;
-  try {
-    ruleModule = await import(rulePath);
-  } catch {
-    return;
-  }
-
-  const exported = ruleModule.default ?? ruleModule;
-  if (typeof exported?.create !== 'function') return;
+  // Windows: dynamic import() requires a file:// URL, not a raw absolute path.
+  const ruleModule = await import(pathToFileURL(rulePath).href);
+  const rule = resolveRuleObject(ruleModule);
+  assert.ok(rule !== null, 'rule object must be resolvable from module export');
 
   const reported = [];
   const mockContext = {
-    // Allowlisted file — rule must NOT report
+    // Allowlisted file — rule must NOT report. The rule normalises backslashes
+    // to forward slashes and matches the suffix `shared/audit/writer.js`, so
+    // any path ending in that suffix should be allowlisted.
+    filename: 'shared/audit/writer.js',
     getFilename: () => 'shared/audit/writer.js',
     report: (descriptor) => reported.push(descriptor),
     options: [],
   };
 
-  const visitor = exported.create(mockContext);
+  const visitor = rule.create(mockContext);
   const fakeTemplateLiteralNode = {
     type: 'TemplateLiteral',
     quasis: [{ value: { raw: 'INSERT INTO audit_log (customer_marketplace_id) VALUES ($1)' } }],
   };
 
+  // The allowlisted writer file may either return an empty visitor object (no
+  // visitors registered → all patterns silently allowed) OR return visitors
+  // that no-op. Either is acceptable; we just assert no reports.
   if (typeof visitor?.TemplateLiteral === 'function') {
     visitor.TemplateLiteral(fakeTemplateLiteralNode);
-    assert.equal(
-      reported.length,
-      0,
-      'no-raw-INSERT-audit-log rule must NOT report errors inside shared/audit/writer.js (allowlist — AC#4)'
-    );
   }
+  assert.equal(
+    reported.length,
+    0,
+    'no-raw-INSERT-audit-log rule must NOT report errors inside shared/audit/writer.js (allowlist — AC#4)'
+  );
 });
