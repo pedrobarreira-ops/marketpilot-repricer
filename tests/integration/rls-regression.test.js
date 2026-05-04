@@ -199,6 +199,41 @@ async function tableExists (pool, tableName) {
 }
 
 // ---------------------------------------------------------------------------
+// Postgres SQLSTATE codes that legitimately indicate RLS or constraint
+// blocked the mutation. Any OTHER error (column not found, network drop,
+// schema typo) escalates as a real test failure, preventing silent
+// false-positives where a schema bug masquerades as "RLS blocked it".
+//
+//   42501 — insufficient_privilege          (RLS / GRANT denied)
+//   42P17 — invalid_definition              (RLS policy expression error)
+//   23502 — not_null_violation              (acceptable for INSERT blocked by trigger)
+//   23503 — foreign_key_violation           (acceptable for cross-tenant FK)
+//   23505 — unique_violation                (acceptable for INSERT clash with PK row created by trigger)
+//
+// Mirrors RLS_BLOCKED_CODES_MUTATION in scripts/rls-regression-suite.js.
+// ---------------------------------------------------------------------------
+const RLS_BLOCKED_CODES_MUTATION = new Set(['42501', '42P17', '23502', '23503', '23505']);
+
+/**
+ * Assert that running `query` via the JWT-scoped client `client` is rejected
+ * by RLS or a closely related constraint. Throws on unexpected errors.
+ */
+async function assertInsertBlockedByRls (client, queryText, queryValues, message) {
+  let err;
+  try {
+    await client.query(queryText, queryValues);
+  } catch (caught) {
+    err = caught;
+  }
+  assert.ok(err, message);
+  assert.ok(
+    err && typeof err === 'object' && RLS_BLOCKED_CODES_MUTATION.has(err.code),
+    `${message} — expected RLS/constraint SQLSTATE (one of ${[...RLS_BLOCKED_CODES_MUTATION].join(', ')}), ` +
+    `got: code=${err?.code ?? '?'} message=${err?.message ?? err}`
+  );
+}
+
+// ---------------------------------------------------------------------------
 // AC#1 — two-customers seed applies cleanly
 // ---------------------------------------------------------------------------
 test('two_customers_seed_creates_two_distinct_customers', { concurrency: 1 }, async (t) => {
@@ -395,20 +430,17 @@ test('rls_isolation_suite', { concurrency: 1 }, async (t) => {
       if (table === 'customers') {
         // customers INSERT is service-role only (no customer INSERT policy).
         // An authenticated user cannot INSERT into customers at all — the trigger
-        // creates the row. Attempt an INSERT and assert it is rejected.
+        // creates the row. Attempt an INSERT and assert it is rejected with a
+        // recognised RLS/constraint SQLSTATE (not just any error).
         const { userAId: _aId, userBId, jwtA } = await seedTwoCustomers();
         const clientA = await getRlsAwareClient(jwtA);
         try {
-          let threw = false;
-          try {
-            await clientA.query(
-              `INSERT INTO customers (id, email) VALUES ($1, 'hack@test.marketpilot.pt')`,
-              [userBId]
-            );
-          } catch {
-            threw = true;
-          }
-          assert.ok(threw, `customers INSERT by authenticated user must be rejected (no INSERT policy)`);
+          await assertInsertBlockedByRls(
+            clientA,
+            `INSERT INTO customers (id, email) VALUES ($1, 'hack@test.marketpilot.pt')`,
+            [userBId],
+            `customers INSERT by authenticated user must be rejected (no INSERT policy)`
+          );
         } finally {
           await clientA.release();
         }
@@ -420,17 +452,13 @@ test('rls_isolation_suite', { concurrency: 1 }, async (t) => {
         const { userAId: _aId, userBId, jwtA } = await seedTwoCustomers();
         const clientA = await getRlsAwareClient(jwtA);
         try {
-          let threw = false;
-          try {
-            await clientA.query(
-              `INSERT INTO customer_profiles (customer_id, first_name, last_name, company_name)
-               VALUES ($1, 'Hack', 'Hack', 'Hack Corp')`,
-              [userBId]
-            );
-          } catch {
-            threw = true;
-          }
-          assert.ok(threw, `customer_profiles INSERT by authenticated user must be rejected (no INSERT policy)`);
+          await assertInsertBlockedByRls(
+            clientA,
+            `INSERT INTO customer_profiles (customer_id, first_name, last_name, company_name)
+             VALUES ($1, 'Hack', 'Hack', 'Hack Corp')`,
+            [userBId],
+            `customer_profiles INSERT by authenticated user must be rejected (no INSERT policy)`
+          );
         } finally {
           await clientA.release();
         }
@@ -441,16 +469,12 @@ test('rls_isolation_suite', { concurrency: 1 }, async (t) => {
       const { userAId: _aId, userBId, jwtA } = await seedTwoCustomers();
       const clientA = await getRlsAwareClient(jwtA);
       try {
-        let threw = false;
-        try {
-          await clientA.query(
-            `INSERT INTO ${table} (${ownerCol}) VALUES ($1)`,
-            [userBId]
-          );
-        } catch {
-          threw = true;
-        }
-        assert.ok(threw, `INSERT with ${ownerCol}=customerBId via customer A's JWT must be rejected by RLS in ${table}`);
+        await assertInsertBlockedByRls(
+          clientA,
+          `INSERT INTO ${table} (${ownerCol}) VALUES ($1)`,
+          [userBId],
+          `INSERT with ${ownerCol}=customerBId via customer A's JWT must be rejected by RLS in ${table}`
+        );
       } finally {
         await clientA.release();
       }

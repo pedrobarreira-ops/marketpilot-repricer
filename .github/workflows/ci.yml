@@ -23,9 +23,14 @@
 
 name: CI
 
+# Trigger configuration:
+#   - push: only on main, so merges to main run CI once.
+#   - pull_request: on every PR (any base branch), so PRs are gated on green CI.
+# This avoids the duplicate-run pattern where a push to a PR branch would
+# fire BOTH the push and the pull_request workflows for the same commit.
 on:
   push:
-    branches: ['**']
+    branches: [main]
   pull_request:
     branches: ['**']
 

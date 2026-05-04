@@ -24,6 +24,31 @@ import { getServiceRoleClient, closeServiceRolePool } from '../shared/db/service
 import { getRlsAwareClient } from '../shared/db/rls-aware-client.js';
 
 // ---------------------------------------------------------------------------
+// Fail-fast env-var validation
+//
+// Without this, missing env vars surface as opaque crashes deep inside
+// @supabase/supabase-js (e.g. "Invalid URL" from `new URL(undefined)`). A
+// clear up-front error tells the operator exactly which secret is missing
+// and how to remedy it (set in `.env.test` locally, or as GitHub Actions
+// repository secrets in CI).
+// ---------------------------------------------------------------------------
+const REQUIRED_ENV_VARS = [
+  'SUPABASE_URL',
+  'SUPABASE_ANON_KEY',
+  'SUPABASE_SERVICE_ROLE_KEY',
+  'SUPABASE_SERVICE_ROLE_DATABASE_URL',
+];
+const missingEnvVars = REQUIRED_ENV_VARS.filter((name) => !process.env[name]);
+if (missingEnvVars.length > 0) {
+  console.error(
+    `rls-regression-suite: missing required env vars: ${missingEnvVars.join(', ')}.\n` +
+    `Set them in .env.test for local runs (node --env-file=.env.test) or as GitHub ` +
+    `Actions secrets in .github/workflows/ci.yml for CI.`
+  );
+  process.exit(1);
+}
+
+// ---------------------------------------------------------------------------
 // Registry — same shape as rls-regression.test.js (kept in sync manually).
 // ---------------------------------------------------------------------------
 const CUSTOMER_SCOPED_TABLES = [
@@ -298,7 +323,7 @@ async function assertAuthUidMatchesJwt (jwt, expectedUserId, label) {
 // ---------------------------------------------------------------------------
 async function run () {
   console.log('\nRLS Regression Suite — Story 2.2 / AD30\n');
-  let { userAId, userBId, jwtA, jwtB } = await seedTwoCustomers();
+  const { userAId, userBId, jwtA, jwtB } = await seedTwoCustomers();
 
   // PRE-FLIGHT — verify the RLS context arming actually works before relying
   // on it for the isolation assertions below.
