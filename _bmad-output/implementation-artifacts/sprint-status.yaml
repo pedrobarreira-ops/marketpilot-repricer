@@ -103,7 +103,7 @@ development_status:
   # Stories 9.0 + 9.1 ship HERE, before Epic 3, unblocking 12 Batch-2 dependents.
   # Numerical Epic 9 slot retains 9.2-9.6 only (post-Epic 8).
   # =========================================================================
-  9-0-writeauditevent-ssot-module-audit-log-event-types-lookup-table-26-row-ad20-taxonomy-seed: ready-for-dev  # CALENDAR-EARLY; ships eslint-rules/no-raw-INSERT-audit-log.js; bmad-create-story: Story 9.0 sharded 2026-05-04 (Bob)
+  9-0-writeauditevent-ssot-module-audit-log-event-types-lookup-table-26-row-ad20-taxonomy-seed: atdd-done  # CALENDAR-EARLY; ships eslint-rules/no-raw-INSERT-audit-log.js; bmad-create-story: Story 9.0 sharded 2026-05-04 (Bob)
   9-1-audit-log-partitioned-base-table-priority-derivation-trigger-initial-partition-monthly-partition-cron: backlog  # CALENDAR-EARLY; depends on 9.0 + 2.1 (RLS clients)
 
   # =========================================================================
