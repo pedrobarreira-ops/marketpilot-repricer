@@ -240,7 +240,7 @@ marketpilot-repricer/
 
 → Bob's stories around RLS regression testing must explicitly verify: (a) app server cannot reach across tenants even with a malformed route; (b) worker advisory-lock pattern blocks duplicate per-customer dispatch.
 
-**Migrations:** Supabase CLI conventions (`db/migrations/*.sql`). Drizzle was considered (DynamicPriceIdea uses it) and rejected for this repo: Supabase's migration tooling integrates with their dashboard, RLS policy management, and is the documented path. Drizzle's TS-only ergonomics also conflict with the JS-ESM-with-JSDoc convention above.
+**Migrations:** Supabase CLI conventions (`supabase/migrations/*.sql`). Drizzle was considered (DynamicPriceIdea uses it) and rejected for this repo: Supabase's migration tooling integrates with their dashboard, RLS policy management, and is the documented path. Drizzle's TS-only ergonomics also conflict with the JS-ESM-with-JSDoc convention above.
 
 **Templating:** `eta` (lightweight, async-friendly). All customer-facing templates default-localize to PT (NFR-L1). Spanish UI templates deferred to Epic 2 (NFR-L2).
 
@@ -975,7 +975,7 @@ The following modules are the **only** path to perform their concern. BAD subage
 - **`shared/`** — pure functions + module-level helpers usable by both `app/` and `worker/`. No app-only Fastify imports; no worker-only `pg` direct imports. Database access goes through factory functions parameterized by client.
 - **`app/`** — Fastify routes, middleware, eta views, RLS-aware DB client factory. `app/src/lib/` is for app-only helpers (session, csrf, view-helpers).
 - **`worker/`** — cron, dispatcher, engine, safety. `worker/src/lib/` is for worker-only helpers (heartbeat write, batch utilities). Worker uses service-role DB client.
-- **`db/migrations/`** — append-only SQL migrations managed by Supabase CLI. Never edit a migration after it has been applied to any environment.
+- **`supabase/migrations/`** — append-only SQL migrations managed by Supabase CLI. Never edit a migration after it has been applied to any environment.
 - **`scripts/`** — operational scripts: `mirakl-empirical-verify.js` (AD16 reuse), `rotate-master-key.md` runbook (AD3), `rls-regression-suite.js` (AD30), `check-no-secrets.sh` (AD3 secret-scanning).
 - **`tests/`** — mirrors source tree. `tests/shared/mirakl/api-client.test.js` matches `shared/mirakl/api-client.js`. Integration tests under `tests/integration/`. RLS regression suite is its own file: `tests/integration/rls-regression.test.js`.
 
@@ -1459,7 +1459,7 @@ marketpilot-repricer/
 │   │   ├── 202604301205_create_skus.sql
 │   │   ├── 202604301206_create_sku_channels.sql
 │   │   ├── 202604301207_create_baseline_snapshots.sql
-│   │   ├── 202604301207b_create_audit_log_event_types.sql  # F5: lookup table seeded with AD20 taxonomy; MUST run before audit_log
+│   │   ├── 20260430120730_create_audit_log_event_types.sql  # F5: lookup table seeded with AD20 taxonomy; MUST run before audit_log
 │   │   ├── 202604301208_create_audit_log_partitioned.sql
 │   │   ├── 202604301209_create_daily_kpi_snapshots.sql
 │   │   ├── 202604301210_create_cycle_summaries.sql
@@ -2146,13 +2146,13 @@ For Bob's story sharding. Each row points to where the work physically lives.
 | FR1, FR3 (auth + signup) | `app/src/routes/_public/{signup,login,verify-email,forgot-password,reset-password}.js` + `app/src/middleware/auth.js` |
 | FR2 (single login) | Implicit in Supabase Auth — no per-customer multi-user table at MVP |
 | FR4 + AD21 (deletion) | `app/src/routes/settings/delete.js` + `worker/src/jobs/deletion-grace.js` + email templates `app/src/views/emails/deletion-*.eta` |
-| FR5 + AD2 (RLS) | `db/migrations/*.sql` (each customer-scoped table's policy) + `scripts/rls-regression-suite.js` |
-| FR6 + AD4 (founder admin) | `app/src/routes/admin/status.js` + `db/migrations/202604301202_create_founder_admins.sql` |
+| FR5 + AD2 (RLS) | `supabase/migrations/*.sql` (each customer-scoped table's policy) + `scripts/rls-regression-suite.js` |
+| FR6 + AD4 (founder admin) | `app/src/routes/admin/status.js` + `supabase/migrations/202604301202_create_founder_admins.sql` |
 | FR7 (source-context capture) | `app/src/middleware/source-context-capture.js` |
 | FR8–FR11 + AD3 (key vault) | `app/src/routes/onboarding/key.js` + `shared/crypto/envelope.js` + `shared/mirakl/api-client.js` |
-| FR12–FR15 + AD16 (catalog scan) | `app/src/routes/onboarding/scan.js` + `worker/src/jobs/master-cron.js` (scan jobs are also cron-driven) + `db/migrations/202604301211_create_scan_jobs.sql` |
+| FR12–FR15 + AD16 (catalog scan) | `app/src/routes/onboarding/scan.js` + `worker/src/jobs/master-cron.js` (scan jobs are also cron-driven) + `supabase/migrations/202604301211_create_scan_jobs.sql` |
 | FR16 (margin question) | `app/src/routes/onboarding/margin.js` |
-| FR17–FR19 + AD10 (tier system) | `worker/src/engine/tier-classify.js` + `db/migrations/202604301206_create_sku_channels.sql` |
+| FR17–FR19 + AD10 (tier system) | `worker/src/engine/tier-classify.js` + `supabase/migrations/202604301206_create_sku_channels.sql` |
 | FR20–FR25 + AD8, AD13, AD14 (engine) | `worker/src/engine/decide.js` + `shared/mirakl/{p11,self-filter}.js` |
 | FR22 + AD9 (cooperative-absorption) | `worker/src/engine/cooperative-absorb.js` |
 | FR23 + AD7 (PRI01) | `shared/mirakl/{pri01-writer,pri02-poller,pri03-parser}.js` |
@@ -2160,10 +2160,10 @@ For Bob's story sharding. Each row points to where the work physically lives.
 | FR28 (nightly reconciliation) | `worker/src/safety/reconciliation.js` (Tier 3 daily pass) |
 | FR29 + AD12 (anomaly freeze) | `worker/src/safety/anomaly-freeze.js` + `app/src/routes/audit/anomaly-review.js` |
 | FR30–FR32 (dry-run + Go-Live + pause) | `app/src/routes/dashboard/{go-live,pause-resume}.js` + UX modal eta files |
-| FR33 (baseline snapshot) | `db/migrations/202604301207_create_baseline_snapshots.sql` + scan flow |
+| FR33 (baseline snapshot) | `supabase/migrations/202604301207_create_baseline_snapshots.sql` + scan flow |
 | FR34–FR39 + AD15 (dashboard + state UI) | `app/src/routes/dashboard/index.js` + `app/src/views/components/{kpi-cards,banners}.eta` |
 | FR36 (margin editor) | `app/src/routes/dashboard/margin-edit.js` + `app/src/views/components/margin-editor.eta` + `public/js/margin-editor.js` |
-| FR37–FR38d + AD19, AD20 (audit log) | `app/src/routes/audit/*` + `shared/audit/*` + `db/migrations/202604301208_create_audit_log_partitioned.sql` |
+| FR37–FR38d + AD19, AD20 (audit log) | `app/src/routes/audit/*` + `shared/audit/*` + `supabase/migrations/202604301208_create_audit_log_partitioned.sql` |
 | FR40–FR44 + AD22 (Stripe + Moloni) | `shared/stripe/*` + `app/src/routes/_webhooks/stripe.js` + `shared/moloni/invoice-metadata.js` |
 | FR41 (concierge marketplace add) | `app/src/routes/settings/marketplaces.js` (read-only at MVP per UX §8.5) |
 | FR45 + AD23 (/health) | `app/src/routes/health.js` + `worker/src/jobs/heartbeat.js` |
@@ -2174,7 +2174,7 @@ For Bob's story sharding. Each row points to where the work physically lives.
 | AD26 (PC01 monthly re-pull) | `worker/src/jobs/pc01-monthly-repull.js` |
 | AD27 (logging) | Pino config in `app/src/server.js` and `worker/src/index.js` |
 | AD28 (validation) | Per-route `schema:` config in route files (Fastify built-in) |
-| AD29 (customer profile) | `app/src/routes/_public/signup.js` (atomic transaction) + `db/migrations/202604301201_create_customer_profiles.sql` |
+| AD29 (customer profile) | `app/src/routes/_public/signup.js` (atomic transaction) + `supabase/migrations/202604301201_create_customer_profiles.sql` |
 | AD30 (RLS regression) | `scripts/rls-regression-suite.js` + `tests/integration/rls-regression.test.js` |
 
 ### Integration Boundaries
@@ -2276,7 +2276,7 @@ A self-audit on the post-Step-6 document caught 11 findings, all addressed via i
 | F2 | 🔴 Critical | AD22 was internally contradictory (one Subscription per marketplace + 5 line items on one Subscription) | Stripe model corrected: one Customer + one Subscription per MarketPilot customer, one SubscriptionItem per marketplace. Schema: `stripe_customer_id` + `stripe_subscription_id` moved to `customers`; `stripe_subscription_item_id` added to `customer_marketplaces` |
 | F3 | 🔴 Critical | AD29 said "atomic with auth user creation" without specifying mechanism (Pedro's flag) | Locked: Postgres trigger on `auth.users` AFTER INSERT, `SECURITY DEFINER`, reads `raw_user_meta_data` JSONB, validates required fields, RAISE EXCEPTION rolls back the auth user creation. Full trigger DDL inline in schema. Migration filename updated to reflect inclusion |
 | F4 | 🔴 Critical | Schema chicken-and-egg: `scan_jobs` needed `customer_marketplace_id` FK target, but A01/PC01 columns were NOT NULL (couldn't populate before scan ran) | Added `'PROVISIONING'` to `cron_state` enum; relaxed A01/PC01 columns to NULLABLE; added CHECK constraint `customer_marketplace_provisioning_completeness` enforcing all populated when `cron_state != 'PROVISIONING'`; default state changed from `DRY_RUN` to `PROVISIONING` |
-| F5 | 🔴 Critical | `audit_log_event_types` lookup table referenced as FK target but missing from migrations list | Added `202604301207b_create_audit_log_event_types.sql` ahead of `_create_audit_log_partitioned.sql`; seeded with AD20 taxonomy (26 base rows) in same migration; Stories 12.1 + 12.3 each ALTER-INSERT one row, bringing end-of-MVP total to 28 |
+| F5 | 🔴 Critical | `audit_log_event_types` lookup table referenced as FK target but missing from migrations list | Added `20260430120730_create_audit_log_event_types.sql` ahead of `_create_audit_log_partitioned.sql`; seeded with AD20 taxonomy (26 base rows) in same migration; Stories 12.1 + 12.3 each ALTER-INSERT one row, bringing end-of-MVP total to 28 |
 | F6 | 🟡 Important | AD11 per-cycle 20% denominator was ambiguous ("20% of catalog") | Made explicit: numerator = staged-for-write count this cycle; denominator = `COUNT(*) FROM sku_channels WHERE customer_marketplace_id = $1 AND excluded_at IS NULL` |
 | F7 | 🟡 Important | NIF capture flow was implicit (schema had nullable column on profiles, NOT NULL on invoices, but no flow description) | AD22 NIF capture flow added: founder asks at Day-3 pulse-check, persists to both `customer_profiles.nif` and `moloni_invoices.nif`; subsequent invoices pre-fill |
 | F8 | 🟡 Important | `audit_log.sku_id` and `sku_channel_id` had unspecified FK posture | Inline schema comment: NO FK constraint, intentional for audit-log immutability through SKU lifecycle |

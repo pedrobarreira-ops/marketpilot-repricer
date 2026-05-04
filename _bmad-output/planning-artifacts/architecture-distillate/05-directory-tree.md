@@ -190,7 +190,7 @@ marketpilot-repricer/
 │       ├── 202604301205_create_skus.sql
 │       ├── 202604301206_create_sku_channels.sql
 │       ├── 202604301207_create_baseline_snapshots.sql
-│       ├── 202604301207b_create_audit_log_event_types.sql  # F5: lookup table seeded with AD20 taxonomy; MUST run before audit_log
+│       ├── 20260430120730_create_audit_log_event_types.sql  # F5: lookup table seeded with AD20 taxonomy; MUST run before audit_log
 │       ├── 202604301208_create_audit_log_partitioned.sql
 │       ├── 202604301209_create_daily_kpi_snapshots.sql
 │       ├── 202604301210_create_cycle_summaries.sql

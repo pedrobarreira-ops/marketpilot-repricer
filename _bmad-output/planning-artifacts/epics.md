@@ -751,7 +751,7 @@ Stories follow the template's user-story + Given/When/Then ACs. Each story carri
 
 **Implements:** AD1, AD23 · **FRs:** FR45 · **NFRs:** NFR-R1, NFR-Sc4 · **Size:** L
 **SSoT modules created:** `app/src/server.js`, `worker/src/index.js`, `worker/src/jobs/heartbeat.js`, `app/src/routes/health.js`, `eslint.config.js`
-**Migrations:** `db/migrations/202604301212_create_worker_heartbeats.sql`
+**Migrations:** `supabase/migrations/202604301212_create_worker_heartbeats.sql`
 **Depends on:** (none — first story)
 **Enables:** Stories 1.2, 1.3, 1.4, 1.5; all subsequent epics
 
@@ -803,7 +803,7 @@ So that every subsequent epic builds on a Coolify-deployable foundation that Upt
 
 **Implements:** AD3 · **FRs:** FR11 (crypto module only — vault wiring lands Epic 4) · **NFRs:** NFR-S1 · **Size:** M
 **SSoT modules created:** `shared/crypto/envelope.js`, `shared/crypto/master-key-loader.js`, `scripts/check-no-secrets.sh`, `scripts/rotate-master-key.md`
-**Migrations:** `db/migrations/202604301204_create_shop_api_key_vault.sql` (table only — wiring in Epic 4)
+**Migrations:** `supabase/migrations/202604301204_create_shop_api_key_vault.sql` (table only — wiring in Epic 4)
 **Depends on:** Story 1.1
 **Enables:** Story 4.3 (key entry form with encryption pipeline), Story 10.x (key destruction at deletion initiation)
 
@@ -887,7 +887,7 @@ So that operational debugging never leaks secrets to stdout or to Coolify's log 
 
 **Implements:** AD29 (with F3 — atomicity bundle), FR7 source-context middleware · **FRs:** FR1, FR2 (negative-assertion), FR3, FR7 · **NFRs:** NFR-S5 · **Size:** L
 **SSoT modules created:** `app/src/routes/_public/signup.js`, `app/src/routes/_public/login.js`, `app/src/routes/_public/forgot-password.js`, `app/src/routes/_public/reset-password.js`, `app/src/middleware/source-context-capture.js`, `app/src/middleware/auth.js`, `app/src/views/pages/signup.eta`, `app/src/views/pages/login.eta`
-**Migrations:** `db/migrations/202604301200_create_customers.sql`, `db/migrations/202604301201_create_customer_profiles_with_trigger.sql`
+**Migrations:** `supabase/migrations/202604301200_create_customers.sql`, `supabase/migrations/202604301201_create_customer_profiles_with_trigger.sql`
 **Depends on:** Story 1.1, Story 1.3
 **Enables:** Story 4.3 (key entry — requires authenticated customer), every customer-scoped feature
 **Visual reference pattern:** **C** — UX skeleton §1 sitemap auth screens (`/signup`, `/login`, `/forgot-password`, `/reset-password`, `/verify-email`) + Supabase Auth defaults + visual-DNA tokens (Manrope/Inter, navy primary, radius scale per UX skeleton §10). No per-screen stub; auth surfaces share consistent chrome.
@@ -952,7 +952,7 @@ So that I can verify my email and proceed to onboarding without ending up in an 
 
 **Implements:** AD4 (partial — seed + middleware only; admin status page UI in Epic 8) · **FRs:** FR6, FR47 (founder-side primitive) · **Size:** S
 **SSoT modules created:** `app/src/middleware/founder-admin-only.js`
-**Migrations:** `db/migrations/202604301202_create_founder_admins.sql`
+**Migrations:** `supabase/migrations/202604301202_create_founder_admins.sql`
 **Depends on:** Story 1.4 (auth middleware)
 **Enables:** Story 8.10 (`/admin/status` page UI), every admin-route gate
 
@@ -1224,7 +1224,7 @@ So that I can verify a customer's environment matches our assumptions BEFORE the
 
 **Implements:** AD15 (schema + transitions matrix), AD16 (with F4 — PROVISIONING + nullable A01/PC01 + CHECK constraint), AD26 (PC01 capture columns + JSONB snapshot) · **FRs:** FR8 (foundation) · **Size:** L
 **SSoT modules created:** `shared/state/cron-state.js` (`transitionCronState`), `shared/state/transitions-matrix.js` (`LEGAL_CRON_TRANSITIONS`)
-**Migrations:** `db/migrations/202604301203_create_customer_marketplaces.sql`
+**Migrations:** `supabase/migrations/202604301203_create_customer_marketplaces.sql`
 **Depends on:** Story 1.4, Story 2.1, Story 2.2, Story 9.0 + Story 9.1 (audit foundation — `writeAuditEvent` + `audit_log_event_types` lookup + base partitioned table + priority trigger; ships calendar-early per Option A so `transitionCronState` can emit per-(from,to) events on the very first transition)
 **Enables:** Stories 4.2, 4.3, 4.4; Epic 5; Epic 7; Epic 10; Epic 11
 
@@ -1310,7 +1310,7 @@ So that every cron-state mutation is atomic with its audit event and BAD subagen
 
 **Implements:** AD10 (schema only — engine logic Epic 7), AD16 step 4-7 · **FRs:** FR17 (schema), FR25, FR33 · **Size:** M
 **SSoT modules created:** (schema-only)
-**Migrations:** `db/migrations/202604301205_create_skus.sql`, `db/migrations/202604301206_create_sku_channels.sql`, `db/migrations/202604301207_create_baseline_snapshots.sql`, `db/migrations/202604301211_create_scan_jobs.sql`
+**Migrations:** `supabase/migrations/202604301205_create_skus.sql`, `supabase/migrations/202604301206_create_sku_channels.sql`, `supabase/migrations/202604301207_create_baseline_snapshots.sql`, `supabase/migrations/202604301211_create_scan_jobs.sql`
 **Depends on:** Story 4.1
 **Enables:** Story 4.4 (populates these), Story 6.x (PRI01 reads sku_channels), Story 7.x (engine state)
 
@@ -1687,7 +1687,7 @@ SELECT cm.id, sc.id AS sku_channel_id, sc.sku_id, sc.channel_code
 
 **Implements:** AD17 (cycle assembly + staging table flush), AD11 partial (per-cycle CB gate placeholder for Epic 7) · **FRs:** FR18 partial · **Size:** M
 **SSoT modules created:** `worker/src/cycle-assembly.js`
-**Migrations:** `db/migrations/202604301214_create_pri01_staging.sql`
+**Migrations:** `supabase/migrations/202604301214_create_pri01_staging.sql`
 **Depends on:** Story 5.1, Story 9.0 + Story 9.1 (audit foundation for staging-flush events, calendar-early per Option A)
 **Enables:** Story 6.1 (writer reads from staging), Story 7.2+ (engine writes decisions to staging via cycle-assembly)
 
@@ -2836,7 +2836,7 @@ So that I can react fast on mobile without the desktop dashboard's full chrome c
 
 **Implements:** AD20 (taxonomy + lookup), F5 (migration ordering) · **FRs:** FR38d (event-type taxonomy at three priority levels) · **NFRs:** NFR-S6 (append-only at app layer) · **Size:** M
 **SSoT modules created:** `shared/audit/writer.js` (`writeAuditEvent`), `shared/audit/event-types.js` (enum + JSDoc `@typedef PayloadFor<EventType>` per audit event type), `eslint-rules/no-raw-INSERT-audit-log.js`
-**Migrations:** `db/migrations/202604301207a_create_audit_log_event_types.sql` (table + 26-row seed; F5 amendment migration ordering — runs BEFORE `audit_log` partitioned base table in Story 9.1)
+**Migrations:** `supabase/migrations/20260430120730_create_audit_log_event_types.sql` (table + 26-row seed; F5 amendment migration ordering — runs BEFORE `audit_log` partitioned base table in Story 9.1)
 **Calendar-early sequencing:** SHIPS BEFORE Epic 5 dispatcher (Story 5.1 imports `writeAuditEvent`). Epic 1 stories that emit events (Story 4.1's `transitionCronState`) depend on this. Bob's sprint-ordering must front-load Story 9.0 alongside Stories 1.x even though it's labeled Epic 9.
 **Depends on:** Story 1.1 (scaffold), Story 1.4 (RLS context for app-side reads — not strictly needed at this story since only the worker writes, but RLS policy on `audit_log` reads requires it)
 **Enables:** Story 9.1, every event-emitting story across Epics 4-12
@@ -2847,7 +2847,7 @@ So that BAD subagents writing the engine, dispatcher, billing, and lifecycle cod
 
 **Acceptance Criteria:**
 
-**Given** the migration `202604301207a_create_audit_log_event_types.sql`
+**Given** the migration `20260430120730_create_audit_log_event_types.sql`
 **When** I apply it
 **Then** the `audit_log_priority` enum is created with three values: `'atencao'`, `'notavel'`, `'rotina'` (lowercase taxonomic, no diacritics for SQL safety per architecture pattern doc)
 **And** the `audit_log_event_types` lookup table exists with columns: `event_type TEXT PRIMARY KEY`, `priority audit_log_priority NOT NULL`, `description TEXT NOT NULL` (PT-localized hint)
@@ -2890,7 +2890,7 @@ So that BAD subagents writing the engine, dispatcher, billing, and lifecycle cod
 
 **Implements:** AD19 (with F8 — no FK on sku_id / sku_channel_id), AD20 (priority trigger) · **FRs:** FR37 partial (storage layer) · **NFRs:** NFR-S6, NFR-P8 (foundation) · **Size:** L
 **SSoT modules created:** `worker/src/jobs/monthly-partition-create.js`
-**Migrations:** `db/migrations/202604301208_create_audit_log_partitioned.sql` (partitioned base table + initial month partition + priority trigger function)
+**Migrations:** `supabase/migrations/202604301208_create_audit_log_partitioned.sql` (partitioned base table + initial month partition + priority trigger function)
 **Calendar-early sequencing:** SHIPS BEFORE Epic 5 alongside Story 9.0. Order within Epic 1: Story 9.0 → Story 9.1 → all event-emitting stories.
 **Depends on:** Story 9.0 (event_types lookup must exist for FK), Story 1.1 (worker for cron), Story 2.1 (RLS clients)
 **Enables:** Story 9.0's `writeAuditEvent` has a table to write to; every event-emitting story across Epics 4-12 produces persisted rows
@@ -2967,7 +2967,7 @@ So that audit emissions from day 1 land in a queryable durable table and partiti
 
 **Implements:** AD19 (precomputed aggregates), Story 8.2 KPI cards' data source · **FRs:** FR34 partial (data) · **NFRs:** NFR-P8 (≤2s on 90-day window — aggregates make this feasible) · **Size:** M
 **SSoT modules created:** `worker/src/jobs/daily-kpi-aggregate.js`, `worker/src/engine/kpi-derive.js` (cycle-end aggregation → cycle_summaries; consumed by Story 5.2's cycle-end hook)
-**Migrations:** `db/migrations/202604301209_create_daily_kpi_snapshots.sql`, `db/migrations/202604301210_create_cycle_summaries.sql`
+**Migrations:** `supabase/migrations/202604301209_create_daily_kpi_snapshots.sql`, `supabase/migrations/202604301210_create_cycle_summaries.sql`
 **Depends on:** Story 9.0 + Story 9.1 (audit_log foundation), Story 5.2 (cycle-end hook), Story 4.1 (customer_marketplace), Story 4.2 (sku_channels for tier-derived counts)
 **Enables:** Story 8.2 KPI cards consume `daily_kpi_snapshots`; Story 9.5 firehose consumes `cycle_summaries`
 
@@ -3294,7 +3294,7 @@ So that I can recover my account easily, even if I no longer have the original e
 
 **Implements:** AD21 (T+7d hard-delete + day-5 reminder), Pedro's clarification (zero fiscal-evidence exceptions on audit_log; all wiped — fiscal evidence lives in `moloni_invoices` only) · **FRs:** FR4 amended (steps 4 + reminder) · **Size:** M
 **SSoT modules created:** `worker/src/jobs/deletion-grace.js`
-**Migrations:** `db/migrations/202604301216_add_day5_reminder_sent_at_to_customers.sql` (adds `day5_reminder_sent_at timestamptz` column to `customers` for idempotency tracking; per N1 audit refinement — column referenced by Pass 1 below was missing from Story 1.4's customers schema)
+**Migrations:** `supabase/migrations/202604301216_add_day5_reminder_sent_at_to_customers.sql` (adds `day5_reminder_sent_at timestamptz` column to `customers` for idempotency tracking; per N1 audit refinement — column referenced by Pass 1 below was missing from Story 1.4's customers schema)
 **Depends on:** Story 10.1 (`customers.deletion_scheduled_at` set), Story 4.6 (`shared/resend/client.js` — extended by Story 12.2 templates `deletion-grace-reminder.eta` + `deletion-final.eta`), Story 9.6 (audit-log archive — coordinated retention; hard-delete wipes `audit_log_atencao_archive` rows too)
 **Enables:** account fully deleted at grace-period end with no orphan data
 
@@ -3400,7 +3400,7 @@ So that the billing model can't drift into the architecture's pre-F2 contradicti
 
 **Implements:** AD22 (webhook half) · **FRs:** FR43 · **NFRs:** NFR-S4 (signature + replay), NFR-I2 (idempotent webhook handling) · **Size:** L
 **SSoT modules created:** `app/src/routes/_webhooks/stripe.js`, `shared/stripe/webhooks.js` (`verifySignature`, `checkReplay`, `processEvent`)
-**Migrations:** `db/migrations/202604301215_create_stripe_webhook_events.sql` (idempotency tracking table — stores `(stripe_event_id, processed_at)` pairs)
+**Migrations:** `supabase/migrations/202604301215_create_stripe_webhook_events.sql` (idempotency tracking table — stores `(stripe_event_id, processed_at)` pairs)
 **Depends on:** Story 4.1 (transitionCronState helper), Story 11.1 (Stripe SDK), Story 9.0 + Story 9.1 (audit emissions for `payment-failure-pause`), Story 4.6 + Story 12.2 (Resend client + templates for critical alert)
 **Enables:** subscription state changes drive cron_state transitions across customer's marketplaces
 
@@ -3543,7 +3543,7 @@ So that I can fulfill FR41 MVP (concierge-only) without ever building self-serve
 
 **Implements:** AD22 (with F7) — Moloni manual at MVP + NIF capture flow at Day-3 pulse-check per F7 amendment · **FRs:** FR44 · **NFRs:** NFR-O4 (≤24h post-billing invoice generation, ≤10min target per invoice; aggregate >2-3 hr/month triggers Phase 2 Moloni API integration) · **Size:** M
 **SSoT modules created:** `app/src/routes/admin/moloni-record.js` (founder-only admin route to record invoice metadata), `app/src/views/pages/admin-moloni-record.eta`, `shared/moloni/invoice-metadata.js` (`recordMoloniInvoice`)
-**Migrations:** `db/migrations/202604301213_create_moloni_invoices.sql`
+**Migrations:** `supabase/migrations/202604301213_create_moloni_invoices.sql`
 **Depends on:** Story 1.5 (founder-admin gate), Story 11.1 (stripe_payment_intent_id linkage for the invoice row), Story 1.4 (customer_profiles.nif column for NIF persistence)
 **Enables:** founder records each Moloni invoice generated manually; NIF captured at first invoice and pre-filled subsequently; rows retained even after FR4 deletion
 
@@ -3587,7 +3587,7 @@ So that I can fulfill FR41 MVP (concierge-only) without ever building self-serve
 
 **Implements:** AD24 (with F10 hardcoded threshold), AD18 (polling implies retry) · **FRs:** FR46, FR39 partial (sustained-transient banner emit — UI in Story 8.8) · **NFRs:** NFR-R4, NFR-R5 · **Size:** M
 **SSoT modules created:** `worker/src/safety/failure-classifier.js`, `worker/src/safety/sustained-transient-detector.js`
-**Migrations:** `db/migrations/202604301220_add_cycle_fail_sustained_event_type.sql` (adds 27th row to `audit_log_event_types` — `cycle-fail-sustained` Atenção; per Pedro's guidance this is a NEW event-type addition since it's mandated by AD24 but not in AD20's enumerated 26-row seed)
+**Migrations:** `supabase/migrations/202604301220_add_cycle_fail_sustained_event_type.sql` (adds 27th row to `audit_log_event_types` — `cycle-fail-sustained` Atenção; per Pedro's guidance this is a NEW event-type addition since it's mandated by AD24 but not in AD20's enumerated 26-row seed)
 **Depends on:** Story 5.1 (dispatcher cycles to count), Story 9.0 + Story 9.1 (audit foundation — extends with new event_type), Story 4.6 + Story 12.2 (Resend NOT used at sustained-transient tier per AD24, but module is consumed by other tiers)
 **Enables:** sustained-transient banner trigger renders in Story 8.8 banner library (UX skeleton §9.9 verbatim)
 
@@ -3694,7 +3694,7 @@ So that every email surface across the system goes through one canonical interfa
 
 **Implements:** AD26 · **FRs:** (architectural — defends writer from silent operator-config drift) · **Size:** S
 **SSoT modules created:** `worker/src/jobs/pc01-monthly-repull.js`
-**Migrations:** `db/migrations/202604301221_add_platform_features_changed_event_type.sql` (adds 28th row to `audit_log_event_types` — `platform-features-changed` Atenção; per Pedro's guidance this is a 2nd new event-type addition not in AD20's enumerated 26-row seed)
+**Migrations:** `supabase/migrations/202604301221_add_platform_features_changed_event_type.sql` (adds 28th row to `audit_log_event_types` — `platform-features-changed` Atenção; per Pedro's guidance this is a 2nd new event-type addition not in AD20's enumerated 26-row seed)
 **Depends on:** Story 3.2 (PC01 wrapper), Story 4.1 (`customer_marketplaces.platform_features_snapshot` JSONB column + `last_pc01_pulled_at`), Story 9.0 + Story 9.1 (audit foundation — extends with new event_type), Story 12.2 (Resend client + templates — for critical alert when PC01 changes)
 **Enables:** operator-config drift detection (e.g., Worten enables `volume_pricing` → writer would break silently; this catches it before the next cycle)
 
@@ -3859,7 +3859,7 @@ Architecture-doc updates Pedro can sweep after Step 3+4 complete. None of these 
 | 5 | `sku_channels.pri01_consecutive_failures smallint NOT NULL DEFAULT 0` | Story 6.3 introduces this column post-architecture | Architecture schema needs update to include this column (I1) |
 | 6 | Story 6.3 frozen-state semantic-overload choice (option a `frozen_reason` enum vs option b `frozen_for_pri01_persistent` boolean) | Story 6.3 I2 AC | Bob picks during Story 6.3 sharding; architecture-doc updates the chosen pattern |
 | 7 | Story 9.0 integration test count assertion | Story 9.0 hardcodes "26"; Stories 12.1 + 12.3 bring it to 28 | Refactor to assert `EVENT_TYPES.length` instead of hardcoded number — automatic with future event-type additions |
-| 8 | `customers.day5_reminder_sent_at timestamptz` column | Story 10.3 idempotency Pass 1 references the column | **APPLIED IN STEP 4 SWEEP (N1).** Story 10.3 now lists `db/migrations/202604301216_add_day5_reminder_sent_at_to_customers.sql` migration |
+| 8 | `customers.day5_reminder_sent_at timestamptz` column | Story 10.3 idempotency Pass 1 references the column | **APPLIED IN STEP 4 SWEEP (N1).** Story 10.3 now lists `supabase/migrations/202604301216_add_day5_reminder_sent_at_to_customers.sql` migration |
 | 9 | Story 1.5 `admin_access_denied` event logging — full email | Pedro flagged GDPR PII minimization consideration | Decide Phase 2 trigger: log hash of email (e.g., SHA-256 first 8 hex chars) instead of plaintext; or email-redaction list extension |
 | 10 | Story 4.3 sign-off recording convention | Pedro choice: PR comment vs `_bmad-output/sign-offs/story-4.3.md` | Pedro picks once during first sign-off; documents convention going forward |
 | 11 | UX-DR26 mobile bottom action bar safe-area inset (OQ-7) | Story 8.12 AC notes Step 4 verification on iPhone SE / iPhone 14 simulators | Sally verifies in Pass 2 visual review; document any iOS Safari adjustments |

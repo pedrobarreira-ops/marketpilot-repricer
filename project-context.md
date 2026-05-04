@@ -547,7 +547,7 @@ Story 1.3 + Story 1.5 patches added `access_token`, `refresh_token`, `mp_session
 | F2 | 🔴 Critical | Stripe model contradiction | One Customer + one Subscription per MarketPilot customer + one SubscriptionItem per marketplace (Story 11.1) |
 | F3 | 🔴 Critical | Atomic auth+profile mechanism | Postgres trigger on `auth.users` AFTER INSERT, `SECURITY DEFINER`, RAISE EXCEPTION rolls back (Story 1.4) |
 | F4 | 🔴 Critical | Schema chicken-and-egg (scan_jobs FK) | Added `'PROVISIONING'` cron_state + nullable A01/PC01 columns + CHECK constraint (Stories 4.1, 4.4) |
-| F5 | 🔴 Critical | `audit_log_event_types` lookup migration ordering | Migration `202604301207b_create_audit_log_event_types.sql` ordered ahead of partitioned table (Story 9.0) |
+| F5 | 🔴 Critical | `audit_log_event_types` lookup migration ordering | Migration `20260430120730_create_audit_log_event_types.sql` ordered ahead of partitioned table (Story 9.0) |
 | F6 | 🟡 Important | AD11 per-cycle 20% denominator ambiguous | Numerator = staged-for-write count; denominator = `COUNT(*) FROM sku_channels WHERE customer_marketplace_id = $1 AND excluded_at IS NULL` (Story 7.6) |
 | F7 | 🟡 Important | NIF capture flow implicit | Founder asks at Day-3 pulse-check; persists to both `customer_profiles.nif` and `moloni_invoices.nif`; subsequent invoices pre-fill (Story 11.5 + Founder Operational track) |
 | F8 | 🟡 Important | `audit_log.sku_id` / `sku_channel_id` FK posture | NO FK constraint, intentional for audit-log immutability (Story 9.1 inline schema comment) |
