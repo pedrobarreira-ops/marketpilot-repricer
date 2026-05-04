@@ -737,7 +737,11 @@ test('negative_assertion_no_migration_missing_rls_policy', async () => {
   const entries = await readdir(migrationsDir);
 
   // System-only tables that are intentionally exempt from customer-facing RLS.
-  const EXEMPT_TABLES = new Set(['worker_heartbeats', 'founder_admins']);
+  // audit_log_event_types — Story 9.0: lookup/reference data, not customer-scoped.
+  //   Read-only reference data (26 seeded event types); shared across all tenants.
+  //   No customer PII. Publicly readable within the service-role. No RLS required.
+  //   FKs flow inward: audit_log.event_type → audit_log_event_types.event_type (Story 9.1).
+  const EXEMPT_TABLES = new Set(['worker_heartbeats', 'founder_admins', 'audit_log_event_types']);
 
   // Skip deferred migration files (not yet applied — may reference tables that don't exist).
   // Match `.sql.deferred` rather than the bare substring `.deferred` so future

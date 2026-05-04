@@ -24,7 +24,7 @@ import assert from 'node:assert/strict';
 import { createClient } from '@supabase/supabase-js';
 import { getServiceRoleClient, closeServiceRolePool } from '../../shared/db/service-role-client.js';
 import { getRlsAwareClient } from '../../shared/db/rls-aware-client.js';
-import { resetAuthAndCustomers, endResetAuthPool } from './_helpers/reset-auth-tables.js';
+import { endResetAuthPool } from './_helpers/reset-auth-tables.js';
 
 // ---------------------------------------------------------------------------
 // Setup helpers
@@ -43,15 +43,63 @@ test.after(async () => {
 });
 
 // ---------------------------------------------------------------------------
+// Story 9.1 dependency gate
+//
+// This file combines Story 9.0 (audit_log_event_types lookup, ships first) and
+// Story 9.1 (audit_log partitioned base table, RLS, indexes, trigger — ships
+// next). When the test runs against the Story 9.0-only database, all assertions
+// that touch `audit_log` must SKIP cleanly rather than fail with a "relation
+// does not exist" hard error. Otherwise a clean `npm run test:integration` will
+// be red between Story 9.0 merge and Story 9.1 merge — exactly the window where
+// CI must stay green so dependent stories can ship.
+//
+// `auditLogTableMissing()` returns true iff the audit_log table is absent.
+// `skipIfNo91(t)` calls t.skip() with a clear reason in that case.
+// ---------------------------------------------------------------------------
+
+let _auditLogPresence = null; // memoised: 'present' | 'missing' | null
+async function auditLogTableMissing () {
+  if (_auditLogPresence !== null) return _auditLogPresence === 'missing';
+  const db = getServiceRoleClient();
+  const { rows } = await db.query(
+    `SELECT 1 FROM information_schema.tables
+     WHERE table_schema = 'public' AND table_name = 'audit_log' LIMIT 1`
+  );
+  _auditLogPresence = rows.length > 0 ? 'present' : 'missing';
+  return _auditLogPresence === 'missing';
+}
+
+/**
+ * Skip a Story 9.1-dependent subtest cleanly when the audit_log table is
+ * missing (i.e. running against Story 9.0-only DB). Returns true if skipped.
+ *
+ * @param {import('node:test').TestContext} t
+ * @returns {Promise<boolean>}
+ */
+async function skipIfNo91 (t) {
+  if (await auditLogTableMissing()) {
+    t.skip('Story 9.1 not yet applied — audit_log table does not exist; this assertion will activate when migration 202604301208_create_audit_log_partitioned.sql lands');
+    return true;
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------
 // Story 9.0 AC#1 — 26-row seed count + taxonomy structure
 // ---------------------------------------------------------------------------
 
 test('audit_log_event_types has exactly 26 base rows', async () => {
   const db = getServiceRoleClient();
   const { rows } = await db.query('SELECT COUNT(*)::int AS cnt FROM audit_log_event_types');
-  assert.ok(
-    rows[0].cnt >= 26,
-    `Expected >= 26 rows in audit_log_event_types (baseline 26; 27+ after Epic 12 stories land), got ${rows[0].cnt}`
+  // Story 9.0 base seed is exactly 26 (7 Atenção + 8 Notável + 11 Rotina).
+  // Stories 12.1 and 12.3 add 2 more in their own migrations; until then the
+  // count must be exactly 26 — a loose `>=` masks a typo seed (e.g. 27 rows
+  // shipped early under the wrong story). When Story 12.1 lands, this test
+  // is updated to 27 in that PR.
+  assert.equal(
+    rows[0].cnt,
+    26,
+    `Expected exactly 26 rows in audit_log_event_types at Story 9.0 baseline (7 Atenção + 8 Notável + 11 Rotina). Got ${rows[0].cnt}`
   );
 });
 
@@ -136,7 +184,8 @@ test('each event_type row has a non-empty PT description', async () => {
 // Story 9.1 AC#1 — audit_log base table schema (F8 no-FK, columns, partitioning)
 // ---------------------------------------------------------------------------
 
-test('audit_log table exists and is partitioned by range on created_at', async () => {
+test('audit_log table exists and is partitioned by range on created_at', async (t) => {
+  if (await skipIfNo91(t)) return;
   const db = getServiceRoleClient();
   const { rows } = await db.query(`
     SELECT pt.partattrs, c.relname, p.partstrat
@@ -148,7 +197,8 @@ test('audit_log table exists and is partitioned by range on created_at', async (
   assert.equal(rows[0].partstrat, 'r', 'audit_log must use RANGE partitioning');
 });
 
-test('audit_log has no FK constraint on sku_id (F8 amendment)', async () => {
+test('audit_log has no FK constraint on sku_id (F8 amendment)', async (t) => {
+  if (await skipIfNo91(t)) return;
   const db = getServiceRoleClient();
   const { rows } = await db.query(`
     SELECT conname FROM pg_constraint
@@ -163,7 +213,8 @@ test('audit_log has no FK constraint on sku_id (F8 amendment)', async () => {
   );
 });
 
-test('audit_log has no FK constraint on sku_channel_id (F8 amendment)', async () => {
+test('audit_log has no FK constraint on sku_channel_id (F8 amendment)', async (t) => {
+  if (await skipIfNo91(t)) return;
   const db = getServiceRoleClient();
   const { rows } = await db.query(`
     SELECT conname FROM pg_constraint
@@ -178,7 +229,8 @@ test('audit_log has no FK constraint on sku_channel_id (F8 amendment)', async ()
   );
 });
 
-test('audit_log has FK on event_type referencing audit_log_event_types', async () => {
+test('audit_log has FK on event_type referencing audit_log_event_types', async (t) => {
+  if (await skipIfNo91(t)) return;
   const db = getServiceRoleClient();
   const { rows } = await db.query(`
     SELECT conname FROM pg_constraint
@@ -192,7 +244,8 @@ test('audit_log has FK on event_type referencing audit_log_event_types', async (
   );
 });
 
-test('audit_log has required columns: id, customer_marketplace_id, event_type, priority, payload, created_at', async () => {
+test('audit_log has required columns: id, customer_marketplace_id, event_type, priority, payload, created_at', async (t) => {
+  if (await skipIfNo91(t)) return;
   const db = getServiceRoleClient();
   const required = ['id', 'customer_marketplace_id', 'event_type', 'priority', 'payload', 'created_at'];
   const { rows } = await db.query(`
@@ -209,18 +262,22 @@ test('audit_log has required columns: id, customer_marketplace_id, event_type, p
 // Story 9.1 AC#3 — priority-derivation trigger
 // ---------------------------------------------------------------------------
 
-test('INSERT into audit_log with known event_type derives priority automatically', async () => {
+test('INSERT into audit_log with known event_type derives priority automatically', async (t) => {
+  if (await skipIfNo91(t)) return;
   const db = getServiceRoleClient();
-  // We need a real customer_marketplace_id — skip if the table doesn't exist yet.
+  // We also need a real customer_marketplace_id — skip if Epic 4 hasn't shipped yet.
   let cmId;
   try {
     const { rows } = await db.query('SELECT id FROM customer_marketplaces LIMIT 1');
     cmId = rows[0]?.id;
   } catch {
-    // customer_marketplaces not yet created — skip this test
+    t.skip('customer_marketplaces table not yet created (Epic 4 dependency) — trigger test deferred');
     return;
   }
-  if (!cmId) return; // No test data available yet — skip gracefully
+  if (!cmId) {
+    t.skip('No customer_marketplace rows seeded — trigger test cannot run without a real FK target');
+    return;
+  }
 
   const { rows } = await db.query(`
     INSERT INTO audit_log (customer_marketplace_id, event_type, payload)
@@ -236,16 +293,21 @@ test('INSERT into audit_log with known event_type derives priority automatically
   );
 });
 
-test('INSERT into audit_log with unknown event_type raises EXCEPTION', async () => {
+test('INSERT into audit_log with unknown event_type raises EXCEPTION', async (t) => {
+  if (await skipIfNo91(t)) return;
   const db = getServiceRoleClient();
   let cmId;
   try {
     const { rows } = await db.query('SELECT id FROM customer_marketplaces LIMIT 1');
     cmId = rows[0]?.id;
   } catch {
+    t.skip('customer_marketplaces table not yet created (Epic 4 dependency) — unknown-event-type guard deferred');
     return;
   }
-  if (!cmId) return;
+  if (!cmId) {
+    t.skip('No customer_marketplace rows seeded — unknown-event-type guard cannot run without a real FK target');
+    return;
+  }
 
   await assert.rejects(
     () => db.query(`
@@ -260,7 +322,8 @@ test('INSERT into audit_log with unknown event_type raises EXCEPTION', async () 
 // Story 9.1 AC#4 — compound indexes exist
 // ---------------------------------------------------------------------------
 
-test('idx_audit_log_customer_created index exists', async () => {
+test('idx_audit_log_customer_created index exists', async (t) => {
+  if (await skipIfNo91(t)) return;
   const db = getServiceRoleClient();
   const { rows } = await db.query(`
     SELECT indexname FROM pg_indexes
@@ -269,7 +332,8 @@ test('idx_audit_log_customer_created index exists', async () => {
   assert.ok(rows.length > 0, 'Missing index: idx_audit_log_customer_created');
 });
 
-test('idx_audit_log_customer_sku_created index exists', async () => {
+test('idx_audit_log_customer_sku_created index exists', async (t) => {
+  if (await skipIfNo91(t)) return;
   const db = getServiceRoleClient();
   const { rows } = await db.query(`
     SELECT indexname FROM pg_indexes
@@ -278,7 +342,8 @@ test('idx_audit_log_customer_sku_created index exists', async () => {
   assert.ok(rows.length > 0, 'Missing index: idx_audit_log_customer_sku_created');
 });
 
-test('idx_audit_log_customer_eventtype_created index exists', async () => {
+test('idx_audit_log_customer_eventtype_created index exists', async (t) => {
+  if (await skipIfNo91(t)) return;
   const db = getServiceRoleClient();
   const { rows } = await db.query(`
     SELECT indexname FROM pg_indexes
@@ -287,7 +352,8 @@ test('idx_audit_log_customer_eventtype_created index exists', async () => {
   assert.ok(rows.length > 0, 'Missing index: idx_audit_log_customer_eventtype_created');
 });
 
-test('idx_audit_log_customer_cycle index exists', async () => {
+test('idx_audit_log_customer_cycle index exists', async (t) => {
+  if (await skipIfNo91(t)) return;
   const db = getServiceRoleClient();
   const { rows } = await db.query(`
     SELECT indexname FROM pg_indexes
@@ -300,13 +366,22 @@ test('idx_audit_log_customer_cycle index exists', async () => {
 // Story 9.1 AC#5 — RLS cross-tenant isolation
 // ---------------------------------------------------------------------------
 
-test('RLS: customer A JWT returns 0 audit_log rows owned by customer B', async () => {
-  // This test requires two seeded customers with JWT tokens.
-  // Skipped gracefully if env or helper unavailable.
-  const supabaseAdmin = await getSupabaseAdmin();
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+test('RLS: customer A JWT returns 0 audit_log rows owned by customer B', async (t) => {
+  // Story 9.1 dependency — requires audit_log table.
+  if (await skipIfNo91(t)) return;
 
-  // Two test users
+  // Story 9.1 + Epic 4 dependency — requires customer_marketplaces with seeded
+  // rows so we have a real cmBId to insert against. The previous version of
+  // this test silently skipped its single assertion when cmBId was null —
+  // making the test a soft-pass during the entire Story 9.0 → 9.1 → 4.x window.
+  // We now route every "skip" reason through t.skip() so the failure mode is
+  // visible in test output, not invisible.
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    t.skip('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set — RLS isolation test requires Supabase admin auth');
+    return;
+  }
+
+  const supabaseAdmin = await getSupabaseAdmin();
   const emailA = `rls-audit-a-${Date.now()}@test.invalid`;
   const emailB = `rls-audit-b-${Date.now()}@test.invalid`;
   const pw = 'RlsAudit1!';
@@ -315,17 +390,22 @@ test('RLS: customer A JWT returns 0 audit_log rows owned by customer B', async (
   try {
     signUpA = await supabaseAdmin.auth.admin.createUser({ email: emailA, password: pw, email_confirm: true });
     signUpB = await supabaseAdmin.auth.admin.createUser({ email: emailB, password: pw, email_confirm: true });
-  } catch {
-    return; // Auth not available — skip
+  } catch (err) {
+    t.skip(`Supabase auth.admin.createUser unavailable (${err?.message ?? 'unknown error'}) — RLS isolation test deferred`);
+    return;
   }
 
   const userAId = signUpA.data?.user?.id;
   const userBId = signUpB.data?.user?.id;
-  if (!userAId || !userBId) return;
+  if (!userAId || !userBId) {
+    t.skip('createUser did not return user ids — auth admin unavailable');
+    return;
+  }
 
   // Get customer_marketplace_id for user B (service role)
   const db = getServiceRoleClient();
   let cmBId;
+  let cmTableMissing = false;
   try {
     const { rows } = await db.query(
       'SELECT cm.id FROM customer_marketplaces cm JOIN customers c ON c.id = cm.customer_id WHERE c.id = $1 LIMIT 1',
@@ -333,47 +413,75 @@ test('RLS: customer A JWT returns 0 audit_log rows owned by customer B', async (
     );
     cmBId = rows[0]?.id;
   } catch {
-    // customer_marketplaces may not exist yet — skip
+    cmTableMissing = true;
   }
 
-  if (cmBId) {
-    // Insert a test audit row for user B via service role
-    try {
-      await db.query(
-        `INSERT INTO audit_log (customer_marketplace_id, event_type, payload)
-         VALUES ($1, 'cycle-start', '{"rls_test":true}'::jsonb)`,
-        [cmBId]
-      );
-    } catch {
-      // audit_log insert might fail if table not ready — skip
-    }
+  if (cmTableMissing || !cmBId) {
+    // Cleanup test users before bailing
+    await supabaseAdmin.auth.admin.deleteUser(userAId).catch(() => {});
+    await supabaseAdmin.auth.admin.deleteUser(userBId).catch(() => {});
+    t.skip(
+      cmTableMissing
+        ? 'customer_marketplaces table not yet created (Epic 4 dependency) — RLS isolation deferred'
+        : 'No customer_marketplace seeded for user B — RLS isolation cannot be tested without a real audit row to filter'
+    );
+    return;
+  }
 
-    // Sign in as user A and attempt to read user B's audit rows
-    const { data: signInData } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'magiclink',
-      email: emailA,
-    });
-    if (signInData?.properties?.access_token) {
-      const rlsClient = getRlsAwareClient(signInData.properties.access_token);
-      const { rows: rlsRows } = await rlsClient.query(
-        'SELECT 1 FROM audit_log WHERE customer_marketplace_id = $1 LIMIT 1',
-        [cmBId]
-      );
-      assert.equal(
-        rlsRows.length,
-        0,
-        'RLS violation: customer A can see customer B audit_log rows'
-      );
-    }
-
-    // Cleanup
+  // Insert a test audit row for user B via service role
+  try {
     await db.query(
-      'DELETE FROM audit_log WHERE customer_marketplace_id = $1 AND payload->>\'{rls_test}\' = \'true\'',
+      `INSERT INTO audit_log (customer_marketplace_id, event_type, payload)
+       VALUES ($1, 'cycle-start', '{"rls_test":true}'::jsonb)`,
       [cmBId]
     );
+  } catch (err) {
+    await supabaseAdmin.auth.admin.deleteUser(userAId).catch(() => {});
+    await supabaseAdmin.auth.admin.deleteUser(userBId).catch(() => {});
+    t.skip(`audit_log INSERT failed (${err?.message ?? 'unknown'}) — RLS isolation cannot be verified without a seeded row`);
+    return;
   }
 
-  // Cleanup test users
+  // Pre-condition: verify the row was actually inserted via service role.
+  // Without this, if the INSERT silently failed to land (e.g. trigger
+  // suppression), the RLS test below would pass vacuously — RLS appears
+  // to "filter out" a row that never existed.
+  const { rows: serviceRows } = await db.query(
+    `SELECT 1 FROM audit_log WHERE customer_marketplace_id = $1 LIMIT 1`,
+    [cmBId]
+  );
+  assert.equal(
+    serviceRows.length,
+    1,
+    `pre-condition: B's audit_log row must exist via service-role before RLS isolation test; if 0 rows the test below would pass vacuously`
+  );
+
+  // Sign in as user A and attempt to read user B's audit rows
+  const { data: signInData } = await supabaseAdmin.auth.admin.generateLink({
+    type: 'magiclink',
+    email: emailA,
+  });
+  if (!signInData?.properties?.access_token) {
+    await db.query(`DELETE FROM audit_log WHERE customer_marketplace_id = $1`, [cmBId]);
+    await supabaseAdmin.auth.admin.deleteUser(userAId).catch(() => {});
+    await supabaseAdmin.auth.admin.deleteUser(userBId).catch(() => {});
+    t.skip('Could not generate magic-link access token for user A — RLS test cannot acquire a JWT');
+    return;
+  }
+
+  const rlsClient = getRlsAwareClient(signInData.properties.access_token);
+  const { rows: rlsRows } = await rlsClient.query(
+    'SELECT 1 FROM audit_log WHERE customer_marketplace_id = $1 LIMIT 1',
+    [cmBId]
+  );
+  assert.equal(
+    rlsRows.length,
+    0,
+    'RLS violation: customer A can see customer B audit_log rows'
+  );
+
+  // Cleanup
+  await db.query(`DELETE FROM audit_log WHERE customer_marketplace_id = $1`, [cmBId]);
   await supabaseAdmin.auth.admin.deleteUser(userAId).catch(() => {});
   await supabaseAdmin.auth.admin.deleteUser(userBId).catch(() => {});
 });
@@ -382,7 +490,8 @@ test('RLS: customer A JWT returns 0 audit_log rows owned by customer B', async (
 // Story 9.1 AC#2 — initial partition exists for the MVP launch month
 // ---------------------------------------------------------------------------
 
-test('at least one audit_log partition exists (initial partition from migration)', async () => {
+test('at least one audit_log partition exists (initial partition from migration)', async (t) => {
+  if (await skipIfNo91(t)) return;
   const db = getServiceRoleClient();
   const { rows } = await db.query(`
     SELECT inhrelid::regclass AS partition_name
