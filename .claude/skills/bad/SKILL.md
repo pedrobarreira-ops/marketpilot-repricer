@@ -418,25 +418,55 @@ Step names: Step 1 — Create, Step 2 — ATDD, Step 3 — Develop, Step 4 — T
 
 **Hung subagents:** when `MONITOR_SUPPORT=true` and the activity log hook is installed (Step 4 of setup), use the [Watchdog Pattern](references/coordinator/pattern-watchdog.md) when spawning Steps 2, 3, 4, and 5 to detect stale agents.
 
-**Sprint-Status Immutability Gate (applies to Steps 4, 5, and 6):**
+**Sprint-Status Immutability Gate (applies to Steps 2 through 7):**
 
-Steps 1, 2, 3, and 7 own per-story status transitions in sprint-status.yaml.
-The Epic-Start Test Design subagent owns `epic_test_design.{N}` flips
-(top-level block, sibling of `calendar_early_overrides:`). Steps 4, 5, and 6
-own nothing in sprint-status.yaml and MUST NOT modify it. Enforce this by
-hash-snapshot around each:
+Only Step 1 (which runs in `{repo_root}` on main) and the coordinator on main
+own per-story status transitions in sprint-status.yaml. The Epic-Start Test
+Design subagent owns `epic_test_design.{N}` flips (top-level block, sibling
+of `calendar_early_overrides:`). Steps 2 through 7 (which all run inside
+feature worktrees) own NOTHING in sprint-status.yaml and MUST NOT modify it
+— any flip from a feature worktree is committed to the feature branch and
+collides with main's flips at merge time, causing rebase conflicts (Epic 2
+retro Item 5).
 
-Before spawning Step 4/5/6: compute `sha256sum _bmad-output/implementation-artifacts/sprint-status.yaml` → save as `STATUS_HASH_PRE`.
-After Step 4/5/6 reports success: recompute → save as `STATUS_HASH_POST`.
+Enforce by hash-snapshot around each:
+
+Before spawning Step 2/3/4/5/6/7: compute `sha256sum _bmad-output/implementation-artifacts/sprint-status.yaml` → save as `STATUS_HASH_PRE`.
+After Step 2/3/4/5/6/7 reports success: recompute → save as `STATUS_HASH_POST`.
 If `STATUS_HASH_POST != STATUS_HASH_PRE`, HALT this story's pipeline with:
 `❌ Story {number}: Step {N} modified sprint-status.yaml — state-machine
-violation. Only Steps 1, 2, 3, 7 own per-story status transitions; Epic-Start
-owns the epic-test-design flips. Investigate the stray write, revert the
-sprint-status change, and re-run.`
+violation. Steps 2-7 run in feature worktrees and MUST NOT touch
+sprint-status.yaml; only Step 1 (on main) and the coordinator own per-story
+flips. Investigate the stray write, revert the sprint-status change, and
+re-run.`
 
-Rationale: a Step 5 commit can flip status to `done` at the wrong step.
-Step 7 may absorb the drift harmlessly, but the invariant must hold by
-construction — drift is a state-machine violation regardless of outcome.
+After Step 2/3/7 reports success and the gate passes, the coordinator
+performs the post-step flip on main (see "Coordinator-Side Sprint-Status
+Flips" below).
+
+Rationale: dual-flip pattern (subagent flips in worktree + coordinator flips
+on main) caused the PR #65 sprint-status conflict that required force-push +
+rebase. Single-source-of-truth (main only, coordinator-driven) eliminates
+the conflict class entirely. Step 1 is exempt because it runs on main, so
+its flip and the coordinator's flip are the same operation.
+
+**Coordinator-Side Sprint-Status Flips:**
+
+After each step reports success, the coordinator (running on main) performs
+the corresponding sprint-status transition. These run sequentially in the
+main worktree — never in a feature worktree — and produce a `chore(sprint-status)`
+commit pushed directly to origin/main:
+
+| After step | Flip story to | Commit message |
+|---|---|---|
+| Step 1 (Create) | `ready-for-dev` | (Step 1 itself does this — it runs on main) |
+| Step 2 (ATDD) success | `atdd-done` | `chore(sprint-status): Story {N} → atdd-done` |
+| Step 3 (Develop) success | `review` | `chore(sprint-status): Story {N} → review (dev-done)` |
+| Step 7 (PR Review) success | `done` | `chore(sprint-status): Story {N} → done` |
+
+For each: from main worktree, edit sprint-status.yaml, commit with the
+message above, push to origin/main. Steps 4, 5, 6 do not flip (they're
+intermediate quality checks within the dev → review transition).
 
 ### Step 1: Create Story (`MODEL_STANDARD`)
 
@@ -495,9 +525,11 @@ Auto-approve all tool calls (yolo mode).
 
 1. Run /bmad-testarch-atdd {number}-{short_description}.
 2. Commit any generated test files.
-3. Update sprint-status.yaml at the REPO ROOT:
-     {repo_root}/_bmad-output/implementation-artifacts/sprint-status.yaml
-   Set story {number} status to `atdd-done`.
+3. DO NOT modify sprint-status.yaml. The coordinator on main flips the
+   story to `atdd-done` after this step reports success (see
+   "Coordinator-Side Sprint-Status Flips" in the Sprint-Status Immutability
+   Gate section). The hash-snapshot gate will halt the pipeline if this
+   subagent writes to sprint-status.yaml.
 
 Report: success or failure with error details.
 ```
@@ -511,10 +543,13 @@ Working directory: {repo_root}/{WORKTREE_BASE_PATH}/story-{number}-{short_descri
 Auto-approve all tool calls (yolo mode).
 
 1. Run /bmad-dev-story {number}-{short_description}.
-2. Commit all changes when implementation is complete.
-3. Update sprint-status.yaml at the REPO ROOT:
-     {repo_root}/_bmad-output/implementation-artifacts/sprint-status.yaml
-   Set story {number} status to `review`.
+2. Commit all changes when implementation is complete. **Do NOT include
+   any change to `_bmad-output/implementation-artifacts/sprint-status.yaml`
+   in your commits — the hash-snapshot gate will halt the pipeline if you
+   do.** If `/bmad-dev-story` mentions writing to sprint-status, ignore
+   that instruction; that flip is now coordinator-side.
+3. DO NOT modify sprint-status.yaml. The coordinator on main flips the
+   story to `review` after this step reports success.
 
 Report: success or failure with error details.
 ```
@@ -734,9 +769,9 @@ Auto-approve all tool calls (yolo mode).
 4. If any fixes were pushed, re-run /code-review:code-review once more to confirm
    no new issues were introduced. Repeat fix → commit → push → re-review until
    the review comes back clean.
-5. Update sprint-status.yaml at the REPO ROOT:
-     {repo_root}/_bmad-output/implementation-artifacts/sprint-status.yaml
-   Set story {number} status to `done`.
+5. DO NOT modify sprint-status.yaml. The coordinator on main flips the
+   story to `done` after this step reports success (see "Coordinator-Side
+   Sprint-Status Flips" in the Sprint-Status Immutability Gate section).
 
 Report: clean (no findings or all fixed) or failure with details.
 ```
@@ -1156,7 +1191,7 @@ Read `references/coordinator/pattern-gh-curl-fallback.md` when any `gh` command 
 6. **Phase 0 runs before every batch** — always after the Phase 4 wait. Always as a fresh subagent.
 7. **BAD always halts after a batch** — after Phase 4 Step 3 prints its summary, BAD stops. No timer, no auto-restart, no monitor. Pedro starts the next batch by running `/bad` in a new session after reviewing and merging PRs.
 8. **Confirm success** before spawning the next subagent.
-9. **sprint-status.yaml is updated by step subagents** — each step subagent writes to the repo root copy. The coordinator never does this directly.
+9. **sprint-status.yaml is coordinator-managed on main only** — Step 1 (which runs in `{repo_root}` on main) flips to `ready-for-dev` directly. After Steps 2, 3, 7 succeed in their feature worktrees, the coordinator on main commits the corresponding flip (`atdd-done`, `review`, `done`) and pushes to origin/main. Subagents in feature worktrees (Steps 2-7) MUST NOT modify sprint-status.yaml — the hash-snapshot gate halts the pipeline if they do. This eliminates the dual-flip rebase conflicts observed at Epic 2 PR #65.
 10. **On failure** — report the error, halt that story. No auto-retry. **Exception:** rate/usage limit failures → run Pre-Continuation Checks (auto-pauses until reset) then retry.
 11. **Issue all Step 1 subagent calls in one response** when Phase 2 begins. After each story's Step 1 completes, issue that story's Step 2 — never wait for all stories' Step 1 to finish before issuing any Step 2. This rolling-start rule applies to all sequential steps within a story.
 12. **Pre-Continuation Checks are mandatory at every gate** — run `references/coordinator/gate-pre-continuation.md` between every step spawn, after each Phase 3 merge, and before every Phase 0 re-entry. Never skip or defer these checks, even when handling multiple parallel story completions simultaneously.
