@@ -136,3 +136,23 @@ Both services share the same environment variables (Coolify-managed). Inject all
 ### UptimeRobot (post-deploy)
 
 Configure monitor for `https://app.marketpilot.pt/health` at 5-minute cadence with email alert.
+
+## RLS Regression Suite Convention (Story 2.2 / AD30)
+
+Every new customer-scoped table migration (Epics 4–11) **MUST** include in the **same PR**:
+
+1. The RLS `ENABLE ROW LEVEL SECURITY` + `CREATE POLICY` statement in the migration file.
+2. A seed row for both test customers in `db/seed/test/two-customers.sql`.
+3. A new entry object in the `CUSTOMER_SCOPED_TABLES` registry array in `tests/integration/rls-regression.test.js`.
+
+Failing step 3 causes the `convention_every_seed_table_is_in_regression_config` test to fail loudly:
+
+> `table "<name>" is present in db/seed/test/two-customers.sql but missing from CUSTOMER_SCOPED_TABLES registry in rls-regression.test.js`
+
+Run the full RLS suite locally with:
+
+```sh
+npm run test:rls
+```
+
+CI (`npm run test:rls`) blocks PRs and deploys on any failure — see `.github/workflows/ci.yml`.

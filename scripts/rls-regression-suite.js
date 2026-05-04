@@ -87,14 +87,11 @@ const CUSTOMER_SCOPED_TABLES = [
 const results = [];
 
 function pass (label) {
-  console.log(`  ✓  ${label}`); // eslint-disable-line no-console
-  results.push({ label, pass: true });
+  console.log(`  ✓  ${label}`);  results.push({ label, pass: true });
 }
 
 function fail (label, reason) {
-  console.error(`  ✗  ${label}`); // eslint-disable-line no-console
-  console.error(`       ${reason}`); // eslint-disable-line no-console
-  results.push({ label, pass: false, reason });
+  console.error(`  ✗  ${label}`);  console.error(`       ${reason}`);  results.push({ label, pass: false, reason });
 }
 
 // ---------------------------------------------------------------------------
@@ -227,14 +224,12 @@ async function assertMutationBlocked (jwt, query, label) {
 // Main runner
 // ---------------------------------------------------------------------------
 async function run () {
-  console.log('\nRLS Regression Suite — Story 2.2 / AD30\n'); // eslint-disable-line no-console
-
+  console.log('\nRLS Regression Suite — Story 2.2 / AD30\n');
   let { userAId, userBId, jwtA, jwtB } = await seedTwoCustomers();
 
   for (const tableConfig of CUSTOMER_SCOPED_TABLES) {
     const { table, deferred } = tableConfig;
-    console.log(`\n  Table: ${table}${deferred ? ' (deferred — row ops skipped)' : ''}`); // eslint-disable-line no-console
-
+    console.log(`\n  Table: ${table}${deferred ? ' (deferred — row ops skipped)' : ''}`);
     if (deferred) {
       pass(`${table} — deferred until Epic 4; skipping row-level isolation tests`);
       continue;
@@ -285,22 +280,16 @@ async function run () {
   // Report
   const passed = results.filter((r) => r.pass).length;
   const failed = results.filter((r) => !r.pass).length;
-  console.log(`\n${'─'.repeat(50)}`); // eslint-disable-line no-console
-  console.log(`RLS Regression Suite: ${passed} passed, ${failed} failed`); // eslint-disable-line no-console
-
+  console.log(`\n${'─'.repeat(50)}`);  console.log(`RLS Regression Suite: ${passed} passed, ${failed} failed`);
   if (failed > 0) {
-    console.error('\nFailed checks:'); // eslint-disable-line no-console
-    for (const r of results.filter((x) => !x.pass)) {
-      console.error(`  ✗  ${r.label}: ${r.reason}`); // eslint-disable-line no-console
-    }
+    console.error('\nFailed checks:');    for (const r of results.filter((x) => !x.pass)) {
+      console.error(`  ✗  ${r.label}: ${r.reason}`);    }
     process.exit(1);
   }
 
-  console.log('\nAll RLS isolation checks passed.\n'); // eslint-disable-line no-console
-  process.exit(0);
+  console.log('\nAll RLS isolation checks passed.\n');  process.exit(0);
 }
 
 run().catch((err) => {
-  console.error('rls-regression-suite fatal error:', err); // eslint-disable-line no-console
-  process.exit(1);
+  console.error('rls-regression-suite fatal error:', err);  process.exit(1);
 });
