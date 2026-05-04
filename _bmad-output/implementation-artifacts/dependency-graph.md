@@ -1,5 +1,5 @@
 # Story Dependency Graph
-_Last updated: 2026-05-04T00:00:00Z_
+_Last updated: 2026-05-04T12:00:00Z_
 
 ## Stories
 
@@ -11,12 +11,12 @@ _Last updated: 2026-05-04T00:00:00Z_
 | 1.4 | 1 | Signup endpoint, atomic profile trigger, source-context capture | done | #4 | — | — (pre-BAD direct commit) | 1.1, 1.3 | ✅ Yes (done) |
 | 1.5 | 1 | Founder admins seed + admin-auth middleware | done | #5 | — | — (pre-BAD direct commit) | 1.4 | ✅ Yes (done) |
 | 2.1 | 2 | RLS-aware app DB client + service-role worker DB client + transaction helper | done | #6 | #64 | merged | 1.4 | ✅ Yes (done) |
-| 2.2 | 2 | RLS regression suite + CI block | backlog | #7 | — | — | 1.4, 1.2, 2.1 | ✅ Yes |
-| 9.0 | 9 | writeAuditEvent SSoT module + audit_log_event_types lookup table (CALENDAR-EARLY) | backlog | #8 | — | — | 1.1, 1.3, 2.1; after_epic: 2 | ❌ No (epic 2 not complete — calendar-early gate) |
-| 9.1 | 9 | Audit log partitioned base table + priority-derivation trigger + monthly partition cron (CALENDAR-EARLY) | backlog | #9 | — | — | 9.0, 2.1; after_epic: 2 | ❌ No (epic 2 not complete — calendar-early gate) |
-| 3.1 | 3 | Mirakl HTTP client port — apiClient + retry/backoff + safe-error mapping + no-direct-fetch ESLint rule | backlog | #10 | — | — | 1.1, 1.3; epic 2 complete | ❌ No (epic 2 not complete) |
-| 3.2 | 3 | Endpoint wrappers A01, PC01, OF21, P11 + Mirakl mock server | backlog | #11 | — | — | 3.1, 2.1 | ❌ No (epic 2 not complete) |
-| 3.3 | 3 | Mirakl empirical verify smoke-test script | backlog | #12 | — | — | 3.1, 3.2 | ❌ No (epic 2 not complete) |
+| 2.2 | 2 | RLS regression suite + CI block | done | #7 | #65 | merged | 1.4, 1.2, 2.1 | ✅ Yes (done) |
+| 9.0 | 9 | writeAuditEvent SSoT module + audit_log_event_types lookup table (CALENDAR-EARLY) | backlog | #8 | — | — | 1.1, 1.3, 2.1; after_epic: 2 | ✅ Yes (calendar-early) |
+| 9.1 | 9 | Audit log partitioned base table + priority-derivation trigger + monthly partition cron (CALENDAR-EARLY) | backlog | #9 | — | — | 9.0, 2.1; after_epic: 2 | ❌ No (9.0 not done) |
+| 3.1 | 3 | Mirakl HTTP client port — apiClient + retry/backoff + safe-error mapping + no-direct-fetch ESLint rule | backlog | #10 | — | — | 1.1, 1.3; epic 2 complete | ✅ Yes |
+| 3.2 | 3 | Endpoint wrappers A01, PC01, OF21, P11 + Mirakl mock server | backlog | #11 | — | — | 3.1, 2.1 | ❌ No (3.1 not done) |
+| 3.3 | 3 | Mirakl empirical verify smoke-test script | backlog | #12 | — | — | 3.1, 3.2 | ❌ No (3.1 not done) |
 | 4.1 | 4 | customer_marketplaces schema + F4 PROVISIONING + cron state machine transitions matrix | backlog | #13 | — | — | 2.1, 9.0, 9.1 | ❌ No (epic 3 not complete) |
 | 4.2 | 4 | skus, sku_channels, baseline_snapshots, scan_jobs schemas + RLS | backlog | #14 | — | — | 4.1 | ❌ No (epic 3 not complete) |
 | 4.3 | 4 | Key entry form /onboarding/key + inline 5s validation + encrypted persistence [MERGE_BLOCK until 4.4] | backlog | #15 | — | — | 4.1, 1.2, 3.1 | ❌ No (epic 3 not complete) |
@@ -132,14 +132,21 @@ _Last updated: 2026-05-04T00:00:00Z_
 ### Current State
 - Epic 1 complete (5/5 stories done — pre-BAD direct commits to main, no PRs).
 - Epic 1 retrospective complete (2026-05-03).
-- Story 2.1 merged (PR #64, 2026-05-03). sprint-status: done. Remote branch deleted.
-- Story 2.2 is now the only Ready to Work story.
-- After 2.2 merges and Epic 2 completes: 9.0 and 9.1 (calendar-early) unlock simultaneously.
-- After 9.0+9.1 merge: Epic 3 (3.1, 3.2, 3.3) unlocks.
+- Epic 2 complete (2/2 stories done).
+  - Story 2.1 merged (PR #64, 2026-05-03). sprint-status: done.
+  - Story 2.2 merged (PR #65, 2026-05-04). sprint-status: done.
+- Epic 2 retrospective complete (2026-05-04).
+- Calendar-early gate satisfied (after_epic: 2 complete): Story 9.0 is now Ready to Work.
+- Story 9.1 awaits 9.0 completion.
+- After 9.0+9.1 merge: 12 Batch-2 dependents (4.1, 5.1, 5.2, 6.1, 6.2, 6.3, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7) unblock.
+- Epic 3 is now also unblocked (epic 2 complete): Story 3.1 is Ready to Work.
+- Current Ready to Work: 9.0 (calendar-early), 3.1 (Epic 3 start). 9.0 and 3.1 can run in parallel.
 
 ### Parallelization Opportunities
-- Batch 2 (current): Story 2.2 alone — must ship first to complete Epic 2 and unlock the calendar-early slot.
-- Batch 3 (after Epic 2 completes): Stories 9.0 + 9.0 can run in parallel (different code surfaces). After 9.0 and 9.1 done, Epic 3 unlocks.
+- Batch 3 (current): Stories 9.0 + 3.1 can run in parallel (different code surfaces / different epics).
+- After 9.0 done: 9.1 unlocks (calendar-early).
+- After 9.0+9.1 done: Epic 4 batch-2 dependents unblock (4.1, plus 5.1 onwards).
+- After 3.1 done: 3.2 unlocks; after 3.2 done: 3.3 unlocks (Epic 3 sequential chain).
 - Batch 4 (after Epic 2 + calendar-early 9.0+9.1 complete): Stories 3.1, 3.2, 3.3 sequential chain in Epic 3.
 - Epic 4 onwards: larger parallelization possible within each epic (e.g., 4.5, 4.6, 4.7 can run in parallel after 4.4 ships).
 - Bundle C (Epics 5-7): Stories 5.1, 5.2, 6.1, 6.2, 6.3, 7.2, 7.3, 7.6 can be developed in parallel but ALL must hold for merge until 7.8 gate passes.
