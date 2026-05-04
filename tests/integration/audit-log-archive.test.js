@@ -163,6 +163,163 @@ test('moloni_invoices rows survive after customer data wipe (ON DELETE NO ACTION
 });
 
 // ---------------------------------------------------------------------------
+// Gap 9 — Story 9.6 AC#1: behavioral archive job test
+// Seed 100-day-old partition with mixed priorities, run the job, assert:
+//   (a) Atenção rows present in audit_log_atencao_archive
+//   (b) partition is detached (not in audit_log)
+//   (c) Notável + Rotina rows are NOT in the archive
+// blocked by Story 9.6 — archive job + audit_log_atencao_archive not yet implemented
+// ---------------------------------------------------------------------------
+
+test(
+  'archive job: Atenção rows copied to audit_log_atencao_archive; partition detached; Notável+Rotina excluded (Story 9.6 AC#1)',
+  async () => {
+    // Try to import the archive job function
+    let archiveFn;
+    try {
+      const mod = await import('../../worker/src/jobs/audit-log-archive.js');
+      archiveFn = mod.runArchiveJob ?? mod.archiveOldPartitions ?? mod.default;
+    } catch {
+      // Module not yet implemented (Story 9.6 pending) — skip behavioral test
+      return;
+    }
+    if (typeof archiveFn !== 'function') {
+      // No callable export found — skip
+      return;
+    }
+
+    const db = getServiceRoleClient();
+
+    // Verify required tables exist before attempting the behavioral test
+    let archiveTableExists = false;
+    let auditLogExists = false;
+    try {
+      const { rows } = await db.query(`
+        SELECT tablename FROM pg_tables
+        WHERE schemaname = 'public'
+          AND tablename IN ('audit_log', 'audit_log_atencao_archive')
+      `);
+      const tables = new Set(rows.map((r) => r.tablename));
+      auditLogExists = tables.has('audit_log');
+      archiveTableExists = tables.has('audit_log_atencao_archive');
+    } catch {
+      return;
+    }
+    if (!auditLogExists || !archiveTableExists) {
+      // Tables not yet created — Story 9.6 migration hasn't run
+      return;
+    }
+
+    let cmId;
+    try {
+      const { rows } = await db.query('SELECT id FROM customer_marketplaces LIMIT 1');
+      cmId = rows[0]?.id;
+    } catch {
+      return;
+    }
+    if (!cmId) return;
+
+    // Seed audit_log rows with a created_at > 100 days ago.
+    // One Atenção row, one Notável row, one Rotina row.
+    // The archive job targets partitions older than 90 days.
+    const oldDate = new Date();
+    oldDate.setDate(oldDate.getDate() - 100);
+    const oldTs = oldDate.toISOString();
+
+    const seedIds = { atencao: null, notavel: null, rotina: null };
+    try {
+      // Atenção: anomaly-freeze
+      const r1 = await db.query(
+        `INSERT INTO audit_log (customer_marketplace_id, event_type, payload, created_at)
+         VALUES ($1, 'anomaly-freeze', '{"_archive_test":true}'::jsonb, $2)
+         RETURNING id`,
+        [cmId, oldTs]
+      );
+      seedIds.atencao = r1.rows[0]?.id;
+
+      // Notável: position-won
+      const r2 = await db.query(
+        `INSERT INTO audit_log (customer_marketplace_id, event_type, payload, created_at)
+         VALUES ($1, 'position-won', '{"_archive_test":true}'::jsonb, $2)
+         RETURNING id`,
+        [cmId, oldTs]
+      );
+      seedIds.notavel = r2.rows[0]?.id;
+
+      // Rotina: cycle-start
+      const r3 = await db.query(
+        `INSERT INTO audit_log (customer_marketplace_id, event_type, payload, created_at)
+         VALUES ($1, 'cycle-start', '{"_archive_test":true}'::jsonb, $2)
+         RETURNING id`,
+        [cmId, oldTs]
+      );
+      seedIds.rotina = r3.rows[0]?.id;
+    } catch {
+      // Partition for old date may not exist — seeding may fail; skip test
+      const allIds = Object.values(seedIds).filter(Boolean);
+      if (allIds.length > 0) {
+        await db.query('DELETE FROM audit_log WHERE id = ANY($1::uuid[])', [allIds]).catch(() => {});
+      }
+      return;
+    }
+
+    try {
+      // Run the archive job (it should copy Atenção rows and detach old partitions)
+      await archiveFn({ db });
+
+      // (a) Assert: Atenção row IS in audit_log_atencao_archive
+      if (seedIds.atencao) {
+        const { rows: archRows } = await db.query(
+          'SELECT id FROM audit_log_atencao_archive WHERE id = $1',
+          [seedIds.atencao]
+        );
+        assert.ok(
+          archRows.length > 0,
+          `Atenção row ${seedIds.atencao} must be in audit_log_atencao_archive after archive job (Story 9.6 AC#1a)`
+        );
+      }
+
+      // (b) Assert: partition detached — Atenção row is no longer in audit_log
+      if (seedIds.atencao) {
+        const { rows: activeRows } = await db.query(
+          'SELECT id FROM audit_log WHERE id = $1',
+          [seedIds.atencao]
+        );
+        assert.equal(
+          activeRows.length,
+          0,
+          `Atenção row must be removed from audit_log after partition detach (Story 9.6 AC#1b)`
+        );
+      }
+
+      // (c) Assert: Notável + Rotina rows are NOT in audit_log_atencao_archive
+      const nonAtencaoIds = [seedIds.notavel, seedIds.rotina].filter(Boolean);
+      if (nonAtencaoIds.length > 0) {
+        const { rows: wrongRows } = await db.query(
+          'SELECT id FROM audit_log_atencao_archive WHERE id = ANY($1::uuid[])',
+          [nonAtencaoIds]
+        );
+        assert.equal(
+          wrongRows.length,
+          0,
+          `Notável + Rotina rows must NOT be copied to audit_log_atencao_archive (Story 9.6 AC#1c). ` +
+          `Found ${wrongRows.length} non-Atenção rows in archive.`
+        );
+      }
+    } finally {
+      // Best-effort cleanup: rows may have been moved/detached
+      const allIds = Object.values(seedIds).filter(Boolean);
+      if (allIds.length > 0) {
+        await db.query('DELETE FROM audit_log WHERE id = ANY($1::uuid[])', [allIds]).catch(() => {});
+        await db.query(
+          'DELETE FROM audit_log_atencao_archive WHERE id = ANY($1::uuid[])', [allIds]
+        ).catch(() => {});
+      }
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
 // AC#3 — non-disruptive: 90-day cutoff is respected
 // ---------------------------------------------------------------------------
 

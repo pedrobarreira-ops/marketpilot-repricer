@@ -177,6 +177,71 @@ test('writeAuditEvent does NOT set priority in the INSERT params (trigger handle
 });
 
 // ---------------------------------------------------------------------------
+// Gap 11 — Positive shape assertion: INSERT includes all required columns
+// Complements the negative-priority assertion above (Story 9.0 AC#3 / SSoT-C)
+// ---------------------------------------------------------------------------
+
+test('writeAuditEvent INSERT includes all required columns (positive shape — Story 9.0 AC#3)', { skip: SKIP }, async () => {
+  // Capture the SQL and params for positive shape verification
+  let capturedSql = null;
+  let capturedParams = null;
+  const fakeTx = {
+    query: async (sql, params) => {
+      capturedSql = sql;
+      capturedParams = params;
+      return { rows: [{ id: 'uuid-generated' }] };
+    },
+  };
+
+  const testCycleId = 'cycle-uuid-test';
+  const testSkuId = 'sku-uuid-test';
+  const testSkuChannelId = 'sku-channel-uuid-test';
+  const testCmId = 'cm-uuid-test';
+  const testPayload = { test: true, detail: 'shape-check' };
+  const testEventType = Object.values(EVENT_TYPES)[0];
+
+  await writeAuditEvent({
+    tx: fakeTx,
+    customerMarketplaceId: testCmId,
+    skuId: testSkuId,
+    skuChannelId: testSkuChannelId,
+    eventType: testEventType,
+    cycleId: testCycleId,
+    payload: testPayload,
+  });
+
+  assert.ok(capturedSql, 'expected tx.query to be called with SQL');
+
+  // Positive assertions: each required column must appear in the INSERT statement
+  const sqlLower = capturedSql.toLowerCase();
+  const requiredColumns = [
+    'customer_marketplace_id',
+    'event_type',
+    'payload',
+    'cycle_id',
+    'sku_id',
+    'sku_channel_id',
+  ];
+  for (const col of requiredColumns) {
+    assert.ok(
+      sqlLower.includes(col),
+      `writeAuditEvent INSERT must include column "${col}" (Story 9.0 AC#3 positive shape)`
+    );
+  }
+
+  // Values must appear in params (order-independent check)
+  const paramsStr = JSON.stringify(capturedParams ?? []);
+  assert.ok(
+    paramsStr.includes(testCmId) || sqlLower.includes(testCmId.toLowerCase()),
+    'customerMarketplaceId value must be passed to INSERT'
+  );
+  assert.ok(
+    paramsStr.includes(testEventType) || sqlLower.includes(testEventType.toLowerCase()),
+    'eventType value must be passed to INSERT'
+  );
+});
+
+// ---------------------------------------------------------------------------
 // ESLint rule presence check (structural)
 // ---------------------------------------------------------------------------
 
