@@ -194,11 +194,9 @@ test('writeAuditEvent throws when customerMarketplaceId is missing', { skip: SKI
 test('writeAuditEvent does NOT set priority in the INSERT params (trigger handles it)', { skip: SKIP }, async () => {
   // Capture what gets passed to tx.query()
   let capturedSql = null;
-  let capturedParams = null;
   const fakeTx = {
-    query: async (sql, params) => {
+    query: async (sql, _params) => {
       capturedSql = sql;
-      capturedParams = params;
       return { rows: [{ id: 'uuid-generated' }] };
     },
   };
@@ -590,6 +588,85 @@ test('no-raw-INSERT-audit-log rule forbids Supabase .from(\'audit_log\').insert(
     reported[0]?.message ?? '',
     /forbidden|writeAuditEvent/i,
     `Rule error message must mention 'forbidden' or 'writeAuditEvent'. Got: "${reported[0]?.message}"`
+  );
+});
+
+test('no-raw-INSERT-audit-log rule does NOT flag INSERT INTO audit_log_event_types (AC#4 negative — lookup-table false-positive guard)', async () => {
+  // Negative behavioral check: `audit_log_event_types` is the lookup/seed table
+  // (created by Story 9.0's own migration). A naive regex `/audit_log/` would
+  // false-positive on every INSERT into the lookup table — including the seed
+  // INSERTs in the migration and any future test fixture INSERTs. The rule
+  // MUST be precisely scoped to `audit_log` proper, not any identifier that
+  // begins with `audit_log_`.
+  const path = await import('node:path');
+  const { pathToFileURL, fileURLToPath } = await import('node:url');
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const rulePath = path.resolve(__dirname, '..', '..', '..', 'eslint-rules', 'no-raw-INSERT-audit-log.js');
+
+  const ruleModule = await import(pathToFileURL(rulePath).href);
+  const rule = resolveRuleObject(ruleModule);
+  assert.ok(rule !== null);
+
+  const reported = [];
+  const mockContext = {
+    filename: 'app/src/seed/some-fixture.js',
+    getFilename: () => 'app/src/seed/some-fixture.js',
+    report: (descriptor) => reported.push(descriptor),
+    options: [],
+  };
+
+  const visitor = rule.create(mockContext);
+
+  const lookupTableInsertNode = {
+    type: 'TemplateLiteral',
+    quasis: [{ value: { raw: 'INSERT INTO audit_log_event_types (event_type, priority) VALUES ($1, $2)' } }],
+  };
+
+  if (typeof visitor?.TemplateLiteral === 'function') {
+    visitor.TemplateLiteral(lookupTableInsertNode);
+  }
+  assert.equal(
+    reported.length,
+    0,
+    `no-raw-INSERT-audit-log rule must NOT flag INSERT INTO audit_log_event_types — that's the lookup table, not audit_log. Got ${reported.length} false-positive reports.`
+  );
+});
+
+test('no-raw-INSERT-audit-log rule DOES flag INSERT INTO public.audit_log (AC#4 — schema-prefixed form)', async () => {
+  // Positive behavioral check: schema-prefixed `public.audit_log` must be
+  // caught — without this guard, a sufficiently-determined developer could
+  // bypass the rule by writing `INSERT INTO public.audit_log` instead of
+  // `INSERT INTO audit_log`.
+  const path = await import('node:path');
+  const { pathToFileURL, fileURLToPath } = await import('node:url');
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const rulePath = path.resolve(__dirname, '..', '..', '..', 'eslint-rules', 'no-raw-INSERT-audit-log.js');
+
+  const ruleModule = await import(pathToFileURL(rulePath).href);
+  const rule = resolveRuleObject(ruleModule);
+  assert.ok(rule !== null);
+
+  const reported = [];
+  const mockContext = {
+    filename: 'app/src/routes/some-route.js',
+    getFilename: () => 'app/src/routes/some-route.js',
+    report: (descriptor) => reported.push(descriptor),
+    options: [],
+  };
+
+  const visitor = rule.create(mockContext);
+
+  const schemaPrefixedInsertNode = {
+    type: 'TemplateLiteral',
+    quasis: [{ value: { raw: 'INSERT INTO public.audit_log (customer_marketplace_id) VALUES ($1)' } }],
+  };
+
+  if (typeof visitor?.TemplateLiteral === 'function') {
+    visitor.TemplateLiteral(schemaPrefixedInsertNode);
+  }
+  assert.ok(
+    reported.length >= 1,
+    `no-raw-INSERT-audit-log rule MUST flag INSERT INTO public.audit_log (schema-prefixed form). Got ${reported.length} reports.`
   );
 });
 

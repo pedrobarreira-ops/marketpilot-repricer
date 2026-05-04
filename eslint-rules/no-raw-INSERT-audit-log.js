@@ -11,6 +11,15 @@
 //
 // Allowlist: shared/audit/writer.js (the SSoT INSERT path — writeAuditEvent).
 //
+// False-positive guards:
+//   - `INSERT INTO audit_log_event_types` (the lookup/seed table) must NOT
+//     match. The regex below uses a trailing negative-lookahead `(?!\w)` so
+//     that `audit_log` is only matched at a word boundary (i.e. `audit_log`,
+//     `audit_log;`, `audit_log (`, `audit_log\n`) — never `audit_log_event_types`
+//     or any other identifier that extends `audit_log` with more word chars.
+//   - Schema-prefixed `INSERT INTO public.audit_log` is also matched (the
+//     `(?:public\.)?` group makes the schema prefix optional).
+//
 // Error message: "Raw audit_log INSERT forbidden. Use shared/audit/writer.js's
 //   writeAuditEvent for all audit emissions."
 //
@@ -18,6 +27,11 @@
 
 const FORBIDDEN_MESSAGE =
   "Raw audit_log INSERT forbidden. Use shared/audit/writer.js's writeAuditEvent for all audit emissions.";
+
+// Match `INSERT INTO [public.]audit_log` only when `audit_log` is followed by
+// a non-word character (or end of string) — prevents false positives on
+// `audit_log_event_types`, `audit_log_archive_runs`, etc.
+const INSERT_AUDIT_LOG_RE = /insert\s+into\s+(?:public\s*\.\s*)?audit_log(?!\w)/i;
 
 const ALLOWLIST_SUFFIX = 'shared/audit/writer.js';
 
@@ -64,9 +78,10 @@ const rule = {
     return {
       // Pattern 1: template literals containing `INSERT INTO audit_log`
       // Covers sql`INSERT INTO audit_log ...` and similar.
+      // Word-boundary guard prevents matching `audit_log_event_types`.
       TemplateLiteral (node) {
         for (const quasi of node.quasis) {
-          if (/insert\s+into\s+audit_log/i.test(quasi.value.raw)) {
+          if (INSERT_AUDIT_LOG_RE.test(quasi.value.raw)) {
             context.report({ node, message: FORBIDDEN_MESSAGE });
             return;
           }
@@ -74,9 +89,10 @@ const rule = {
       },
 
       // Pattern 1 (string literals): 'INSERT INTO audit_log ...'
+      // Word-boundary guard prevents matching `audit_log_event_types`.
       Literal (node) {
         if (typeof node.value === 'string' &&
-            /insert\s+into\s+audit_log/i.test(node.value)) {
+            INSERT_AUDIT_LOG_RE.test(node.value)) {
           context.report({ node, message: FORBIDDEN_MESSAGE });
         }
       },

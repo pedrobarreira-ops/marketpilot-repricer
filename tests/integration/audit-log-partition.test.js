@@ -24,7 +24,7 @@ import assert from 'node:assert/strict';
 import { createClient } from '@supabase/supabase-js';
 import { getServiceRoleClient, closeServiceRolePool } from '../../shared/db/service-role-client.js';
 import { getRlsAwareClient } from '../../shared/db/rls-aware-client.js';
-import { resetAuthAndCustomers, endResetAuthPool } from './_helpers/reset-auth-tables.js';
+import { endResetAuthPool } from './_helpers/reset-auth-tables.js';
 
 // ---------------------------------------------------------------------------
 // Setup helpers
