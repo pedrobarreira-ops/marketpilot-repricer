@@ -716,7 +716,12 @@ test('negative_assertion_no_migration_missing_rls_policy', async () => {
   const EXEMPT_TABLES = new Set(['worker_heartbeats', 'founder_admins']);
 
   // Skip deferred migration files (not yet applied — may reference tables that don't exist).
-  const activeFiles = entries.filter((f) => !f.includes('.deferred'));
+  // Match `.sql.deferred` rather than the bare substring `.deferred` so future
+  // legitimate migration filenames that happen to contain "deferred" (e.g.
+  // a hypothetical `2026xxxx_create_deferred_jobs_table.sql`) aren't silently
+  // skipped by the convention check. The deferred-migration filename pattern
+  // in this repo is always `<timestamp>_<name>.sql.deferred-until-story-X.X`.
+  const activeFiles = entries.filter((f) => !f.includes('.sql.deferred'));
 
   const gaps = [];
 
@@ -739,15 +744,24 @@ test('negative_assertion_no_migration_missing_rls_policy', async () => {
       const tableName = tableMatch[1].toLowerCase();
       if (EXEMPT_TABLES.has(tableName)) continue;
 
-      // Check whether this file enables RLS and defines a policy for the table.
-      const hasRls = /ALTER\s+TABLE\s+(?:public\.)?(\w+)\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY/i.test(content);
+      // Check whether this file enables RLS for THIS specific table and defines
+      // a policy for it. The RLS-enable check must be table-scoped: a multi-table
+      // migration that enables RLS on only one of two tables would otherwise
+      // pass the convention check for both. The previous global-test version
+      // (`/ALTER TABLE ... ENABLE ROW LEVEL SECURITY/.test(content)`) silently
+      // approved any file that enabled RLS on at least one table — losing
+      // per-table coverage.
+      const hasRlsForTable = new RegExp(
+        `ALTER\\s+TABLE\\s+(?:public\\.)?${tableName}\\s+ENABLE\\s+ROW\\s+LEVEL\\s+SECURITY`,
+        'i'
+      ).test(content);
       const hasPolicyForTable = new RegExp(
         `CREATE\\s+POLICY\\s+\\w+\\s+ON\\s+(?:public\\.)?${tableName}`,
         'i'
       ).test(content);
 
-      if (!hasRls || !hasPolicyForTable) {
-        gaps.push(`${fileName}: CREATE TABLE ${tableName} exists but missing RLS ENABLE or companion POLICY`);
+      if (!hasRlsForTable || !hasPolicyForTable) {
+        gaps.push(`${fileName}: CREATE TABLE ${tableName} exists but missing RLS ENABLE for ${tableName} or companion POLICY on ${tableName}`);
       }
     }
   }

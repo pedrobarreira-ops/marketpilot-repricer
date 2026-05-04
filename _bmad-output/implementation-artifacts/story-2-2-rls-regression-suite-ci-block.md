@@ -66,6 +66,18 @@ so that every customer-scoped table is verified to enforce Postgres RLS isolatio
   - [x] The `shop_api_key_vault` table RLS seed + test MUST remain as a TODO until `customer_marketplaces` migration exists (Epic 4). Add the TODO comment with the FK chain clearly documented (see Dev Notes).
   - [x] Add `rls_isolation_shop_api_key_vault_deferred_awaiting_epic4` scaffold test that asserts the table exists in the DB and its RLS policy is active (check `pg_policies` system view) — even though the row-level isolation test itself is deferred.
 
+### Review Findings
+
+- [x] [Review][Patch] `negative_assertion_no_migration_missing_rls_policy` — RLS-enable check is global per file, not per-table; multi-table migration with RLS on only one table would silently pass for both [tests/integration/rls-regression.test.js:743]
+- [x] [Review][Patch] `.deferred` substring filter is overly broad in negative_assertion (matches future legitimate filenames containing "deferred"); tighten to `.sql.deferred` [tests/integration/rls-regression.test.js:719]
+- [x] [Review][Patch] Multi-statement collapsed lines in `pass()`/`fail()` helpers and final report block hurt readability; split onto separate lines [scripts/rls-regression-suite.js:93-99,359-366]
+- [x] [Review][Defer] Generic INSERT path in test only inserts `(${ownerCol})`; future tables with NOT NULL columns will trip 23502 instead of 42501 — acceptable today (RLS_BLOCKED_CODES_MUTATION accepts both) but worth revisiting when Epic 4+ tables land [tests/integration/rls-regression.test.js:446-449] — deferred, only fires for future tables
+- [x] [Review][Dismiss] `cleanupTestUsers()` in script lacks `assertLocalConnection` guard — by construction safe (deletes by exact-match email scoped to fixture emails `rls-suite-{a,b}@test.marketpilot.pt`); CI workflow documents that secrets must point at test Supabase project, never prod
+- [x] [Review][Dismiss] Per-test `closeServiceRolePool()` cycles — verified safe by `_closingPromise` shutdown guard in service-role-client.js
+- [x] [Review][Dismiss] Pool not closed on script fatal error — process exits anyway; OS reaps connections (acceptable for CLI)
+- [x] [Review][Dismiss] `auth.uid()` requires authenticated role EXECUTE — empirically OK in standard Supabase setups (verified by Story 2.1)
+- [x] [Review][Dismiss] All AC compliance verified by Acceptance Auditor — no spec deviations
+
 ## Dev Notes
 
 ### Architecture: AD30 — RLS Regression Suite Contract
