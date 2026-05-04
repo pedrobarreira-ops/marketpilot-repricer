@@ -417,6 +417,32 @@ Aim for **3–5 items**. Prefer the AC's most user-visible behavior over compreh
 ```
 # PR #{N} audit — {one-line verdict}
 
+## For non-developer reader (TL;DR)  ← ALWAYS emit this section, ALWAYS first
+A plain-language summary aimed at a non-developer. Write it as if Pedro
+just opened the report and needs to know what to do next without reading
+the technical sections below. Three required lines:
+
+1. **Recommended action: [M] / [F] / [S].** One bracketed letter, no ambiguity.
+   Map directly from the Overall verdict tier:
+   - "Safe to merge" → [M] Merge — clean audit, no follow-ups.
+   - "Merge with awareness" → [M] Merge — N minor follow-ups logged for future stories, no functional or security risk.
+   - "Needs fixes first" → [F] Fix first — {one-line of what's blocking, plain language}.
+   - "Bundle-blocked" → [F] Fix first or [S] Stop — this PR can't ship until {until_story} lands (atomicity bundle).
+
+2. **What this PR did, in one sentence.** Plain language, no jargon. Example:
+   "Adds a CI check that fails the build if a new database table is missing
+   from the security-policy registry." NOT "Implements AC#5's
+   convention_every_seed_table_is_in_regression_config negative assertion."
+
+3. **When to pause and ask before clicking.** One line. Example:
+   "If the deferred-findings list mentions anything you don't recognise, or
+   if any audit section flags 'security' or 'data loss', pause and ask
+   Claude to explain before merging. Otherwise the recommended action is
+   safe to take."
+
+Keep this section to 4-6 lines total. The technical sections below are for
+Claude or for follow-up reading; this TL;DR is what Pedro acts on.
+
 ## Prior deferred context  ← include only if PRIOR_DEFERRED_ITEMS is non-empty
 Prior deferred items that touch this story-family (from deferred-work.md):
 - **<title from existing entry>** [source section] — summarise in one line.
