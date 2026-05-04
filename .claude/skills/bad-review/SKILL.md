@@ -724,17 +724,29 @@ Main is clean. Ready for next batch.
 
 ---
 
-## Phase 5.5: Manual smoke prompt (non-developer review surface)
+## Phase 5.5: Story summary + manual smoke prompt (non-developer review surface)
 
-After Phase 5's final report prints, re-present the **Manual smoke checklist** from the Phase 3 verdict (the same checklist, verbatim — already built from the story's AC + UX-DRs in the Phase 3 pre-step). This is the user's actionable role in the safety net: the technical verdict + auto-merge handled the code-correctness layer; this checklist is the observable-behavior layer the user can verify on the deployed app.
+After Phase 5's final report prints, emit two things together: a plain-language summary of what the story actually shipped, then the manual smoke checklist (already built from the story's AC + UX-DRs in the Phase 3 pre-step). The summary tells the user what they now have; the checklist tells them how to verify it.
+
+Build the **plain-language summary** by reading the story spec's Acceptance Criteria + the user-facing intent (NOT the technical architecture). Aim for 2-4 sentences a non-developer can read. Cover:
+- What the system can now do (or what's now enforced) that it couldn't before.
+- Who it affects (end user, ops, future stories).
+- One concrete example if it helps.
+
+Avoid jargon (no "RLS predicate", "preHandler middleware", "AC#5 convention test"). Translate. Example:
+- ❌ "Adds the rls_context preHandler that binds request.db via SET LOCAL ROLE authenticated"
+- ✅ "Every authenticated route now automatically scopes database queries to the logged-in customer — they physically can't read or write another customer's rows even if a route forgot to filter."
 
 Format:
 
 ```
-🧪 Manual smoke — Story {epic}.{story}
+✅ Story {epic}.{story} completed — {one-line title from the story spec}
 
-The technical layers passed (code review, MCP alignment, test quality, PR body,
-CI). Now verify the observable behavior on the deployed instance:
+What this story added:
+{2-4 sentence plain-language summary — what the system can now do that it
+couldn't before, who it affects, one concrete example if helpful}
+
+🧪 Manual smoke — verify the observable behaviour:
 
 {Re-emit the Phase 3 Manual smoke checklist verbatim, with empty checkboxes:
   [ ] Open https://<deployed-url>/onboarding/key — confirm trust block...
@@ -748,7 +760,7 @@ revert. If purely backend (no observable surface), this section reads:
 "No manual smoke applicable for this story — verified via Phase 5 grep + CI."
 ```
 
-The user's response to this prompt isn't gated by anything — `/bad-review` exits cleanly after Phase 5.5 emits the checklist. It's a reminder, not a blocking gate. The next BAD batch starting before the user works through the checklist is fine; the asymmetry is that **the checklist must be emitted every time**, even if the user habitually skips working through it. Discoverability over enforcement.
+The user's response to this prompt isn't gated by anything — `/bad-review` exits cleanly after Phase 5.5 emits the summary + checklist. It's a reminder, not a blocking gate. The next BAD batch starting before the user works through the checklist is fine; the asymmetry is that **the summary + checklist must be emitted every time**, even if the user habitually skips working through it. Discoverability over enforcement.
 
 ---
 
