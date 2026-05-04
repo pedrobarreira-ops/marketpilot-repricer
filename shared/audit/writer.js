@@ -97,7 +97,8 @@ const VALID_EVENT_TYPES = new Set(Object.values(EVENT_TYPES));
  * @returns {Promise<{ id: string }>} The generated UUID of the inserted audit_log row
  * @throws {UnknownEventTypeError} If eventType is not a recognised value from EVENT_TYPES
  * @throws {NullAuditPayloadError} If payload is null or undefined
- * @throws {Error} If customerMarketplaceId is null or undefined
+ * @throws {Error} If tx is null/undefined or lacks a .query() method (Bundle B violation)
+ * @throws {Error} If customerMarketplaceId is null, undefined, or empty string
  */
 export async function writeAuditEvent ({
   tx,
@@ -108,9 +109,17 @@ export async function writeAuditEvent ({
   skuId = null,
   skuChannelId = null,
 }) {
-  // Guard: customerMarketplaceId is required
-  if (customerMarketplaceId == null) {
-    throw new Error('customerMarketplaceId must be non-null — every audit event must be scoped to a customer_marketplace row');
+  // Guard: tx is required (Bundle B atomicity invariant — caller MUST own the
+  // transaction boundary). Without this guard, a missing `tx` surfaces as a
+  // late `Cannot read properties of undefined (reading 'query')` which obscures
+  // the architectural invariant that's actually being violated.
+  if (tx == null || typeof tx.query !== 'function') {
+    throw new Error('tx must be an active transaction client with a .query() method — writeAuditEvent NEVER opens its own transaction (Bundle B atomicity invariant; see shared/audit/writer.js header comment)');
+  }
+
+  // Guard: customerMarketplaceId is required (rejects null, undefined, AND empty string)
+  if (customerMarketplaceId == null || customerMarketplaceId === '') {
+    throw new Error('customerMarketplaceId must be a non-empty value — every audit event must be scoped to a customer_marketplace row');
   }
 
   // Guard: eventType must be a known value

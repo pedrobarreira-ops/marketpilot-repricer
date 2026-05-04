@@ -108,7 +108,11 @@ test('EVENT_TYPES includes all 11 Rotina event types', { skip: SKIP }, () => {
 // ---------------------------------------------------------------------------
 
 test('writeAuditEvent throws UnknownEventTypeError for unrecognised eventType', { skip: SKIP }, async () => {
-  const fakeTx = {};
+  // Stub tx with a .query() method so the tx-shape guard (Bundle B
+  // architectural invariant) doesn't short-circuit before the per-arg
+  // guard under test. The guards under test should still fire because
+  // they validate caller-supplied arguments, independent of tx shape.
+  const fakeTx = { query: async () => ({ rows: [{ id: 'uuid-stub' }] }) };
   await assert.rejects(
     () => writeAuditEvent({
       tx: fakeTx,
@@ -127,7 +131,11 @@ test('writeAuditEvent throws UnknownEventTypeError for unrecognised eventType', 
 });
 
 test('writeAuditEvent throws NullAuditPayloadError (named class) when payload is null', { skip: SKIP }, async () => {
-  const fakeTx = {};
+  // Stub tx with a .query() method so the tx-shape guard (Bundle B
+  // architectural invariant) doesn't short-circuit before the per-arg
+  // guard under test. The guards under test should still fire because
+  // they validate caller-supplied arguments, independent of tx shape.
+  const fakeTx = { query: async () => ({ rows: [{ id: 'uuid-stub' }] }) };
   await assert.rejects(
     () => writeAuditEvent({
       tx: fakeTx,
@@ -152,7 +160,11 @@ test('writeAuditEvent throws NullAuditPayloadError (named class) when payload is
 });
 
 test('writeAuditEvent throws NullAuditPayloadError when payload is undefined', { skip: SKIP }, async () => {
-  const fakeTx = {};
+  // Stub tx with a .query() method so the tx-shape guard (Bundle B
+  // architectural invariant) doesn't short-circuit before the per-arg
+  // guard under test. The guards under test should still fire because
+  // they validate caller-supplied arguments, independent of tx shape.
+  const fakeTx = { query: async () => ({ rows: [{ id: 'uuid-stub' }] }) };
   await assert.rejects(
     () => writeAuditEvent({
       tx: fakeTx,
@@ -176,7 +188,11 @@ test('writeAuditEvent throws NullAuditPayloadError when payload is undefined', {
 });
 
 test('writeAuditEvent throws when customerMarketplaceId is missing', { skip: SKIP }, async () => {
-  const fakeTx = {};
+  // Stub tx with a .query() method so the tx-shape guard (Bundle B
+  // architectural invariant) doesn't short-circuit before the per-arg
+  // guard under test. The guards under test should still fire because
+  // they validate caller-supplied arguments, independent of tx shape.
+  const fakeTx = { query: async () => ({ rows: [{ id: 'uuid-stub' }] }) };
   await assert.rejects(
     () => writeAuditEvent({
       tx: fakeTx,
@@ -188,6 +204,64 @@ test('writeAuditEvent throws when customerMarketplaceId is missing', { skip: SKI
       payload: { test: true },
     }),
     /customerMarketplaceId/i
+  );
+});
+
+test('writeAuditEvent throws when customerMarketplaceId is the empty string', { skip: SKIP }, async () => {
+  // Defensive guard: '' is a common sentinel for "missing" in JS callers and
+  // would otherwise reach Postgres as a UUID-cast failure or NOT NULL violation
+  // with a less-actionable error. The named guard surfaces the programming
+  // mistake at the writer boundary.
+  const fakeTx = { query: async () => ({ rows: [{ id: 'uuid-stub' }] }) };
+  await assert.rejects(
+    () => writeAuditEvent({
+      tx: fakeTx,
+      customerMarketplaceId: '',
+      skuId: null,
+      skuChannelId: null,
+      eventType: Object.values(EVENT_TYPES)[0],
+      cycleId: null,
+      payload: { test: true },
+    }),
+    /customerMarketplaceId/i
+  );
+});
+
+test('writeAuditEvent throws when tx is missing (Bundle B atomicity invariant)', { skip: SKIP }, async () => {
+  // Bundle B: writeAuditEvent must NEVER open its own transaction. If the
+  // caller forgets to pass `tx`, the failure mode should clearly identify
+  // the architectural invariant being violated, not surface as a late
+  // "Cannot read properties of undefined (reading 'query')" TypeError.
+  await assert.rejects(
+    () => writeAuditEvent({
+      // tx intentionally omitted
+      customerMarketplaceId: 'uuid-cm',
+      skuId: null,
+      skuChannelId: null,
+      eventType: Object.values(EVENT_TYPES)[0],
+      cycleId: null,
+      payload: { test: true },
+    }),
+    /tx must be|transaction client|Bundle B/i
+  );
+});
+
+test('writeAuditEvent throws when tx lacks a .query() method (Bundle B atomicity invariant)', { skip: SKIP }, async () => {
+  // A bare {} satisfies a truthy/null check but cannot run queries. The guard
+  // must validate the SHAPE, not just presence. This catches accidental misuse
+  // where a caller passes a non-pg object (e.g. a raw connection string, a
+  // Supabase client wrapper) instead of a transaction client.
+  await assert.rejects(
+    () => writeAuditEvent({
+      tx: {},
+      customerMarketplaceId: 'uuid-cm',
+      skuId: null,
+      skuChannelId: null,
+      eventType: Object.values(EVENT_TYPES)[0],
+      cycleId: null,
+      payload: { test: true },
+    }),
+    /tx must be|transaction client|\.query\(\) method/i
   );
 });
 
