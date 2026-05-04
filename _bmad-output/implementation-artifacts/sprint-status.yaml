@@ -72,7 +72,7 @@
 # by design; pre-dates the rule).
 
 generated: 2026-05-01
-last_updated: 2026-05-04  # bmad-create-story: Story 2.2 sharded 2026-05-04 (Bob); 2-2-rls-regression-suite-ci-block → ready-for-dev; integration_test_required: true
+last_updated: 2026-05-04  # bmad-create-story: Story 2.2 sharded 2026-05-04 (Bob); 2-2-rls-regression-suite-ci-block → ready-for-dev; integration_test_required: true; bmad-dev-story: Story 2.2 → review 2026-05-04 (Amelia)
 project: marketpilot-repricer  # updated by bmad-create-story: Story 1.1 sharded 2026-05-01; Story 1.2 sharded 2026-05-01; Story 1.3 sharded 2026-05-02; Story 1.4 sharded 2026-05-02; Story 1.5 sharded 2026-05-03; Story 1.5 → review 2026-05-03; Story 1.5 → done 2026-05-03 (post-review); Story 2.1 sharded 2026-05-03 (Bob) → ready-for-dev
 project_key: NOKEY
 tracking_system: file-system
@@ -95,7 +95,7 @@ development_status:
   # =========================================================================
   epic-2: in-progress
   2-1-rls-aware-app-db-client-service-role-worker-db-client-transaction-helper: done  # sharded 2026-05-03 (Bob); integration_test_required: true; carried Epic 1 retro Item 3 requirements (SSL helper centralization, pool absorption x3, mp_session contract, SIGTERM shutdown); atdd-done 2026-05-03 (Quinn); dev-done 2026-05-03 (Amelia) — 36/36 integration tests pass, 0 ESLint errors, 5 new files, 3 pools absorbed, SIGTERM wired; pr-review 2026-05-03 (Step 7) — 7 hardening fixes applied (release-wrapper idempotency, shutdown race, JWT validation, MemberExpression rule, etc.)
-  2-2-rls-regression-suite-ci-block: atdd-done  # sharded 2026-05-04 (Bob); atdd-done 2026-05-04; integration_test_required: true; supabase/migrations/ path correction noted; shop_api_key_vault deferred to Epic 4; auth.uid() IS NOT NULL fix applied in-place on deferred migration; Supabase admin API seeding pattern documented
+  2-2-rls-regression-suite-ci-block: review  # sharded 2026-05-04 (Bob); atdd-done 2026-05-04; dev-done 2026-05-04 (Amelia) — all 5 tasks complete: seed file, regression-suite.js, integration test (parameterized isolation + 4 convention tests), package.json + CI, auth.uid() IS NOT NULL fix; integration_test_required: true
   epic-2-retrospective: optional
 
   # =========================================================================
