@@ -828,37 +828,23 @@ Using the assessment report from Step 2, follow the applicable branch:
 
 1. Print a status line:
    - `current_epic_merged = true` (epic fully landed): `✅ Epic {current_epic_name} complete. Next up: Epic {next_epic_name} ({stories_remaining} stories remaining).`
-   - `current_epic_prs_open = true` (all stories have PRs, waiting for merges): `⏸ Epic {current_epic_name} in review — waiting for PRs to merge before continuing.`
-   - Otherwise (more stories to develop in current epic): `✅ Batch complete. Ready for the next batch.`
-2. Start the wait using the **[Monitor Pattern](references/coordinator/pattern-monitor.md)** (when `MONITOR_SUPPORT=true` **and** `AUTO_PR_MERGE=false`) or the **[Timer Pattern](references/coordinator/pattern-timer.md)** otherwise:
+   - `current_epic_prs_open = true` (all stories have PRs, waiting for merges): `⏸ Epic {current_epic_name} in review — {N} PR(s) open: {list PR numbers}.`
+   - Otherwise (more stories to develop in current epic): `✅ Batch complete.`
 
-   > **`AUTO_PR_MERGE=true` guard:** When `AUTO_PR_MERGE=true`, Phase 3 already merged all batch PRs before Phase 4 runs. `BATCH_PRS` will be empty, causing the Monitor to fire `ALL_MERGED` immediately with no actual pause. Skip the Monitor path entirely and go directly to the **Timer only** path below — the `WAIT_TIMER_SECONDS` cooldown must still fire before the next batch. The wait exists to give the developer a chance to review the merged changes and course-correct before the next batch begins — never skip or shorten it.
+2. Halt BAD. Print:
+   ```
+   ⏸ BAD halted — batch complete.
 
-   **If `MONITOR_SUPPORT=true` and `AUTO_PR_MERGE=false` — Monitor + CronCreate fallback:**
-   - Fill in `BATCH_PRS` from the Phase 0 pending-PR report (space-separated numbers, e.g. `"101 102 103"`). Use the PR-merge watcher script from [monitor-pattern.md](references/coordinator/pattern-monitor.md) with that value substituted. Save the Monitor handle as `PR_MONITOR`.
-   - Also start a CronCreate fallback timer using the [Timer Pattern](references/coordinator/pattern-timer.md) with:
-     - **Duration:** `WAIT_TIMER_SECONDS`
-     - **Fire prompt:** `"BAD_WAIT_TIMER_FIRED — Max wait elapsed. Stop PR_MONITOR, run Pre-Continuation Checks, then re-run Phase 0."`
-     - **[C] label:** `Continue now`
-     - **[S] label:** `Stop BAD`
-     - **[C] / FIRED action:** Stop `PR_MONITOR`, run Pre-Continuation Checks, then re-run Phase 0.
-     - **[S] action:** Stop `PR_MONITOR`, CronDelete, stop BAD, print final summary, and 📣 **Notify:** `🛑 BAD stopped by user.`
-   - **On `MERGED: #N` event:** log progress — `✅ PR #N merged — waiting for remaining batch PRs`; keep `PR_MONITOR` running.
-   - **On `ALL_MERGED` event:** CronDelete the fallback timer, stop `PR_MONITOR`, run Pre-Continuation Checks, re-run Phase 0.
-   - 📣 **Notify:** `⏳ Watching for PR merges (max wait: {WAIT_TIMER_SECONDS ÷ 60} min)...`
+   Open PRs: {list — PR #N (Story X.Y) for each unmerged PR, or "none" if all merged}
 
-   **If `MONITOR_SUPPORT=false` or `AUTO_PR_MERGE=true` — Timer only:**
-   - Use the [Timer Pattern](references/coordinator/pattern-timer.md) with:
-     - **Duration:** `WAIT_TIMER_SECONDS`
-     - **Fire prompt:** `"BAD_WAIT_TIMER_FIRED — The post-batch wait has elapsed. Run Pre-Continuation Checks, then re-run Phase 0, then proceed to Phase 1."`
-     - **[C] label:** `Continue now`
-     - **[S] label:** `Stop BAD`
-     - **[C] / FIRED action:** Run Pre-Continuation Checks, then re-run Phase 0.
-     - **[S] action:** Stop BAD, print a final summary, and 📣 **Notify:** `🛑 BAD stopped by user.`
+   Next steps:
+   1. Run /bad-review on any open PRs
+   2. Merge reviewed PRs
+   3. Run /bad to start the next batch
+   ```
+   📣 **Notify:** `⏸ BAD halted — batch complete. Run /bad-review then /bad to continue.`
 
-3. After Phase 0 completes:
-   - At least one story unblocked → proceed to Phase 1.
-   - All stories still blocked → print which PRs are pending (from Phase 0 report), restart Branch B for another wait.
+   BAD does not auto-restart. No timer is set. Pedro starts the next batch by running `/bad` in a new session when ready.
 
 ---
 
@@ -1037,7 +1023,7 @@ Read `references/coordinator/pattern-gh-curl-fallback.md` when any `gh` command 
 4. **Parallel stories** — launch all stories' Step 1 in one message (one tool call per story). Phase 3 runs sequentially by design.
 5. **Dependency graph is authoritative** — never pick a story whose dependencies are not fully merged. Use Phase 0's report, not your own file reads.
 6. **Phase 0 runs before every batch** — always after the Phase 4 wait. Always as a fresh subagent.
-7. **Phase 4 wait is mandatory and full-duration** — always use `WAIT_TIMER_SECONDS` unchanged. Never shorten or skip the wait because PRs are already merged or the wait seems unnecessary. The wait gives the developer time to review merged changes and course-correct before the next batch.
+7. **BAD always halts after a batch** — after Phase 4 Step 3 prints its summary, BAD stops. No timer, no auto-restart, no monitor. Pedro starts the next batch by running `/bad` in a new session after reviewing and merging PRs.
 8. **Confirm success** before spawning the next subagent.
 9. **sprint-status.yaml is updated by step subagents** — each step subagent writes to the repo root copy. The coordinator never does this directly.
 10. **On failure** — report the error, halt that story. No auto-retry. **Exception:** rate/usage limit failures → run Pre-Continuation Checks (auto-pauses until reset) then retry.
