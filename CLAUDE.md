@@ -74,3 +74,7 @@ Before assuming any Mirakl API behavior (endpoint names, field names, pagination
 ## Sprint Status
 
 Sprint plan locked. `_bmad-output/implementation-artifacts/sprint-status.yaml` holds 62 stories across 12 epics, all at `status: backlog`. Story 1.1 is the next to be sharded via `bmad-create-story`.
+
+## Per-Epic Retrospective Checklist
+
+When `bmad-retrospective` runs at epic completion, the SM agent (Bob) MUST run `node scripts/context-budget.js` early in the retro and incorporate the output. Any file flagged `OVER threshold` becomes a retro action item — surgical compression of the largest section, scheduled before the next epic kicks off. Threshold breaches catch context bloat early; left unaudited, every BAD subagent spawn pays the cost.
