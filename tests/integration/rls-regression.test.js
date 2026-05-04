@@ -43,19 +43,38 @@ const REPO_ROOT = path.resolve(__dirname, '..', '..');
 
 // ---------------------------------------------------------------------------
 // Supabase admin client (for seeding test users via admin API)
+//
+// Lazily constructed so the static-only tests (convention checks, package.json
+// shape, registry-sync) remain runnable without SUPABASE_URL set. Module-level
+// createClient() with an empty url throws synchronously at import time, which
+// would block even tests that never touch Supabase. Lazy init defers the env
+// dependency to the first DB-touching test only.
 // ---------------------------------------------------------------------------
 
-const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
+let _supabaseAdmin = null;
+let _supabaseAnon = null;
 
-const supabaseAnon = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
+function getSupabaseAdmin () {
+  if (_supabaseAdmin === null) {
+    _supabaseAdmin = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+  }
+  return _supabaseAdmin;
+}
+
+function getSupabaseAnon () {
+  if (_supabaseAnon === null) {
+    _supabaseAnon = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_ANON_KEY,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+  }
+  return _supabaseAnon;
+}
 
 const TEST_USER_A = {
   email: 'customer-a@test.marketpilot.pt',
@@ -75,6 +94,9 @@ const TEST_USER_B = {
  * @returns {{ userAId: string, userBId: string, jwtA: string, jwtB: string }}
  */
 async function seedTwoCustomers () {
+  const supabaseAdmin = getSupabaseAdmin();
+  const supabaseAnon = getSupabaseAnon();
+
   const { data: userA, error: errA } = await supabaseAdmin.auth.admin.createUser({
     email: TEST_USER_A.email,
     password: TEST_USER_A.password,
@@ -220,6 +242,54 @@ test('two_customers_seed_creates_two_distinct_customers', { concurrency: 1 }, as
 });
 
 // ---------------------------------------------------------------------------
+// Diagnostic — auth.uid() smoke test (Story 2.2 test review finding)
+//
+// Without this test, every RLS isolation assertion below has a SILENT
+// FALSE-POSITIVE failure mode: if getRlsAwareClient's JWT decoding silently
+// produced an empty/wrong sub claim, auth.uid() would return NULL, all RLS
+// policies (USING (id = auth.uid())) would filter to 0 rows, and every
+// "customer A cannot see B's rows" test would pass vacuously — because the
+// connection isn't authenticated as A at all (it's authenticated as nobody).
+//
+// This test verifies the JWT round-trip works end-to-end: the JWT we acquire
+// from signInWithPassword decodes and arms request.jwt.claims correctly, so
+// auth.uid() inside the connection actually returns customer A's id.
+// ---------------------------------------------------------------------------
+test('rls_aware_client_auth_uid_matches_jwt_subject', { concurrency: 1 }, async (t) => {
+  t.after(async () => {
+    await closeServiceRolePool();
+    await endResetAuthPool();
+  });
+
+  await resetAuthAndCustomers();
+  const { userAId, userBId, jwtA, jwtB } = await seedTwoCustomers();
+
+  const clientA = await getRlsAwareClient(jwtA);
+  try {
+    const { rows } = await clientA.query('SELECT auth.uid()::text AS uid');
+    assert.strictEqual(
+      rows[0].uid,
+      userAId,
+      `RLS-aware client for A's JWT must arm auth.uid() = userAId; got "${rows[0].uid}". ` +
+      `If this fails, every isolation test below passes vacuously — RLS filters to 0 rows ` +
+      `because auth.uid() is NULL/wrong, not because RLS is enforcing isolation.`
+    );
+  } finally {
+    await clientA.release();
+  }
+
+  const clientB = await getRlsAwareClient(jwtB);
+  try {
+    const { rows } = await clientB.query('SELECT auth.uid()::text AS uid');
+    assert.strictEqual(rows[0].uid, userBId, 'RLS-aware client for B must arm auth.uid() = userBId');
+  } finally {
+    await clientB.release();
+  }
+
+  await resetAuthAndCustomers();
+});
+
+// ---------------------------------------------------------------------------
 // AC#2 — Parameterized cross-customer isolation per table
 // ---------------------------------------------------------------------------
 
@@ -254,6 +324,22 @@ test('rls_isolation_suite', { concurrency: 1 }, async (t) => {
       await tableConfig.seedHelper(getServiceRoleClient(), userAId);
       await tableConfig.seedHelper(getServiceRoleClient(), userBId);
 
+      // Pre-condition: verify B's row actually exists via service-role.
+      // Without this guard, if seedTwoCustomers/seedHelper silently failed
+      // to create B's row, the test would pass vacuously — RLS appears
+      // to "filter out" a row that never existed in the first place.
+      const pool = getServiceRoleClient();
+      const { rows: serviceRows } = await pool.query(
+        `SELECT 1 FROM ${table} WHERE ${ownerCol} = $1 LIMIT 1`,
+        [userBId]
+      );
+      assert.strictEqual(
+        serviceRows.length,
+        1,
+        `pre-condition: customer B's row must exist in ${table} via service-role before testing RLS isolation; ` +
+        `if 0 rows, the seed helper failed silently and the isolation test below would pass vacuously`
+      );
+
       const clientA = await getRlsAwareClient(jwtA);
       try {
         const { rows } = await clientA.query(`SELECT * FROM ${table}`);
@@ -279,6 +365,19 @@ test('rls_isolation_suite', { concurrency: 1 }, async (t) => {
       const { userAId, userBId, jwtB } = await seedTwoCustomers();
       await tableConfig.seedHelper(getServiceRoleClient(), userAId);
       await tableConfig.seedHelper(getServiceRoleClient(), userBId);
+
+      // Pre-condition: verify A's row actually exists via service-role (see
+      // rationale on the symmetric A→B test above).
+      const pool = getServiceRoleClient();
+      const { rows: serviceRows } = await pool.query(
+        `SELECT 1 FROM ${table} WHERE ${ownerCol} = $1 LIMIT 1`,
+        [userAId]
+      );
+      assert.strictEqual(
+        serviceRows.length,
+        1,
+        `pre-condition: customer A's row must exist in ${table} via service-role before testing RLS isolation`
+      );
 
       const clientB = await getRlsAwareClient(jwtB);
       try {
@@ -503,14 +602,26 @@ test('convention_every_seed_table_is_in_regression_config', async () => {
   const seedPath = path.join(REPO_ROOT, 'db', 'seed', 'test', 'two-customers.sql');
   const seedContent = await readFile(seedPath, 'utf8');
 
+  // Strip SQL comments before parsing — both single-line `--` comments and
+  // block `/* ... */` comments. Without this, example/template INSERTs that
+  // live inside SQL comment blocks (Epic 4 templates, documentation examples)
+  // would be picked up as real seed rows and trigger spurious failures.
+  // The seed file contains multiple commented-out INSERT examples specifically
+  // because Epic 4 will uncomment them.
+  const stripped = seedContent
+    .replace(/\/\*[\s\S]*?\*\//g, '')   // block comments
+    .replace(/--[^\n]*/g, '');           // single-line comments
+
   // Extract table names from INSERT INTO statements (case-insensitive).
-  // Exclude auth.users (system-managed, not in public schema).
+  // Exclude auth.users (system-managed, not in public schema). The captured
+  // group matches just the FIRST identifier — for `auth.users` that's `auth`,
+  // so we exclude both 'auth' and 'users' to be schema-prefix robust.
   const insertRe = /INSERT\s+INTO\s+(?:public\.)?(\w+)/gi;
   const seededTables = new Set();
   let match;
-  while ((match = insertRe.exec(seedContent)) !== null) {
+  while ((match = insertRe.exec(stripped)) !== null) {
     const tableName = match[1].toLowerCase();
-    if (tableName !== 'users') { // auth.users is excluded
+    if (tableName !== 'users' && tableName !== 'auth') {
       seededTables.add(tableName);
     }
   }
@@ -526,6 +637,43 @@ test('convention_every_seed_table_is_in_regression_config', async () => {
 });
 
 // ---------------------------------------------------------------------------
+// Convention — script and test-file registries must stay in sync
+// (Story 2.2 test review finding — drift risk between two parallel arrays)
+//
+// The Dev Notes acknowledge "kept in sync manually" for the two
+// CUSTOMER_SCOPED_TABLES arrays — this test enforces it. If a future
+// developer extends one but forgets the other, this test fails loudly
+// rather than letting the suites silently diverge.
+// ---------------------------------------------------------------------------
+test('convention_script_and_test_registries_match', async () => {
+  const scriptPath = path.join(REPO_ROOT, 'scripts', 'rls-regression-suite.js');
+  const scriptContent = await readFile(scriptPath, 'utf8');
+
+  // Extract `table: '<name>'` entries inside CUSTOMER_SCOPED_TABLES from the script.
+  // Scoped to the array literal to avoid matching unrelated `table:` strings.
+  const arrayMatch = scriptContent.match(/CUSTOMER_SCOPED_TABLES\s*=\s*\[([\s\S]*?)\n\]/);
+  assert.ok(arrayMatch, 'scripts/rls-regression-suite.js must export a CUSTOMER_SCOPED_TABLES array literal');
+  const scriptTableRe = /table:\s*['"]([\w]+)['"]/g;
+  const scriptTables = new Set();
+  let m;
+  while ((m = scriptTableRe.exec(arrayMatch[1])) !== null) {
+    scriptTables.add(m[1].toLowerCase());
+  }
+
+  const testTables = new Set(CUSTOMER_SCOPED_TABLES.map((c) => c.table.toLowerCase()));
+
+  const onlyInTest = [...testTables].filter((t) => !scriptTables.has(t));
+  const onlyInScript = [...scriptTables].filter((t) => !testTables.has(t));
+
+  assert.deepStrictEqual(
+    { onlyInTest, onlyInScript },
+    { onlyInTest: [], onlyInScript: [] },
+    `CUSTOMER_SCOPED_TABLES drift between rls-regression.test.js and rls-regression-suite.js — ` +
+    `add the missing tables to BOTH registries (Dev Note: kept in sync manually).`
+  );
+});
+
+// ---------------------------------------------------------------------------
 // AC#3 — npm run test:rls exits non-zero on RLS failure (structural assertion)
 // ---------------------------------------------------------------------------
 test('test_rls_script_exits_nonzero_on_failure', async () => {
@@ -538,9 +686,18 @@ test('test_rls_script_exits_nonzero_on_failure', async () => {
   }
   const script = pkg.scripts?.['test:rls'];
   assert.ok(script, 'npm run test:rls must be defined in package.json scripts');
+  // Must invoke BOTH the integration test AND the standalone script.
+  // The two are not redundant: the integration test covers parameterized
+  // node:test assertions; the standalone script is the AD30-canonical CI
+  // gate that exits non-zero on any RLS failure. Dropping either weakens
+  // CI coverage, so structurally enforce both invocations.
   assert.ok(
-    script.includes('rls-regression-suite') || script.includes('rls-regression'),
-    `test:rls script must invoke the rls-regression suite; got: "${script}"`
+    script.includes('rls-regression.test.js'),
+    `test:rls script must invoke tests/integration/rls-regression.test.js; got: "${script}"`
+  );
+  assert.ok(
+    script.includes('scripts/rls-regression-suite.js') || script.includes('scripts\\rls-regression-suite.js'),
+    `test:rls script must invoke scripts/rls-regression-suite.js; got: "${script}"`
   );
   assert.ok(
     !script.includes('|| true') && !script.includes('2>/dev/null'),
@@ -565,7 +722,15 @@ test('negative_assertion_no_migration_missing_rls_policy', async () => {
 
   for (const fileName of activeFiles) {
     const filePath = path.join(migrationsDir, fileName);
-    const content = await readFile(filePath, 'utf8');
+    const rawContent = await readFile(filePath, 'utf8');
+
+    // Strip SQL comments first so commented-out CREATE TABLE / CREATE POLICY
+    // examples don't satisfy or trip the convention check. Defensive: today
+    // no migration has commented DDL, but Epic 4+ migrations may include
+    // documentation comments referencing CREATE TABLE.
+    const content = rawContent
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/--[^\n]*/g, '');
 
     // Find all CREATE TABLE statements in this file.
     const createTableRe = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?(\w+)/gi;

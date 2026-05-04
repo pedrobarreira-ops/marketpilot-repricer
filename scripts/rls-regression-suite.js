@@ -74,6 +74,10 @@ const CUSTOMER_SCOPED_TABLES = [
     ownerCol: 'customer_marketplace_id',
     deferred: true, // Requires customer_marketplaces FK (Epic 4) — skip row ops.
     serviceRoleOnly: false,
+    // Query builders left as no-ops because the deferred branch in run()
+    // skips this table entirely. Kept for shape parity with non-deferred
+    // entries so the registry is uniform — Epic 4 will replace these with
+    // real query builders when customer_marketplaces ships.
     selectQuery: () => null,
     insertQuery: () => null,
     updateQuery: () => null,
@@ -175,10 +179,35 @@ async function seedTwoCustomers () {
 // RLS assertion helpers
 // ---------------------------------------------------------------------------
 
+// Postgres SQLSTATE codes that indicate RLS or auth blocked the query —
+// any OTHER error is a real test failure (e.g., 42703 column does not exist,
+// 42P01 relation does not exist, network drop, schema typo). Without this
+// allow-list, a schema bug or wrong column name in the query builder above
+// would silently masquerade as "RLS blocked it" — a critical false-positive.
+//
+//   42501 — insufficient_privilege          (RLS / GRANT denied)
+//   42P17 — invalid_definition              (RLS policy expression error)
+//   23502 — not_null_violation              (acceptable for INSERT blocked by trigger)
+//   23503 — foreign_key_violation           (acceptable for cross-tenant FK)
+//   23505 — unique_violation                (acceptable for INSERT clash)
+//
+// SELECT path is stricter: only 42501 is treated as "RLS blocked" because a
+// SELECT should never trip 23xxx integrity codes. Anything else escalates.
+const RLS_BLOCKED_CODES_SELECT = new Set(['42501', '42P17']);
+const RLS_BLOCKED_CODES_MUTATION = new Set(['42501', '42P17', '23502', '23503', '23505']);
+
 /**
  * Assert that a query via a JWT-scoped client returns 0 rows (SELECT).
+ *
+ * @param {string} jwt - access token to arm RLS context with
+ * @param {{ text: string, values?: unknown[] }} query - SQL to execute
+ * @param {string} label - test label for pass/fail reporting
  */
 async function assertSelectReturnsZeroRows (jwt, query, label) {
+  if (!query) {
+    pass(`${label} (skipped — no query defined)`);
+    return;
+  }
   const client = await getRlsAwareClient(jwt);
   try {
     const { rows } = await client.query(query.text, query.values);
@@ -188,8 +217,15 @@ async function assertSelectReturnsZeroRows (jwt, query, label) {
       fail(label, `Expected 0 rows, got ${rows.length}`);
     }
   } catch (err) {
-    // An error (permission denied) is also acceptable — RLS blocked the query.
-    pass(`${label} (blocked with error: ${err.message})`);
+    // Only treat known RLS/auth-related SQLSTATE codes as "blocked = pass".
+    // Any other error (column not found, table not found, network, etc.)
+    // would silently masquerade as a successful RLS block — a critical
+    // false-positive vector.
+    if (err && typeof err === 'object' && RLS_BLOCKED_CODES_SELECT.has(err.code)) {
+      pass(`${label} (blocked, SQLSTATE ${err.code})`);
+    } else {
+      fail(label, `unexpected error (not an RLS block): ${err?.code ?? '?'} ${err?.message ?? err}`);
+    }
   } finally {
     await client.release();
   }
@@ -197,7 +233,11 @@ async function assertSelectReturnsZeroRows (jwt, query, label) {
 
 /**
  * Assert that a mutating query (INSERT/UPDATE/DELETE) via a JWT-scoped client
- * either throws (permission denied) or returns rowCount === 0.
+ * either throws an RLS-related error or returns rowCount === 0.
+ *
+ * @param {string} jwt - access token to arm RLS context with
+ * @param {{ text: string, values?: unknown[] } | null} query - SQL to execute, or null to skip
+ * @param {string} label - test label for pass/fail reporting
  */
 async function assertMutationBlocked (jwt, query, label) {
   if (!query) {
@@ -212,9 +252,39 @@ async function assertMutationBlocked (jwt, query, label) {
     } else {
       fail(label, `Expected rowCount=0, got ${result.rowCount}`);
     }
-  } catch {
-    // Permission denied / unique violation / FK violation — all acceptable (RLS blocked).
-    pass(`${label} (blocked with error)`);
+  } catch (err) {
+    // Allow-list of SQLSTATE codes that legitimately mean "RLS / constraint
+    // blocked the write." Other errors (schema typo, network, etc.) escalate.
+    if (err && typeof err === 'object' && RLS_BLOCKED_CODES_MUTATION.has(err.code)) {
+      pass(`${label} (blocked, SQLSTATE ${err.code})`);
+    } else {
+      fail(label, `unexpected error (not an RLS block): ${err?.code ?? '?'} ${err?.message ?? err}`);
+    }
+  } finally {
+    await client.release();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Diagnostic — confirm auth.uid() inside the RLS-armed connection actually
+// resolves to the JWT subject. Without this guard, every isolation assertion
+// below has a silent false-positive failure mode: if JWT decoding inside
+// getRlsAwareClient silently produced an empty/wrong sub claim, auth.uid()
+// would return NULL, all RLS policies would filter to 0 rows, and the suite
+// would report "all isolation checks passed" — even though the real reason
+// was an unauthenticated connection, not RLS enforcement.
+// ---------------------------------------------------------------------------
+async function assertAuthUidMatchesJwt (jwt, expectedUserId, label) {
+  const client = await getRlsAwareClient(jwt);
+  try {
+    const { rows } = await client.query('SELECT auth.uid()::text AS uid');
+    if (rows[0]?.uid === expectedUserId) {
+      pass(label);
+    } else {
+      fail(label, `auth.uid() = "${rows[0]?.uid}", expected "${expectedUserId}". RLS isolation assertions would pass vacuously.`);
+    }
+  } catch (err) {
+    fail(label, `auth.uid() probe failed: ${err?.code ?? '?'} ${err?.message ?? err}`);
   } finally {
     await client.release();
   }
@@ -226,6 +296,12 @@ async function assertMutationBlocked (jwt, query, label) {
 async function run () {
   console.log('\nRLS Regression Suite — Story 2.2 / AD30\n');
   let { userAId, userBId, jwtA, jwtB } = await seedTwoCustomers();
+
+  // PRE-FLIGHT — verify the RLS context arming actually works before relying
+  // on it for the isolation assertions below.
+  console.log('\n  Pre-flight: auth.uid() smoke test');
+  await assertAuthUidMatchesJwt(jwtA, userAId, 'auth.uid() == userAId for jwtA');
+  await assertAuthUidMatchesJwt(jwtB, userBId, 'auth.uid() == userBId for jwtB');
 
   for (const tableConfig of CUSTOMER_SCOPED_TABLES) {
     const { table, deferred } = tableConfig;
