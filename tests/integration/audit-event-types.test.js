@@ -1,7 +1,7 @@
 // Epic 9 — Story 9.0 / AC#1: audit_log_event_types lookup table + 26-row seed integration test.
 //
 // This file is the dedicated integration test for AC#1.
-// It verifies the migration `202604301207a_create_audit_log_event_types.sql` in isolation,
+// It verifies the migration `20260430120730_create_audit_log_event_types.sql` in isolation,
 // before Story 9.1's audit_log partitioned table exists.
 //
 // Covers:
@@ -125,7 +125,7 @@ test('audit_log_event_types table exists in public schema', async () => {
   `);
   assert.ok(
     rows.length > 0,
-    'audit_log_event_types table not found in public schema — check migration 202604301207a_create_audit_log_event_types.sql'
+    'audit_log_event_types table not found in public schema — check migration 20260430120730_create_audit_log_event_types.sql'
   );
 });
 
@@ -282,7 +282,7 @@ test('audit_log_event_types contains all 7 Atenção slugs with priority=atencao
   for (const slug of ATENCAO_SLUGS) {
     assert.ok(
       found.includes(slug),
-      `Missing Atenção slug in DB: "${slug}" — check migration 202604301207a_create_audit_log_event_types.sql`
+      `Missing Atenção slug in DB: "${slug}" — check migration 20260430120730_create_audit_log_event_types.sql`
     );
   }
 });
@@ -300,7 +300,7 @@ test('audit_log_event_types contains all 8 Notável slugs with priority=notavel'
   for (const slug of NOTAVEL_SLUGS) {
     assert.ok(
       found.includes(slug),
-      `Missing Notável slug in DB: "${slug}" — check migration 202604301207a_create_audit_log_event_types.sql`
+      `Missing Notável slug in DB: "${slug}" — check migration 20260430120730_create_audit_log_event_types.sql`
     );
   }
 });
@@ -318,7 +318,7 @@ test('audit_log_event_types contains all 11 Rotina slugs with priority=rotina', 
   for (const slug of ROTINA_SLUGS) {
     assert.ok(
       found.includes(slug),
-      `Missing Rotina slug in DB: "${slug}" — check migration 202604301207a_create_audit_log_event_types.sql`
+      `Missing Rotina slug in DB: "${slug}" — check migration 20260430120730_create_audit_log_event_types.sql`
     );
   }
 });
@@ -427,24 +427,25 @@ test('EVENT_TYPES JS constant values match all 26 DB slugs (AC#2 sync check)', a
 // AC#1 — Migration ordering: audit_log_event_types migration file uses 'a' suffix (F5 amendment)
 // ---------------------------------------------------------------------------
 
-test('migration file 202604301207a_create_audit_log_event_types.sql exists (F5 ordering suffix)', async () => {
+test('migration file 20260430120730_create_audit_log_event_types.sql exists (F5 ordering — 14-digit timestamp)', async () => {
   const { access } = await import('node:fs/promises');
   const path = await import('node:path');
   const { fileURLToPath } = await import('node:url');
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const migFile = path.resolve(
     __dirname, '..', '..', 'supabase', 'migrations',
-    '202604301207a_create_audit_log_event_types.sql'
+    '20260430120730_create_audit_log_event_types.sql'
   );
   await assert.doesNotReject(
     access(migFile),
-    `Migration file 202604301207a_create_audit_log_event_types.sql not found — F5 amendment requires the 'a' suffix for lexicographic ordering before Story 9.1's migration`
+    `Migration file 20260430120730_create_audit_log_event_types.sql not found — F5 amendment requires this file to sort before Story 9.1's 202604301208_create_audit_log_partitioned.sql`
   );
 });
 
-test('migration file naming: 202604301207a_ sorts before 202604301208_ (F5 ordering guarantee)', () => {
-  // Lexicographic comparison that Supabase CLI relies on
-  const story90 = '202604301207a_create_audit_log_event_types.sql';
+test('migration file naming: 20260430120730_ sorts before 202604301208_ (F5 ordering guarantee)', () => {
+  // Lexicographic comparison that Supabase CLI relies on.
+  // 20260430120730 < 202604301208 because at position 11 '7' < '8'.
+  const story90 = '20260430120730_create_audit_log_event_types.sql';
   const story91 = '202604301208_create_audit_log_partitioned.sql';
   assert.ok(
     story90 < story91,

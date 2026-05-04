@@ -61,7 +61,7 @@ These join the SSoT module registry in `_bmad-output/planning-artifacts/architec
 
 | File | Purpose |
 |------|---------|
-| `supabase/migrations/202604301207a_create_audit_log_event_types.sql` | Creates `audit_log_priority` enum + `audit_log_event_types` table + seeds 26 rows per AD20 taxonomy |
+| `supabase/migrations/20260430120730_create_audit_log_event_types.sql` | Creates `audit_log_priority` enum + `audit_log_event_types` table + seeds 26 rows per AD20 taxonomy |
 | `shared/audit/writer.js` | `writeAuditEvent` SSoT — the single permitted INSERT path to `audit_log` |
 | `shared/audit/event-types.js` | `EVENT_TYPES` constant + 26 `@typedef PayloadFor<EventType>` shapes |
 | `eslint-rules/no-raw-INSERT-audit-log.js` | Custom ESLint rule: flags raw `INSERT INTO audit_log` or `from('audit_log').insert(...)` outside `shared/audit/writer.js` |
@@ -81,7 +81,7 @@ These join the SSoT module registry in `_bmad-output/planning-artifacts/architec
 
 ### AC1 — Migration: `audit_log_priority` enum + `audit_log_event_types` table + 26-row seed
 
-**Given** the migration `202604301207a_create_audit_log_event_types.sql`
+**Given** the migration `20260430120730_create_audit_log_event_types.sql`
 **When** I apply it
 **Then** the `audit_log_priority` enum is created with three values: `'atencao'`, `'notavel'`, `'rotina'` (lowercase taxonomic, no diacritics for SQL safety per architecture pattern doc)
 **And** the `audit_log_event_types` lookup table exists with columns: `event_type TEXT PRIMARY KEY`, `priority audit_log_priority NOT NULL`, `description TEXT NOT NULL` (PT-localized hint)
@@ -122,7 +122,7 @@ These join the SSoT module registry in `_bmad-output/planning-artifacts/architec
 **And** an integration test asserts `SELECT COUNT(*) FROM audit_log_event_types` returns exactly 26
 **And** there is **no FK from `audit_log_event_types.event_type` to anything** (it's a lookup table; FKs flow inward — `audit_log.event_type → audit_log_event_types.event_type` is added in Story 9.1's migration)
 
-**Migration ordering note (F5 amendment):** File `202604301207a_create_audit_log_event_types.sql` uses the `a` suffix to ensure it runs **before** `202604301208_create_audit_log_partitioned.sql` (Story 9.1). Supabase CLI applies migrations in lexicographic filename order; the `a` suffix guarantees ordering without renumbering existing migrations.
+**Migration ordering note (F5 amendment):** File `20260430120730_create_audit_log_event_types.sql` uses the 14-digit timestamp `20260430120730` (YYYYMMDDHHMMSS) to ensure it runs **before** `202604301208_create_audit_log_partitioned.sql` (Story 9.1). Supabase CLI applies migrations in lexicographic filename order; `20260430120730` sorts before `202604301208` because at position 11 `'7' < '8'`, preserving the F5 ordering invariant without renumbering existing migrations.
 
 ---
 
@@ -231,7 +231,7 @@ Example shapes (non-exhaustive):
 ## Implementation Notes
 
 ### Migration file naming (F5 amendment)
-The migration file uses filename `202604301207a_create_audit_log_event_types.sql` — the `a` suffix ensures lexicographic ordering puts it BEFORE `202604301208_create_audit_log_partitioned.sql`. This is the F5 amendment. Do not rename it.
+The migration file uses filename `20260430120730_create_audit_log_event_types.sql` — the 14-digit timestamp `20260430120730` ensures lexicographic ordering puts it BEFORE `202604301208_create_audit_log_partitioned.sql` (`'7' < '8'` at position 11). This is the F5 amendment. Supabase CLI v2.98.1 rejects letter suffixes; the fully-numeric 14-digit prefix is the correct form.
 
 ### No RLS on `audit_log_event_types`
 The lookup table is reference data shared across all tenants. It does NOT contain customer data. No RLS policy is needed. Story 2.2's RLS regression suite (`CUSTOMER_SCOPED_TABLES` registry) should NOT include this table.
