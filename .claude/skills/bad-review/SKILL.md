@@ -184,39 +184,10 @@ Launch all four in a **single message** (parallel execution). Each is self-conta
 You are auditing story implementation vs spec for marketpilot-repricer
 (a Mirakl marketplace repricing MVP in Node.js).
 
-Story spec:
-  {STORY_FILE}
+Story spec: {STORY_FILE}
+Implementation files (may include none — e.g. a docs-only PR): {CODE_FILES}
 
-Implementation files (may include none — e.g. a docs-only PR):
-  {CODE_FILES}
-
-For each numbered Acceptance Criteria (AC-1, AC-2, ...) in the spec:
-  1. Locate where/if it is implemented in the code.
-  2. Verify the implementation matches what the AC describes.
-  3. Report one of: ✓ satisfied | ⚠️ deviation: <what differs> | ✗ missing
-
-Also flag:
-  - Any behavior in the code NOT required by spec (scope creep)
-  - Any AC that is internally contradictory or contradicts Mirakl MCP
-    (see references/mcp-forbidden-patterns.md in this skill)
-
-Output format (use exactly this structure, stay under 400 words):
-
-## AC Coverage
-| AC  | Status | Note (if not ✓) |
-|-----|--------|-----------------|
-| AC-1| ✓      |                 |
-
-## Scope creep
-- <bullets or "none">
-
-## Contradictions
-- <bullets or "none">
-
-## Verdict
-Safe to merge / Blocking issues / Needs human judgment
-
-Return only the report, no preamble.
+Read `references/subagent-prompts/code-vs-spec.md` and follow its instructions exactly.
 ```
 
 ### Subagent B: MCP alignment
@@ -224,48 +195,9 @@ Return only the report, no preamble.
 ```
 You are checking Mirakl MCP alignment for marketpilot-repricer.
 
-Files to grep:
-  {CODE_FILES}
+Files to grep: {CODE_FILES}
 
-The authoritative endpoint reference is the Mirakl MCP server itself
-(see CLAUDE.md — never assume from training data). Cross-reference
-against the empirical-facts table in
-  _bmad-output/planning-artifacts/architecture-distillate/_index.md
-under the section "Cross-Cutting Empirically-Verified Mirakl Facts".
-
-Load the file at:
-  .claude/skills/bad-review/references/mcp-forbidden-patterns.md
-
-That file lists five known-stale patterns that cause silent production
-failures. For each pattern, grep the target files.
-
-Report:
-
-## Forbidden patterns
-| Pattern | Found? | File:line (if found) |
-|---------|--------|----------------------|
-| product_ids: <with EANs>                          | ✓ or ✗ | |
-| o.channel_code / offer.channel_code               | | |
-| offer.price without offer.total_price alongside   | | |
-| Compare activeOffers.length to total_count        | | |
-| Bearer prefix on Mirakl Authorization header      | | |
-| product_sku used as seller SKU in PRI01 CSV       | | |
-| OF24 used for price-only update                   | | |
-| Float-price math outside shared/money/index.js    | | |
-| Direct fetch( for Mirakl outside shared/mirakl/   | | |
-| Modified migration in supabase/migrations/        | | |
-
-## Correct-pattern confirmation
-- Files using {offer.active, product_references=EAN|, pricing_channel_code, offer.total_price, allOffers.length===total_count, shop_sku in PRI01, raw Authorization header without Bearer}: list or "none applicable"
-
-## New endpoints / unusual patterns worth live-probing
-- Any endpoint name, param, or field accessed that is NOT documented in
-  architecture-distillate's empirical-facts table. List or "none".
-
-## Verdict
-Aligned / Drift found / Needs live probe
-
-Return only the report, stay under 300 words.
+Read `references/subagent-prompts/mcp-alignment.md` and follow its instructions exactly.
 ```
 
 ### Subagent C: Test quality
@@ -279,64 +211,10 @@ The verdict thresholds also tighten on critical-path stories — see the prompt 
 ```
 You are assessing test quality for a marketpilot-repricer story PR.
 
-Target test files (any combination of ATDD, .additional, .unit):
-  {TEST_FILES}
+Target test files (any combination of ATDD, .additional, .unit): {TEST_FILES}
+Implementation files (passed by coordinator — used to detect critical-path): {CODE_FILES}
 
-Implementation files (passed by coordinator — used to detect critical-path):
-  {CODE_FILES}
-
-Classify each test() call:
-- BEHAVIORAL: calls the actual implementation with fixtures; asserts on
-  return value, state change, or mock call args.
-- KEYWORD-GREP: reads the implementation file as text; asserts
-  src.includes('...') or regex patterns against source.
-- SKELETON: asserts export existence, function type, class name only.
-
-CRITICAL-PATH detection: a file is critical-path if its path starts with any
-of: `worker/src/`, `app/src/routes/`, `app/src/middleware/`, `shared/mirakl/`,
-`shared/audit/`, `shared/state/`, `shared/money/`, `shared/crypto/`,
-`supabase/migrations/`. If ANY file in CODE_FILES is critical-path, this PR
-is critical-path and the stricter thresholds below apply.
-
-For critical-path PRs, additionally check **fixture binding**: every fixture
-filename referenced in the test files (e.g., `p11-tier1-undercut-succeeds.json`,
-`pri01-csv/single-channel-undercut.csv`) must have at least one BEHAVIORAL
-test that loads the fixture and asserts on the result. List any unbound fixtures.
-
-Report:
-
-## Test classification
-- N behavioral / M keyword-grep / K skeleton (total: N+M+K)
-- Behavioral %: X%
-
-## Fixture binding (critical-path PRs only — omit section otherwise)
-- Fixtures referenced: {list}
-- Fixtures with ≥1 behavioral binding: {list}
-- Unbound fixtures: {list or "none"}
-
-## Critical gaps
-List checks that SHOULD exist but don't, focused on:
-- Security invariants (no api_key leak, no err.message in logs)
-- Error paths (what if the dependency throws?)
-- Edge cases (empty input, null, boundary values)
-- Atomicity / state-machine invariants for state-touching code
-Use your judgement on what "critical" means for the specific code.
-
-## Verdict
-
-For critical-path PRs (stricter):
-- Strong: ≥80% behavioral, no critical gaps, every named fixture bound.
-- Acceptable: ≥50% behavioral, no critical gaps, every named fixture bound (some keyword-grep tolerated as supplements).
-- Weak: <50% behavioral OR any unbound fixture OR any critical gap.
-
-For non-critical-path PRs (legacy thresholds):
-- Strong: ≥50% behavioral, no critical gaps.
-- Acceptable: ≥20% behavioral OR has .additional supplement.
-- Weak: mostly keyword-grep, no behavioral supplement.
-
-State explicitly which threshold set you applied (critical-path / standard).
-
-Stay under 350 words.
+Read `references/subagent-prompts/test-quality.md` and follow its instructions exactly.
 ```
 
 ### Subagent D: PR body vs diff (hallucination check)
@@ -348,31 +226,7 @@ You are auditing a BAD-generated PR body for hallucinations.
 
 PR number: {PR_NUMBER}
 
-Known pattern in this repo (see project memory feedback_bad_pipeline_trust.md):
-BAD's Step 6 subagent sometimes fabricates filenames, table/column names,
-config flags, and behaviors not in the actual diff. Your job is to catch this.
-
-Steps:
-1. Read the PR body via: gh pr view {PR_NUMBER} --json body
-2. Get the actual diff via: gh pr diff {PR_NUMBER}
-3. Extract specific claims from the body: filenames mentioned, tables, env
-   vars, flags, behaviors (e.g. "retry", "attachments").
-4. For each claim, check whether the diff supports it.
-
-Report:
-
-## Body claims vs diff
-| Claim from PR body | Supported by diff? |
-|--------------------|--------------------|
-| "Adds src/foo.js"  | ✓                  |
-| "report_items table" | ✗ (not in schema) |
-
-## Summary
-Body accuracy: Accurate / Partial / Hallucinated
-
-Stay under 300 words. Only list claims that are specific (filenames, field
-names, flags, explicit behaviors). Ignore general prose like "implements the
-story" or "adds tests".
+Read `references/subagent-prompts/body-vs-diff.md` and follow its instructions exactly.
 ```
 
 ---

@@ -184,33 +184,10 @@ Pure coordinator logic — no file reads, no tool calls. All inputs come from th
 Spawn before Phase 2 when starting a new epic (blocking — wait for completion before story pipelines begin):
 
 ```
-You are the epic test design agent for {current_epic_name}.
+You are the epic test design agent for {current_epic_name} (epic number {N}).
 Working directory: {repo_root}. Auto-approve all tool calls (yolo mode).
 
-1. Run /bmad-testarch-test-design for {current_epic_name}.
-2. Commit any new test plan files.
-3. Run `git push origin main` to propagate the scaffold commit to the remote
-   before Phase 2 worktree spawning. Without this, worktree branches opened
-   against origin/main carry the scaffold commit as a phantom diff, causing
-   mechanical merge conflicts across parallel stories — observed previously
-   when 2 of 3 PRs merged DIRTY for exactly this reason. The remote tip must
-   contain the test scaffolds before any worktree branches off.
-4. Update sprint-status.yaml at the REPO ROOT (not the worktree copy):
-     _bmad-output/implementation-artifacts/sprint-status.yaml
-   Flip the value of key {N} inside the top-level `epic_test_design:` block
-   from `pending` to `done`. The block lives outside `development_status:`
-   (sibling of `calendar_early_overrides:`) so other BMAD skills don't
-   misclassify it. Commit and push this change in the same step. This
-   durable flag is read by Phase 1's Epic-Start trigger to prevent re-firing
-   when the same epic is entered twice — e.g. Epic 9, entered first via the
-   calendar-early slot for Stories 9.0/9.1, then chronologically for 9.2-9.6
-   between Epic 8 and Epic 10. If this step fails after the push in step 3,
-   the next BAD start will (idempotently) re-fire Epic-Start:
-   /bmad-testarch-test-design should detect existing scaffold files and
-   no-op; worst case is a redundant empty commit on the worktree branch
-   which Step 5 / Step 7 will catch. Acceptable redundancy.
-
-Report: success or failure with error details.
+Read `references/subagents/epic-start-test-design.md` and follow its instructions exactly.
 ```
 
 **After Epic-Start Test Design completes — spawn an auto-review subagent (`MODEL_QUALITY` / Opus) BEFORE the user halt.**
@@ -225,140 +202,12 @@ Spawn after the test-design subagent reports success. This is judgment-heavy wor
 You are the Epic-Start Test Design auto-reviewer for {current_epic_name}.
 Working directory: {repo_root}. Auto-approve all tool calls (yolo mode).
 
-The test-design subagent just ran /bmad-testarch-test-design and committed
-test scaffolds + plan files to main. Audit the output against the epic's
-stories and produce a plain-language verdict for a non-developer reviewer.
+Iteration context (substituted by coordinator):
+  ITERATION_NUMBER: {iteration_number}
+  CURRENT_STORY: {current_story}
+  PREVIOUS_ITERATION_SUMMARY: {previous_summary}  (omit when ITERATION_NUMBER is 0)
 
-INPUTS:
-1. The list of files committed by the test-design subagent (read its commit
-   diff: `git log -1 --name-only origin/main`).
-2. The epic's stories from `_bmad-output/planning-artifacts/epics-distillate/`
-   (load the section file containing this epic — see CLAUDE.md loading
-   pattern — read the full ACs and SSoT module names).
-3. The architecture distillate's SSoT modules index from
-   `_bmad-output/planning-artifacts/architecture-distillate/_index.md`
-   (section "Cross-Cutting: SSoT Modules Index") — used to verify every
-   SSoT module the epic introduces has at least one test file targeting it.
-4. The atomicity bundles cross-cutting from epics-distillate _index.md —
-   used to verify atomicity-bundle gates are scaffolded where required.
-5. **Iteration context** — the coordinator passes:
-   - `ITERATION_NUMBER` (0 = first review, 1 = after one Auto-Fix pass,
-     2 = after two passes / final allowed)
-   - `CURRENT_STORY` (the specific story being shipped this batch — e.g.
-     "9.0", "3.1") so you can classify gaps as "in current-story scope"
-     vs "in future-story scope only"
-   - `PREVIOUS_ITERATION_SUMMARY` (only when ITERATION_NUMBER > 0) — a
-     short note on what the previous Auto-Fix did, e.g.
-     "9 of 11 closed cleanly, 2 degraded to soft-passes (assert.ok(true)),
-     6 new gaps surfaced." Used to detect diminishing-returns trajectory.
-
-CHECKS (apply each, list findings):
-
-A. AC behavioral coverage. For every AC across every story in this epic,
-   does at least one named behavioral test bind to it? Behavioral = calls
-   the implementation with fixtures, asserts on return value or state
-   change. NOT keyword-grep (`src.includes(...)`) or skeleton (export
-   exists). Map: AC-X.Y.Z → test file:test name OR "missing".
-
-B. Fixture binding. If the epic's stories reference named fixtures (e.g.,
-   `p11-tier1-undercut-succeeds.json`, `pri01-csv/single-channel-undercut.csv`),
-   does each fixture either (a) exist on disk in `tests/fixtures/`, or
-   (b) appear in the test plan's "to be created during Story X.Y" list?
-   List unbound fixtures.
-
-C. SSoT module coverage. For every SSoT module the epic introduces (per
-   the architecture-distillate's SSoT modules index), is there a test file
-   targeting it? Map: module path → test file OR "missing".
-
-D. Atomicity bundle gates. If the epic includes a bundle gate story (e.g.,
-   Story 7.8 for Bundle C), is the integration test file scaffolded with
-   the named gate assertions (e.g., `pending_import_id` invariant test for
-   Bundle C)? List missing.
-
-E. Semantic adequacy. For each AC, is the test plan's assertion scope
-   actually capable of catching a regression? Or is it generic ("renders
-   without error") when the AC requires specific behavior ("redirects to
-   /onboarding/scan within 5s")? List ACs where the test plan is too
-   shallow to bind to the spec's actual requirement.
-
-VERDICT TIERS:
-
-- **Strong**: No findings in A-E, OR only minor findings with no critical
-  gaps. Test plan is ready for Phase 2 to consume.
-- **Acceptable**: A-D have minor mechanical gaps (missing test for an AC,
-  missing fixture binding, missing SSoT coverage) that a fix subagent
-  could plausibly close. E is clean (no semantic gaps).
-- **Weak**: ANY of: many mechanical gaps in A-D (>30% of ACs uncovered),
-  any unbound atomicity-bundle gate, OR any semantic gap in E. Cannot
-  proceed without fixes. If E gaps dominate, the issue is likely
-  spec-quality (the AC itself is too vague for any test to bind to) —
-  flag this in the verdict so the user knows auto-fix may not converge.
-
-REPORT FORMAT (stay under 700 words, plain language for a non-developer):
-
-## Verdict: Strong / Acceptable / Weak (iteration {ITERATION_NUMBER})
-
-## For non-developer reader (TL;DR)
-
-Three required lines, mapped from the decision-rule table below:
-
-1. **Recommended action: [C] / [Auto-Fix] / [S].** One bracketed letter, no ambiguity.
-2. **Reasoning in one sentence.** Plain language, no jargon. Cover the load-bearing
-   reason — typically one of: convergence trajectory, current-vs-future-story scope,
-   architectural-mismatch gaps, iteration-budget exhaustion, semantic gaps present.
-3. **When to pause and ask Claude before clicking.** One line. Trigger conditions:
-   any gap in the current shipping story, any "semantic gap" finding, or any
-   architectural-mismatch indicator (NFR timing tests at unit-test layer, perf
-   budgets that can't be reliably asserted, etc.).
-
-DECISION RULE TABLE — derive the recommendation from these scenarios:
-
-| Scenario                                                                    | Recommend       |
-|-----------------------------------------------------------------------------|-----------------|
-| Strong verdict, any iteration                                               | [C] Continue    |
-| Iteration 0, Acceptable, mechanical gaps in current-story scope             | [Auto-Fix]      |
-| Iteration 0, Acceptable, mechanical gaps only in future-story scope, ≤5     | [Auto-Fix]      |
-| Iteration 0, Acceptable, mechanical gaps only in future-story scope, ≥10    | [C] Continue    |
-| Iteration 0/1, Weak verdict, mechanical-only                                | [Auto-Fix]      |
-| Iteration 1, Acceptable, previous pass converged cleanly, current-story gaps | [Auto-Fix]      |
-| Iteration 1, Acceptable, previous pass had soft-passes / arch-mismatch       | [C] Continue    |
-| Iteration 2 (final allowed), any state                                      | [C] Continue    |
-| Any iteration, semantic gaps present                                        | [S] Stop        |
-
-Architectural-mismatch examples (justifying [C] over [Auto-Fix] in iteration 1+):
-- NFR-P8 timing/perf assertions at node:test unit-test layer (flaky wall-clock,
-  belongs in production monitoring or staging load tests, not unit tests)
-- Cross-environment query-plan checks that need real DB sizing
-- Integration-flaky tests that degraded to `test.skip(...)` or `assert.ok(true)`
-
-Convergence-trajectory signals (good = lean Auto-Fix, bad = lean Continue):
-- GOOD: "8 of 10 closed cleanly with behavioral assertions, 2 minor stragglers"
-- BAD: "9 of 11 closed but 2 are pseudo-fixes; 6 new gaps surfaced on re-review"
-
-When iteration 2 hits, [Auto-Fix] is no longer offered (3rd attempt halts BAD).
-Only [C] and [S] are valid menu options at iteration 2.
-
-## Summary (2-3 sentences in plain language)
-{What's good about the test plan, what's missing if anything. No jargon.}
-
-## Findings (bullet list, prioritized worst-first)
-- [A/B/C/D/E] {specific finding} — {plain-language consequence if shipped as-is}
-
-## Mechanical gaps (auto-fixable)
-{List items in A-D that a fix subagent could close. Format as a numbered
-todo list — exact file:line OR exact test name to add. For each item, tag
-its scope: "[current-story]" if the gap affects {CURRENT_STORY}, otherwise
-"[future-story: {N.M}]". The TL;DR uses these tags to apply the decision rules.}
-
-## Semantic gaps (need spec rework, NOT auto-fixable)
-{List items in E. If non-empty, the TL;DR MUST recommend [S] — auto-fix
-won't converge.}
-
-## Confidence: high / medium / low
-{Your confidence the verdict is right. Low if the epic touches code or
-patterns you can't fully evaluate from the spec alone.}
-
-Return only the verdict report.
+Read `references/subagents/epic-start-auto-review.md` and follow its instructions exactly.
 ```
 
 ### Halt with verdict-driven menu
@@ -418,20 +267,10 @@ When the user picks `[Auto-Fix]`:
    You are the Epic-Start Test Design fix subagent for {current_epic_name}.
    Working directory: {repo_root}. Auto-approve all tool calls (yolo mode).
 
-   The auto-reviewer flagged the following mechanical gaps in the test
-   scaffolds for this epic:
+   Substitution for the reference file:
+     MECHANICAL_GAPS_BLOCK: {paste the "Mechanical gaps (auto-fixable)" section from the auto-review}
 
-   {paste the "Mechanical gaps (auto-fixable)" section from the auto-review}
-
-   For each gap:
-   - Add the missing test file or test case.
-   - Bind missing fixtures to behavioral tests.
-   - Add SSoT module coverage where missing.
-   - DO NOT touch tests outside the listed gaps. DO NOT modify production code.
-
-   Commit all changes to main with message "Epic-Start auto-fix: <epic_name>"
-   and push to origin/main. Report: success + files modified, OR failure +
-   reason.
+   Read `references/subagents/epic-start-auto-fix.md` and follow its instructions exactly.
    ```
 
 2. After the fix subagent reports, **re-run the auto-review** (Opus, fresh context). The new verdict is what the user sees.
@@ -530,46 +369,10 @@ intermediate quality checks within the dev → review transition).
 Spawn with model `MODEL_STANDARD` (yolo mode):
 ```
 You are the Step 1 story creator for story {number}-{short_description}.
-Working directory: {repo_root}. Auto-approve all tool calls (yolo mode).
+Working directory: {repo_root}. WORKTREE_BASE_PATH is `{WORKTREE_BASE_PATH}` (used to construct the worktree path).
+Auto-approve all tool calls (yolo mode).
 
-1. Create (or reuse) the worktree:
-     git worktree add {WORKTREE_BASE_PATH}/story-{number}-{short_description} \
-       -b story-{number}-{short_description}
-   If the worktree/branch already exists, switch to it, run:
-     git merge main
-   and resolve any conflicts before continuing.
-
-2. Change into the worktree directory:
-     cd {repo_root}/{WORKTREE_BASE_PATH}/story-{number}-{short_description}
-
-3. Run /bmad-create-story {number}-{short_description}.
-
-4. Run "validate story {number}-{short_description}". For every finding,
-   apply a fix directly to the story file using your best engineering judgement.
-   Repeat until no findings remain.
-
-5. If this story touches any Mirakl endpoint (OF21, OF24, P11, PRI01, PRI02, PRI03, or any /api/* Mirakl call):
-   FIRST verify against the live Mirakl MCP server (per CLAUDE.md: Mirakl MCP
-   is the single source of truth — never assume from training data).
-   THEN cross-reference against "Cross-Cutting Empirically-Verified Mirakl Facts"
-   (16-row table) in
-     {repo_root}/_bmad-output/planning-artifacts/architecture-distillate/_index.md
-   Confirm this story's endpoint usage matches MCP exactly — field names, param names, response fields.
-   Reminder: NEVER use OF24 for price updates (constraint #6 — OF24 resets
-   unspecified offer fields to defaults). Use PRI01 for price-only updates.
-   If there is any drift, correct the story spec before continuing.
-   Add a one-line note at the top of the story spec: "Endpoints verified against Mirakl MCP and architecture-distillate empirical facts ({date})."
-
-6. Commit the story spec file to the worktree branch:
-     git add _bmad-output/implementation-artifacts/{story-spec-filename}.md
-     git commit -m "Add story {number} spec"
-   The spec file must be committed to the branch — never left as an untracked file.
-
-7. Update sprint-status.yaml at the REPO ROOT (not the worktree copy):
-     _bmad-output/implementation-artifacts/sprint-status.yaml
-   Set story {number} status to `ready-for-dev`.
-
-Report: success or failure with error details.
+Read `references/subagents/step1-create-story.md` and follow its instructions exactly.
 ```
 
 ### Step 2: ATDD (`MODEL_STANDARD`)
@@ -580,15 +383,7 @@ You are the Step 2 ATDD agent for story {number}-{short_description}.
 Working directory: {repo_root}/{WORKTREE_BASE_PATH}/story-{number}-{short_description}.
 Auto-approve all tool calls (yolo mode).
 
-1. Run /bmad-testarch-atdd {number}-{short_description}.
-2. Commit any generated test files.
-3. DO NOT modify sprint-status.yaml. The coordinator on main flips the
-   story to `atdd-done` after this step reports success (see
-   "Coordinator-Side Sprint-Status Flips" in the Sprint-Status Immutability
-   Gate section). The hash-snapshot gate will halt the pipeline if this
-   subagent writes to sprint-status.yaml.
-
-Report: success or failure with error details.
+Read `references/subagents/step2-atdd.md` and follow its instructions exactly.
 ```
 
 ### Step 3: Develop Story (`MODEL_STANDARD`)
@@ -599,16 +394,7 @@ You are the Step 3 developer for story {number}-{short_description}.
 Working directory: {repo_root}/{WORKTREE_BASE_PATH}/story-{number}-{short_description}.
 Auto-approve all tool calls (yolo mode).
 
-1. Run /bmad-dev-story {number}-{short_description}.
-2. Commit all changes when implementation is complete. **Do NOT include
-   any change to `_bmad-output/implementation-artifacts/sprint-status.yaml`
-   in your commits — the hash-snapshot gate will halt the pipeline if you
-   do.** If `/bmad-dev-story` mentions writing to sprint-status, ignore
-   that instruction; that flip is now coordinator-side.
-3. DO NOT modify sprint-status.yaml. The coordinator on main flips the
-   story to `review` after this step reports success.
-
-Report: success or failure with error details.
+Read `references/subagents/step3-develop.md` and follow its instructions exactly.
 ```
 
 **After Step 3 — Uncommitted Files Gate (HALT if working tree dirty):**
@@ -632,11 +418,7 @@ You are the Step 4 test reviewer for story {number}-{short_description}.
 Working directory: {repo_root}/{WORKTREE_BASE_PATH}/story-{number}-{short_description}.
 Auto-approve all tool calls (yolo mode).
 
-1. Run /bmad-testarch-test-review {number}-{short_description}.
-2. Apply all findings using your best engineering judgement.
-3. Commit any changes from the review.
-
-Report: success or failure with error details.
+Read `references/subagents/step4-test-review.md` and follow its instructions exactly.
 ```
 
 ### Step 5: Code Review (`MODEL_QUALITY`)
@@ -667,20 +449,7 @@ You are the Step 5 code reviewer for story {number}-{short_description}.
 Working directory: {repo_root}/{WORKTREE_BASE_PATH}/story-{number}-{short_description}.
 Auto-approve all tool calls (yolo mode).
 
-1. Run /bmad-code-review {number}-{short_description}.
-
-2. MIGRATION IMMUTABILITY — before applying any fix:
-   If a finding suggests editing an existing file in `supabase/migrations/`
-   (not adding a new one), DO NOT patch the migration. Instead create a NEW
-   migration file with the schema delta. Migrations are append-only after
-   first commit — the remote `supabase_migrations.schema_migrations` table
-   is invisible from this context, so editing an applied migration silently
-   diverges local from remote. Flag as decision_needed and never apply.
-
-3. Auto-accept all OTHER findings and apply fixes using your best engineering judgement.
-4. Commit any changes from the review.
-
-Report: success or failure with error details.
+Read `references/subagents/step5-code-review.md` and follow its instructions exactly.
 ```
 
 ### Step 6: PR & CI (`MODEL_STANDARD`)
@@ -691,103 +460,7 @@ You are the Step 6 PR and CI agent for story {number}-{short_description}.
 Working directory: {repo_root}/{WORKTREE_BASE_PATH}/story-{number}-{short_description}.
 Auto-approve all tool calls (yolo mode).
 
-1. Commit all outstanding changes.
-
-2. BRANCH SAFETY — verify before pushing:
-     git branch --show-current
-   If the result is NOT story-{number}-{short_description}, stash changes, checkout the
-   correct branch, and re-apply. Never push to main or create a new branch.
-
-3. Look up the GitHub issue number for this story:
-   Read the story's section in `_bmad-output/planning-artifacts/epics.md` and extract
-   the `**GH Issue:**` field. Save as `gh_issue_number`. If the field is absent
-   (local-only mode — no GitHub auth), proceed without it.
-
-4. Run /commit-commands:commit-push-pr.
-   PR title: story-{number}-{short_description} - fixes #{gh_issue_number}
-   Include "Fixes #{gh_issue_number}" in the PR description body (omit only if
-   no issue number was found in step 3).
-
-   PR BODY DATA-GROUNDING RULE — BEFORE drafting the body, run these commands
-   in the worktree and COPY from their outputs. Do NOT reason about
-   file counts, file lists, env var names, or CI status — read them.
-
-     1. File-count + file list (always run first):
-          git -C {worktree_path} diff main --stat
-          git -C {worktree_path} diff main --name-only
-        Use the EXACT line from `--stat` (e.g. "5 files changed, 142 insertions(+), 18 deletions(-)")
-        for any "X files changed" claim. Use `--name-only` output verbatim for any
-        list of changed files. Never invent file paths or hand-count.
-
-     2. Env var names referenced in the diff:
-          git -C {worktree_path} diff main | grep -oE "process\.env\.[A-Z_][A-Z0-9_]*" | sort -u
-        Only cite env var names that appear in this output. Never construct
-        "X + Y" env-var pairs unless BOTH names appear in the grep output.
-
-     3. CI status (only after the PR has been pushed and CI has run):
-          gh pr checks {PR_NUMBER}
-        Use the actual check names and statuses verbatim. Do NOT claim
-        "CI skipped" or "GitHub Actions skipped: RUN_CI_LOCALLY=true" unless
-        BOTH of these are true: (a) `gh pr checks` returns zero check rows,
-        AND (b) the BAD config in `.claude/settings.json` actually has
-        `RUN_CI_LOCALLY=true`. If RUN_CI_LOCALLY is not set, GitHub Actions
-        ran — describe its actual result, do not claim it was skipped.
-
-     4. Test counts:
-          (parse the test runner's own output — `# pass N` / `# fail N` lines from
-           node:test, or jest's summary). Never aggregate across categories
-           ("8 tests" lumping cases + sub-assertions).
-
-   PR BODY HALLUCINATION GUARD (post-draft check) — after /commit-commands:commit-push-pr
-   drafts the body, review against the actual diff BEFORE pushing. Only cite
-   specific filenames, function names, table/column names, exact string values,
-   env var names, CLI flags, or explicit behavioural claims (e.g. "adds retry
-   logic", "emits X field") that you can confirm are present in the diff. For
-   anything else, use general prose ("adds the route", "extends the worker").
-   If the draft contains a specific claim you cannot verify in the diff,
-   generalise it or remove it. This rule applies only to the PR BODY — the
-   PR TITLE can be the story slug as-is.
-
-   Why both the data-grounding rule AND the post-draft check exist: PRs #64
-   and #65 (Epic 2) both shipped with data-grounded errors that the
-   post-draft prose check alone didn't catch — "16 files changed" (actual: 15),
-   invented "DATABASE_URL + SUPABASE_SERVICE_ROLE_KEY" pair (only
-   SUPABASE_SERVICE_ROLE_DATABASE_URL existed), and "GitHub Actions skipped:
-   RUN_CI_LOCALLY=true" claim while CI actually ran green. Reading command
-   outputs first removes the temptation to reason about facts that have a
-   ground-truth source.
-
-   COUNT-CATEGORY LABELLING — when citing counts in the PR body (tests, ACs,
-   assertions, changed files, findings), explicitly label what's being counted.
-   Do NOT conflate categories. Examples of imprecise phrasing that has slipped
-   past this guard: "the test file covers 10 acceptance criteria" when it
-   actually covers 2 ACs in 10 scan assertions; "8 tests added" when 8 includes
-   both test cases and sub-assertions. Correct form: "X test cases", "Y ACs
-   covered", "Z scan assertions across N ACs", "K files changed". Added at
-   Epic 5 retro (2026-04-20) because the specifics-only rule above doesn't
-   catch counting semantics.
-
-5. CI:
-   - If RUN_CI_LOCALLY is true → skip GitHub Actions and run the Local CI Fallback below.
-   - Otherwise, if MONITOR_SUPPORT is true → use the Monitor tool to watch CI status:
-       Write a poller script:
-         while true; do gh run view --json status,conclusion 2>&1; sleep 30; done
-       Start it with Monitor. React to each output line as it arrives:
-       - conclusion=success → stop Monitor, report success
-       - conclusion=failure or cancelled → stop Monitor, diagnose, fix, push, restart Monitor
-       - Billing/spending limit error in output → stop Monitor, run Local CI Fallback
-       - gh TLS/auth error in output → stop Monitor, switch to curl poller from `references/coordinator/pattern-gh-curl-fallback.md`
-   - Otherwise → poll manually in a loop:
-       gh run view
-     (If `gh` fails, use `gh run view` curl equivalent from `references/coordinator/pattern-gh-curl-fallback.md`)
-     - Billing/spending limit error → exit loop, run Local CI Fallback
-     - CI failed for other reason, or Claude bot left PR comments → fix, push, loop
-     - CI green → report success
-
-LOCAL CI FALLBACK (when RUN_CI_LOCALLY=true or billing-limited):
-  Read `references/subagents/step6-ci-fallback.md` and follow its instructions exactly.
-
-Report: success or failure, and the PR number/URL if opened.
+Read `references/subagents/step6-pr-ci.md` and follow its instructions exactly.
 ```
 
 ### Step 7: PR Code Review (`MODEL_STANDARD` default, `MODEL_QUALITY` on critical-path)
@@ -819,18 +492,7 @@ You are the Step 7 PR code reviewer for story {number}-{short_description}.
 Working directory: {repo_root}/{WORKTREE_BASE_PATH}/story-{number}-{short_description}.
 Auto-approve all tool calls (yolo mode).
 
-1. Run /code-review:code-review (reads the PR diff via gh pr diff).
-2. For every finding, apply a fix using your best engineering judgement.
-   Do not skip or defer any finding — fix them all.
-3. Commit all fixes and push to the PR branch.
-4. If any fixes were pushed, re-run /code-review:code-review once more to confirm
-   no new issues were introduced. Repeat fix → commit → push → re-review until
-   the review comes back clean.
-5. DO NOT modify sprint-status.yaml. The coordinator on main flips the
-   story to `done` after this step reports success (see "Coordinator-Side
-   Sprint-Status Flips" in the Sprint-Status Immutability Gate section).
-
-Report: clean (no findings or all fixed) or failure with details.
+Read `references/subagents/step7-pr-review.md` and follow its instructions exactly.
 ```
 
 ---
@@ -987,27 +649,12 @@ Using the assessment report from Step 2, follow the applicable branch:
    Description: bad-review audit on PR #{N}
 
    Prompt:
-   You are running the `bad-review` skill on PR #{N}. Read
-   `.claude/skills/bad-review/SKILL.md` and follow its instructions for
-   Phases 1, 2, and 3 ONLY.
+   You are running an audit on PR #{N}.
 
-   Hard rules:
-   - Do NOT execute Phase 4 (merge), Phase 4.5 (deferred capture), or
-     Phase 5 (post-merge verify). The parent session will handle those
-     based on user input.
-   - Do NOT print or offer [M]/[F]/[S] options. Return immediately after
-     Phase 3 produces its verdict report.
-   - You have no prior context about this PR or BAD's verdicts. Run the
-     audit independently. The 4 audit subagents you spawn (Subagents A,
-     B, C, D per the SKILL.md) get fresh contexts as well.
-   - Use the model directives in bad-review's SKILL.md for inner
-     subagents (Subagents A and C use Opus; B and D use Sonnet).
+   Substitutions for the reference file:
+     {N}: {PR-number}
 
-   Return your output as the full Phase 3 verdict report verbatim
-   (markdown), including all required sections: PR title line, Prior
-   deferred context (if any), Code vs spec, MCP alignment, Test quality,
-   PR body accuracy, Overall verdict, Manual smoke checklist,
-   Recommendation, and Deferred findings.
+   Read `references/subagents/phase4-r-bad-review.md` and follow its instructions exactly.
    ```
 
    **3b. Print the returned verdict report verbatim**, then halt with:
@@ -1028,25 +675,14 @@ Using the assessment report from Step 2, follow the applicable branch:
      Description: bad-review merge + verify PR #{N}
 
      Prompt:
-     Execute Phase 4 (merge), Phase 4.5 (capture deferred findings to
-     `_bmad-output/implementation-artifacts/deferred-work.md` — only if
-     deferred findings were emitted; details below), and Phase 5
-     (post-merge verify) of `.claude/skills/bad-review/SKILL.md` on
-     PR #{N}.
+     You are merging and verifying PR #{N}.
 
-     For Phase 4.5, use these deferred findings (already extracted from
-     the audit verdict — append them under a section titled
-     "Deferred from: PR #{N} review ({YYYY-MM-DD})"):
+     Substitutions for the reference file:
+       {N}: {PR-number}
+       DEFERRED_FINDINGS_BLOCK: {paste the "Deferred findings" section from the audit verdict, or "(none — skip Phase 4.5)" if the verdict had no deferred findings}
+       {YYYY-MM-DD}: {today's date}
 
-     {paste the "Deferred findings" section from the audit verdict, or
-     "(none — skip Phase 4.5)" if the verdict had no deferred findings}
-
-     Skip Phase 5.5 (manual smoke prompt) — the parent session will print
-     it after you return.
-
-     Return: a one-paragraph confirmation of merge SHA, sprint-status
-     update, deferred-work commit (if any), and Phase 5 verification
-     results.
+     Read `references/subagents/phase4-m-merge-verify.md` and follow its instructions exactly.
      ```
      After the subagent returns, print its confirmation, then print bad-review's Phase 5.5 manual smoke prompt for this story (verbatim from the audit verdict's "Manual smoke checklist" section).
 
@@ -1079,30 +715,10 @@ Discipline checkpoint that fires between Phase 4 Step 2 (Epic Completion Check) 
 
 Spawn a quick subagent (`MODEL_STANDARD`, yolo mode) with this prompt:
 ```
-Read `_bmad-output/implementation-artifacts/sprint-status.yaml`. Extract:
+BATCH_STORIES: {coordinator substitutes the current batch list}
+BATCH_STORIES_WITH_PRS: {coordinator substitutes from Phase 4 Step 2}
 
-1. The top-level `integration_test_required:` block. May be absent or empty —
-   if so, return `INTEGRATION_TEST_BATCH = []` and exit.
-
-2. For each story in the current batch (the coordinator passes the batch
-   list as `BATCH_STORIES`), check whether the story key appears in the
-   `integration_test_required:` block with value `true`. If yes, capture:
-     - story key (e.g. "2-1-rls-aware-...")
-     - the inline YAML comment after the `true` value (e.g.
-       "pg Pool + RLS + auth contract surface") — this is the per-story reason
-
-3. Read package.json and extract the full `test:integration` script value.
-   Save as `TEST_INTEGRATION_CMD` (string) and `SCRIPT_EXISTS` (boolean).
-
-4. Return:
-   - INTEGRATION_TEST_BATCH: list of {story, pr_number, reason} for batch
-     stories tagged `true`
-   - SCRIPT_EXISTS: boolean
-   - TEST_INTEGRATION_CMD: the raw script string (e.g.
-     "node --env-file=.env.test --test --test-concurrency=1 ...")
-
-The PR numbers come from Phase 4 Step 2's batch summary; the coordinator
-substitutes them as `BATCH_STORIES_WITH_PRS`.
+Read `references/subagents/phase4-5-batch-determine.md` and follow its instructions exactly.
 ```
 
 ### Step 2: Three branches
