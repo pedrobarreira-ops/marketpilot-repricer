@@ -1,4 +1,8 @@
 {
+  "env": {
+    "MAX_THINKING_TOKENS": "16000",
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "75"
+  },
   "hooks": {
     "PreToolUse": [
       {

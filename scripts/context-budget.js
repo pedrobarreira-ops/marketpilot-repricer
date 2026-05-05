@@ -42,8 +42,8 @@ const FILES = [
 // Set ~10-15% above current target sizes (post-compression) to allow growth
 // room while still catching bloat early. Update after each compression pass.
 const THRESHOLDS = {
-  '.claude/skills/bad/SKILL.md': 1100,
-  '.claude/skills/bad-review/SKILL.md': 700,
+  '.claude/skills/bad/SKILL.md': 1000,
+  '.claude/skills/bad-review/SKILL.md': 750,
   'project-context.md': 600,
   'CLAUDE.md': 100,
   '_bmad-output/planning-artifacts/architecture-distillate/_index.md': 150,
