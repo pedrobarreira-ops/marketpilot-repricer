@@ -137,3 +137,11 @@ Implementation when triggered: ~4-line change in `founder-admin-only.js` — app
 ## Deferred from: PR #66 review (2026-05-04)
 
 - **PR body data-grounding miscount (cosmetic; documented BAD Step 6 pattern)** [PR #66 body] — PR #66 body claims "12 files changed, 2078 insertions(+), 155 deletions(-)" but actual `git diff main --stat` is 10 files / 2147 insertions / 84 deletions. Body's changelist also lists `.claude/skills/bad/SKILL.md` and `_bmad-output/implementation-artifacts/sprint-status.yaml` which are NOT in the PR diff (sprint-status flips happen on main, not in the worktree branch). Technical substance of the body (file paths of NEW code, AC coverage, env vars, behavioral claims) is fully accurate. Pattern-tracking only — no code change needed. Recurrence of the issue documented in `feedback_bad_pipeline_trust.md`.
+
+---
+
+## Deferred from: PR #67 review (2026-05-06)
+
+- **PR body hallucinations** [PR body] — body claims "17 files changed, 898 insertions, 754 deletions" and lists `sprint-status.yaml` and several `_bmad-output/design-references/` removals/updates (chat2.md, MarketPilot-standalone.html, dashboard-and-audit.html, phase-d.jsx, 13-admin-status.html, 14-key-revoked.html, 15-payment-failed.html) that do not exist in the actual diff. Actual: 9 files, 780 insertions, 2 deletions. Cosmetic BAD Step 6 hallucination pattern; no functional impact.
+- **`runMonthlyPartitionCreate` error-logging path not unit-tested** [tests/worker/src/jobs/monthly-partition-create.test.js] — the `logger.error` branch (db.query rejection propagating outside the inner try/catch) is untested due to static-import mocking constraints. Acceptable for MVP; cover when `--experimental-vm-modules` becomes stable or in a `.additional.test.js` supplement when Story 5.1 ships.
+- **`audit_log_select_own` RLS policy is `USING (false)` placeholder** [supabase/migrations/202604301208_create_audit_log_partitioned.sql] — story correctly defers the real subquery to Story 4.1 (requires `customer_marketplaces` table). Story 4.1 BAD subagent must `DROP POLICY audit_log_select_own ON audit_log` and `CREATE POLICY` with the real subquery expression.
