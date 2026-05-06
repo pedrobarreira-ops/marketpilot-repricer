@@ -363,180 +363,89 @@ EAN resolution (3-strategy in DynamicPriceIdea): `product.product_references` EA
 
 ## Library Empirical Contracts + Operational Patterns
 
-> Discovered during foundation-story implementation (Stories 1.1-1.4). These are **load-bearing rules** that override what library docs / spec text might suggest. Every BAD subagent must respect these or trigger silent failures.
+> Discovered during Stories 1.1–3.3. **Load-bearing rules** — override what library docs suggest. Every BAD subagent must respect these.
 
-### 1. GoTrue strips Postgres HINT codes from `auth.signUp` errors
+### 1. GoTrue strips HINT codes from `auth.signUp` errors
 
-Trigger-raised `RAISE EXCEPTION ... USING HINT = 'SOMETHING'` does NOT propagate the HINT through Supabase Auth to the client. Empirical contract (Supabase Auth ≥ 2.x, verified 2026-05-02): `error.message = "Database error saving new user"`, `error.code = "unexpected_failure"`. **The HINT is stripped before reaching `@supabase/auth-js`.**
-
-**Pattern**: any story relying on a trigger HINT for user-facing field errors MUST mirror the trigger's validation at the route level. The trigger remains as defense-in-depth; the user-facing field error is produced by the route's pre-validation. Story 1.4's `signup.js` is the canonical example — `length(trim(...)) = 0` check before calling `auth.signUp`, returning PT-localized `fieldErrors` to the form template.
-
-**Failure mode if violated**: customer sees generic catch-all error message instead of field-specific guidance. Atomicity invariant still holds (trigger rolls back), but UX regression.
+`RAISE EXCEPTION ... USING HINT = '...'` does NOT propagate through Supabase Auth (≥2.x, verified 2026-05-02): `error.message = "Database error saving new user"`, `error.code = "unexpected_failure"`. **Pattern**: mirror trigger validation at route level; trigger is defense-in-depth only. Canonical: Story 1.4 `signup.js`. **Failure**: customer sees generic catch-all error; atomicity holds, UX regresses.
 
 ### 2. `@fastify/cookie` v11+ does NOT auto-unwrap signed cookies
 
-`request.cookies[name]` returns the raw `s:<value>.<signature>` string for signed cookies. To verify and extract the original value: `const { valid, value } = request.unsignCookie(raw)`.
-
-**Pattern**: any code that reads a signed cookie MUST use `request.unsignCookie()` explicitly. Comments like "auto-unwraps if valid" are wrong — the library does not do this. The `request.cookies[name] === false` for tampered-cookie pattern (sometimes documented online) is also wrong.
-
-Affects: Story 1.4 `mp_source_ctx` (fixed); Story 2.1 `mp_session` reader (apply this pattern); Story 11.x Stripe webhook signed cookies if used (apply this pattern).
-
-**Failure mode if violated**: `JSON.parse` falls through silently, returning nulls instead of the cookie's actual values. No error logged. Hard to debug without specifically testing the cookie roundtrip.
+`request.cookies[name]` returns raw `s:<value>.<signature>`. Use `const { valid, value } = request.unsignCookie(raw)` to verify and extract. **Failure**: `JSON.parse` silently returns nulls — no error logged. **Affects**: Story 1.4 `mp_source_ctx` (fixed); Story 2.1 `mp_session`; any future signed-cookie reader.
 
 ### 3. `pg` Pool against Supabase requires CA pinning
 
-Supabase Postgres uses a custom CA. `pg` Pool's default SSL behavior does NOT trust it. Must explicitly load and pass the CA cert.
-
-**Pattern** (canonical, copied from `app/src/routes/health.js` and `worker/src/jobs/heartbeat.js`):
+NEVER `ssl: { rejectUnauthorized: false }` (accepts forged certs). NEVER omit ssl (connection fails). Canonical pattern:
 
 ```js
-import fs from 'node:fs';
-import path from 'node:path';
-import pg from 'pg';
+import fs from 'node:fs'; import path from 'node:path'; import pg from 'pg';
 const { Pool } = pg;
-
 const caCert = fs.readFileSync(path.resolve('supabase/prod-ca-2021.crt'), 'utf8');
-
-const pool = new Pool({
-  connectionString: process.env.SUPABASE_SERVICE_ROLE_DATABASE_URL,
-  ssl: { ca: caCert },
-  max: <appropriate>,
-});
+const pool = new Pool({ connectionString: process.env.SUPABASE_SERVICE_ROLE_DATABASE_URL, ssl: { ca: caCert }, max: <n> });
 ```
 
-NEVER `ssl: { rejectUnauthorized: false }` (insecure — accepts forged certs). NEVER skip SSL config (Supabase requires SSL; connection fails). The CA cert is at `supabase/prod-ca-2021.crt` (committed — public CA).
-
-Affects: every `pg` Pool instantiation. Story 1.1's `health.js` + `heartbeat.js` (done); Story 2.1's `shared/db/service-role-client.js` SSoT module (apply this pattern); every future worker-side query path.
+CA cert at `supabase/prod-ca-2021.crt` (committed — public CA). **Affects**: every `pg.Pool`. Canonical: `health.js`, `heartbeat.js`.
 
 ### 4. Migration forward-FK deferral pattern
 
-When a story's migration references a forward-FK target from a future story (e.g., Story 1.2's vault → Story 4.1's customer_marketplaces), the migration file is committed but NOT applied — neither locally nor to Cloud — until the target story ships.
-
-**Pattern**: rename the migration file with `.deferred-until-story-X.Y` suffix. Supabase CLI ignores files without the `.sql` extension, so the file is committed (deliverable preserved) but excluded from `db push` / `db reset` / `start`.
-
-**At the target story's sharding**: Bob's task list MUST include "rename `<filename>.sql.deferred-until-story-X.Y` back to `<filename>.sql`" + "run `npx supabase db push` to apply both this story's migration AND the unblocked deferred one."
-
-Current instance: `supabase/migrations/202604301204_create_shop_api_key_vault.sql.deferred-until-story-4.1` — restore at Story 4.1 sharding.
-
-**This rule does NOT violate migration immutability** — we're renaming for tooling exclusion, not editing content. Once restored at Story 4.1, the file content is unchanged from its original commit.
+When a migration FK-references a future story's table: rename file with `.deferred-until-story-X.Y` suffix (Supabase CLI ignores non-`.sql`). Restore at target story sharding + run `npx supabase db push`. Not a migration-immutability violation — content unchanged. **Current instance**: `202604301204_create_shop_api_key_vault.sql.deferred-until-story-4.1` — restore at Story 4.1 sharding.
 
 ### 5. `auth.users` reset between integration tests: DELETE not TRUNCATE
 
-`auth.refresh_tokens_id_seq` and other auth-schema sequences are owned by `supabase_auth_admin`, not the `postgres` connection user. `TRUNCATE auth.users CASCADE RESTART IDENTITY` fails with "must be owner of sequence."
-
-**Pattern**: `DELETE FROM auth.users` — relies on Supabase-defined `ON DELETE CASCADE` chains (refresh_tokens, identities, sessions, our customers/customer_profiles). Works without sequence ownership.
-
-Story 1.4's `tests/integration/_helpers/reset-auth-tables.js` is the canonical example.
+`TRUNCATE auth.users CASCADE RESTART IDENTITY` fails (`supabase_auth_admin` owns sequences). **Pattern**: `DELETE FROM auth.users` — Supabase-defined cascades handle cleanup. Canonical: `tests/integration/_helpers/reset-auth-tables.js`.
 
 ### 6. Integration test readiness probe — don't poll `/health`
 
-Per-feature integration tests typically spawn only the app (not the worker). `/health` requires `worker_heartbeats < 90s` freshness; without a worker, it always 503s.
-
-**Pattern**: poll a route the test exercises anyway (e.g., `GET /` for the scaffold placeholder, or one of the routes under test). Story 1.1's `scaffold-smoke.test.js` is the exception — it spawns BOTH services intentionally to test `/health` composition.
+`/health` requires recent worker heartbeat; per-feature tests don't spawn the worker → always 503s. **Pattern**: poll a route the test exercises. Story 1.1's smoke test is the exception (spawns both services intentionally to test `/health` composition).
 
 ### 7. Pino `base` REPLACES default `{pid, hostname}` (does NOT extend)
 
-Setting `base: { service: 'app' }` in the pino config REPLACES the default base fields. Logs lose `pid` and `hostname` — breaking any log aggregation that filters by them, and making it impossible to distinguish app/worker output when both write to the same stream.
-
-**Pattern**: when customizing `base`, explicitly include the defaults alongside any custom fields. Story 1.3's `shared/logger.js` is the canonical example:
+`base: { service: 'app' }` loses `pid` + `hostname`. Always include them explicitly:
 
 ```js
-import os from 'node:os';
-
-const logger = pino({
-  base: {
-    pid: process.pid,
-    hostname: os.hostname(),
-    service: 'app',  // or 'worker'
-  },
-  // ... rest of config
-});
+base: { pid: process.pid, hostname: os.hostname(), service: 'app' }  // or 'worker'
 ```
 
-**Failure mode if violated**: structured logs lose pid/hostname; cannot correlate logs across worker restarts or distinguish processes.
+**Failure**: logs lose pid/hostname silently; cannot correlate across restarts. Canonical: `shared/logger.js`.
 
 ### 8. `pg` ESM destructure: default-import then destructure
 
-The `pg` package is published as CommonJS without an ESM-named-exports map. `import { Pool } from 'pg'` fails at module resolution.
+`import { Pool } from 'pg'` fails — no ESM named-exports map. **Pattern**: `import pg from 'pg'; const { Pool } = pg;` (same for `Client`, `types`). **Failure**: `SyntaxError: does not provide export 'Pool'` at boot.
 
-**Pattern**: `import pg from 'pg'; const { Pool } = pg;` (or `Client`, `types` etc. as needed). Story 1.1's `health.js` + `heartbeat.js`, Story 1.5's `founder-admin-only.js`, Story 1.4's `reset-auth-tables.js` all follow this. Apply to Story 2.1's `shared/db/service-role-client.js` and every future `pg` consumer.
+### 9. Conditional SSL based on connection-string host (localhost vs Cloud)
 
-**Failure mode if violated**: `SyntaxError: The requested module 'pg' does not provide an export named 'Pool'` at boot. Hard fail, easy to spot — but blocks the process from starting.
-
-### 9. Conditional SSL based on connection-string host (localhost vs Supabase Cloud)
-
-Local Postgres test instances don't have SSL configured by default; Supabase Cloud requires SSL with CA pinning (per contract #3). Hard-coding `ssl: { ca: caCert }` breaks local tests; hard-coding `ssl: false` breaks Cloud. The two pool configurations must diverge based on the connection string's host.
-
-**Pattern** (canonical — Story 2.1 will centralize this as a single helper to prevent cargo-culting across Epics 4+):
+Hard-coding `ssl: { ca: caCert }` breaks local tests; omitting SSL breaks Cloud. Story 2.1 centralizes as `buildPgPoolConfig` in `shared/db/service-role-client.js` — absorbs inline pools from `health.js`, `heartbeat.js`, `founder-admin-only.js`. **Pattern**:
 
 ```js
-function buildPgPoolConfig (connectionString, caCert) {
-  const isLocal =
-    connectionString.includes('localhost') ||
-    connectionString.includes('127.0.0.1');
-  return isLocal
-    ? { connectionString, max: 2 }
-    : { connectionString, ssl: { ca: caCert }, max: 2 };
-}
+const isLocal = cs.includes('localhost') || cs.includes('127.0.0.1');
+return isLocal ? { connectionString: cs, max: 2 } : { connectionString: cs, ssl: { ca: caCert }, max: 2 };
 ```
 
-Story 1.5's `founder-admin-only.js` deviated by inlining this logic per-pool (the SSL drift root cause). Story 2.1's `shared/db/service-role-client.js` MUST absorb the inline pools at `health.js`, `heartbeat.js`, `founder-admin-only.js` into the shared helper. Without centralization, every future `pg.Pool` site re-implements the host detection and drift continues.
-
-**Failure mode if violated**: tests fail locally with SSL handshake errors, OR production fails with rejected certs. Drift across files makes audit hard ("which Pool uses which?").
+**Failure**: SSL config drifts across pool sites; hard to audit which Pool uses which config.
 
 ### 10. `@fastify/formbody` required for HTML form-POST routes
 
-Fastify v5's default body parser is JSON-only. POSTs from HTML forms (`Content-Type: application/x-www-form-urlencoded`) get `request.body === undefined` unless `@fastify/formbody` is registered. No error logged — silent empty body.
+Fastify v5 default parser is JSON-only. HTML POSTs (`application/x-www-form-urlencoded`) → `request.body === undefined` without the plugin. **Pattern**: `fastify.register(formbody)` at server boot. **Failure**: silent empty body; validation rejects "missing fields" even when form sent them.
 
-**Pattern**: any route that accepts an HTML form POST must register the plugin at server boot:
-
-```js
-import formbody from '@fastify/formbody';
-fastify.register(formbody);
-```
-
-Story 1.4's `signup.js` failed silently on form POSTs until this was added. Already in `package.json` dependencies; verify `fastify.register(formbody)` is in `app/src/server.js` for any project that handles form POSTs.
-
-**Failure mode if violated**: route handler sees `undefined` body; validation rejects "missing fields" even though the form sent them. Hard to diagnose without specifically testing form-encoded POST.
-
-### 11. `requestIdLogLabel` is a Fastify v5 top-level option, NOT a pino option
-
-To customize the field name pino uses for request IDs (e.g., to emit `reqId` instead of the default), set `requestIdLogLabel: 'reqId'` at the Fastify constructor's TOP LEVEL — beside `logger`, not nested inside the pino config. Fastify v5 reads this option from the top level only; nesting it inside `logger:` is silently ignored.
-
-**Pattern**:
+### 11. `requestIdLogLabel` is Fastify v5 top-level option, NOT nested in `logger`
 
 ```js
-const fastify = Fastify({
-  logger: { /* pino config */ },
-  requestIdLogLabel: 'reqId',  // top-level, not inside `logger`
-  genReqId: () => randomUUID(),
-});
+const fastify = Fastify({ logger: { /* pino config */ }, requestIdLogLabel: 'reqId', genReqId: () => randomUUID() });
 ```
 
-Story 1.3 debug fix discovered this — the original config nested `requestIdLogLabel` inside `logger:` and request IDs were emitted under the default field name silently.
+Nested inside `logger:` is silently ignored. **Failure**: request IDs use default field name; log-aggregation queries fail to find expected field.
 
-**Failure mode if violated**: request logs use the default field name; custom name silently ignored. No error logged. Discovered only when log-aggregation queries fail to find the expected field.
+### 12. AD27 redaction list extension: distillate-first, then `shared/logger.js`
 
-### 12. AD27 redaction list extension protocol: distillate-first, then `shared/logger.js`
+New secret-bearing field MUST land in both `architecture-distillate/03-decisions-E-J.md` (AD27 entry) AND `shared/logger.js` pino redact config in **same PR**. If (a) skipped: next refactor may drop the runtime redaction. If (b) skipped: logs leak immediately. **Failure**: distillate says field is redacted; production logs still leak it.
 
-When a new secret-bearing field is discovered (e.g., `access_token`, `refresh_token`, `mp_session` signature), the redaction extension MUST land in two places in the same PR: (a) the source distillate's AD27 redaction list (so future implementers see the canonical set), and (b) `shared/logger.js`'s pino redaction config (so the runtime actually redacts). The audit trail trusts (a); the runtime depends on (b).
+### 13. RLS-disabled on system-only tables is intentional
 
-**Pattern**: extension PR touches both files atomically:
-- `_bmad-output/planning-artifacts/architecture-distillate/03-decisions-E-J.md` (AD27 entry)
-- `shared/logger.js` (pino `redact: { paths: [...] }` config)
+`founder_admins` ships `DISABLE ROW LEVEL SECURITY` (Epic 2 MCP probe confirmed). Access control via Postgres GRANTs only — `authenticated`/`anon` have no GRANT. Any new system-only table MUST be omitted from `CUSTOMER_SCOPED_TABLES` registry + migration includes `DISABLE ROW LEVEL SECURITY`. **Failure**: a dev "fixing" it without predicates breaks service-role worker boot; adding `USING (true)` exposes founder data to any logged-in user.
 
-Story 1.3 + Story 1.5 patches added `access_token`, `refresh_token`, `mp_session` to both. The distillate-first order matters — if (a) is skipped, the next refactor of `shared/logger.js` may drop the field; if (b) is skipped, logs leak the secret immediately.
+### 14. `no-direct-fetch` scans comment text — `fetch(` in comments triggers the rule
 
-**Failure mode if violated**: redaction list drifts between distillate (truth) and runtime (effect). Audit reviews trust the distillate; production logs leak the secret. Latent bug class — only surfaces in a production incident or a careful log audit.
-
-### 13. RLS-disabled on system-only tables is intentional, not a bug
-
-`founder_admins` ships with `ALTER TABLE ... DISABLE ROW LEVEL SECURITY` — confirmed on Cloud (Epic 2 retro 2026-05-04 MCP probe: `rls_enabled = false`). This is the spec, not a regression. The table is read only by service-role workers (founder admin lookup at server boot), never by `authenticated` or `anon` roles. Access control is via Postgres GRANTs (no GRANT on the table for non-service roles) rather than RLS predicates. Story 2.2's RLS regression suite explicitly classifies it as "system-only exempt" and excludes it from the `CUSTOMER_SCOPED_TABLES` registry.
-
-**Pattern**: tables that have no per-tenant scoping (system lookup, taxonomy, infra metadata) MAY ship with `DISABLE ROW LEVEL SECURITY`. The RLS regression suite's `CUSTOMER_SCOPED_TABLES` registry is the exemption boundary — any new system-only table MUST be omitted from that registry, and its migration MUST contain a `DISABLE ROW LEVEL SECURITY` line.
-
-**Failure mode if violated** (a future dev sees `rls_enabled = false` and "fixes" it): turning RLS on without writing predicates would break the worker boot path (service role still reads it, but `anon`/`authenticated` reads on a future audit would suddenly fail with permission errors instead of returning the previously-empty result that grants control). Worse: a developer might add a permissive `USING (true)` policy to silence the audit, which would expose the founder list to any logged-in user.
-
+The `no-direct-fetch` ESLint rule scans source text including comments for the substring `fetch(`. Comments in `shared/mirakl/` files MUST NOT use `fetch(` — rephrase as "HTTP call" or "via api-client". Discovered Story 3.2 (dev agent had to rename comments mid-implementation). **Failure**: lint fails on comment text in otherwise-valid code.
 ---
 
 ## F1-F13 Amendments — Quick Reference
