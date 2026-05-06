@@ -388,6 +388,27 @@ Read `references/subagents/step2-atdd.md` and follow its instructions exactly.
 
 ### Step 3: Develop Story (`MODEL_STANDARD`)
 
+**Before Step 3 — Mirakl MCP Gate (Mirakl stories only):**
+
+Check if this story touches Mirakl: look for "mirakl" (case-insensitive) in `{short_description}`, or verify the story spec file references `shared/mirakl/`.
+
+If the story touches Mirakl:
+1. Use ToolSearch with query `"mcp__mirakl"` to probe availability. If ToolSearch returns at least one result, the Mirakl MCP is active — proceed to dispatch Step 3 normally.
+2. If ToolSearch returns no results (MCP disconnected), print:
+   ```
+   ⚠️  Mirakl MCP is disabled.
+   Story {number} ({short_description}) requires live Mirakl MCP verification during development.
+   Without it, Step 3 will guess endpoint behaviour from training data — exactly the failure mode CLAUDE.md forbids.
+
+   Enable it: in Claude Code go to Settings → MCP → mirakl → toggle on.
+
+   [C] Retry — re-test MCP and dispatch Step 3
+   [S] Stop BAD
+   ```
+   📣 **Notify:** `⚠️ Mirakl MCP disabled — story {number} needs it. Enable and type [C].`
+3. On **[C]**: re-run ToolSearch for `"mcp__mirakl"`. If available, dispatch Step 3. If still unavailable, re-print the message and wait again.
+4. On **[S]**: halt BAD. Print `BAD stopped — enable Mirakl MCP and re-run /bad.` 📣 **Notify:** `🛑 BAD stopped — Mirakl MCP required.`
+
 Spawn with model `MODEL_STANDARD` (yolo mode):
 ```
 You are the Step 3 developer for story {number}-{short_description}.
@@ -684,7 +705,48 @@ Using the assessment report from Step 2, follow the applicable branch:
 
      Read `references/subagents/phase4-m-merge-verify.md` and follow its instructions exactly.
      ```
-     After the subagent returns, print its confirmation, then print bad-review's Phase 5.5 manual smoke prompt for this story (verbatim from the audit verdict's "Manual smoke checklist" section).
+     After the subagent returns, print its confirmation. Then run Phase 5.5 post-merge smoke automation:
+
+     **Phase 5.5a — Migration analysis.** Spawn `MODEL_STANDARD` (yolo mode):
+     ```
+     You are the Phase 5.5 migration analyst for PR #{N}.
+     {N}: {PR-number}
+
+     Read `references/subagents/phase4-post-merge-smoke-analyze.md` and follow its instructions exactly.
+     ```
+
+     Read the subagent's output:
+
+     - If `requires_confirmation: true` — halt and print:
+       ```
+       ⚠️  Destructive migration detected in PR #{N}.
+
+       {dangerous_ops_description from subagent output}
+
+       This cannot be undone once applied to the database.
+
+       [C] Confirmed — push migrations and run smoke tests
+       [S] Stop — do NOT push migrations
+       ```
+       📣 **Notify:** `⚠️ Destructive migration in PR #{N} — your confirmation required.`
+       On **[S]**: halt. Print `BAD stopped — migrations NOT pushed. Push manually when ready.`
+       On **[C]**: proceed to Phase 5.5b.
+
+     - If `requires_confirmation: false` — proceed to Phase 5.5b immediately.
+
+     **Phase 5.5b — Push + verify.** Spawn `MODEL_STANDARD` (yolo mode):
+     ```
+     You are the Phase 5.5 push and verify subagent for PR #{N}.
+     {N}: {PR-number}
+     {repo_root}: {repo_root}
+
+     Read `references/subagents/phase4-post-merge-smoke.md` and follow its instructions exactly.
+     ```
+
+     Print the subagent's pass/fail report verbatim. If Overall is ⚠️ FAIL, also print:
+     ```
+     Post-merge smoke failed — investigate before running the next /bad batch.
+     ```
 
    - **[F]** or **[S]:** halt without merging. Print `BAD halted — PR #{N} left open. Address findings, then re-run /bad in a new session.` 📣 **Notify:** `⏸ BAD halted — {action} on PR #{N}`. Do NOT proceed to remaining open PRs.
 
