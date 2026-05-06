@@ -175,3 +175,10 @@ Implementation when triggered: ~4-line change in `founder-admin-only.js` — app
 - **PR body test count understated: "46 test cases" vs actual 55** [PR body] — BAD wrote the body after Step 6 (before Step 5's additional defensive input validation tests). Not a quality issue.
 - **PR body file count wrong: "10 files changed" vs actual 9** [PR body] — off-by-one, minor cosmetic error.
 - **No live-smoke marker for a Mirakl-touching PR** [PR body] — Story 3.2 is mock-only by spec design (live credential smoke deferred to Story 3.3). Future Mirakl-touching PRs that are expected to run live should include `[Skip-Live-Smoke: <reason>]` to make the intent explicit.
+
+---
+
+## Deferred from: PR #70 review (2026-05-06)
+
+- **PR body claims sprint-status.yaml as a changed file** [PR body / Changes section] — sprint-status.yaml is not in the diff; Story 3.3's `done` status arrived on main via BAD's local push-race commits. Cosmetic body overstatement per the known BAD Step 6 hallucination pattern. No functional impact.
+- **Live credential smoke for Story 3.3 not documented in PR** [PR body] — The prior deferred entry from Story 3.2's review (deferred-work.md line 177) explicitly stated "deferred to Story 3.3." This PR contains no live smoke evidence and no `[Skip-Live-Smoke: <reason>]` marker. Resolve by running `npm run mirakl:verify` against real credentials post-merge and recording the result.
