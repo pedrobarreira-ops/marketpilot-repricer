@@ -50,10 +50,11 @@ export default [
     // Scoped to app/, worker/, shared/ only — tests/ and scripts/ are excluded
     // (test files may mock fetch; scripts are operational utilities).
     //
-    // eslint-rules/no-direct-fetch.js exports the rule object (not a plugin).
-    // Wrap it in the ESLint flat-config plugin shape here.
+    // eslint-rules/no-direct-fetch.js exports a plugin shape
+    // (`{ rules: { 'no-direct-fetch': rule } }`) — registered the same way as
+    // no-direct-pg-in-app.js (Story 2.1) and no-raw-INSERT-audit-log.js (Story 9.0).
     files: ['app/**/*.js', 'worker/**/*.js', 'shared/**/*.js'],
-    plugins: { 'no-direct-fetch': { rules: { 'no-direct-fetch': noDirectFetch } } },
+    plugins: { 'no-direct-fetch': noDirectFetch },
     rules: {
       'no-direct-fetch/no-direct-fetch': 'error',
     },

@@ -11,8 +11,15 @@
 //
 // Any other file calling fetch() or importing from 'node:fetch' / 'fetch'
 // triggers an error.
+//
+// Structural reference: matches the export pattern used by
+// eslint-rules/no-direct-pg-in-app.js (Story 2.1) and
+// eslint-rules/no-raw-INSERT-audit-log.js (Story 9.0) — the file's default
+// export is a *plugin* shape (`{ rules: { '<name>': rule } }`) so that
+// `eslint.config.js` can register it as `plugins: { 'no-direct-fetch': mod }`
+// and reference the rule as `'no-direct-fetch/no-direct-fetch': 'error'`.
 
-export default {
+const rule = {
   meta: {
     type: 'problem',
     docs: {
@@ -80,5 +87,11 @@ export default {
         }
       },
     };
+  },
+};
+
+export default {
+  rules: {
+    'no-direct-fetch': rule,
   },
 };

@@ -316,15 +316,17 @@ test('no-direct-fetch ESLint rule — file exists at eslint-rules/no-direct-fetc
 
 test('no-direct-fetch ESLint rule — flags fetch() outside shared/mirakl/', async () => {
   const { Linter } = await import('eslint');
-  const { default: rule } = await import('../../../eslint-rules/no-direct-fetch.js');
+  const { default: plugin } = await import('../../../eslint-rules/no-direct-fetch.js');
   const linter = new Linter();
-  // ESLint v9+ flat config: rules are registered via plugins in the config object
+  // ESLint v9+ flat config: rules are registered via plugins in the config object.
+  // `plugin` is already in plugin shape ({ rules: { 'no-direct-fetch': rule } })
+  // — same convention as no-direct-pg-in-app.js (Story 2.1) + no-raw-INSERT-audit-log.js (Story 9.0).
   const RULE_ID = 'no-direct-fetch/no-direct-fetch';
 
   // Simulate a file OUTSIDE shared/mirakl/ that uses fetch()
   const code = `const data = await fetch('https://example.com');`;
   const messages = linter.verify(code, {
-    plugins: { 'no-direct-fetch': { rules: { 'no-direct-fetch': rule } } },
+    plugins: { 'no-direct-fetch': plugin },
     rules: { [RULE_ID]: 'error' },
   }, { filename: 'app/src/routes/some-route.js' });
 
@@ -334,14 +336,13 @@ test('no-direct-fetch ESLint rule — flags fetch() outside shared/mirakl/', asy
 
 test('no-direct-fetch ESLint rule — allows fetch() inside shared/mirakl/api-client.js', async () => {
   const { Linter } = await import('eslint');
-  const { default: rule } = await import('../../../eslint-rules/no-direct-fetch.js');
+  const { default: plugin } = await import('../../../eslint-rules/no-direct-fetch.js');
   const linter = new Linter();
-  // ESLint v9+ flat config: rules are registered via plugins in the config object
   const RULE_ID = 'no-direct-fetch/no-direct-fetch';
 
   const code = `const data = await fetch('https://example.com');`;
   const messages = linter.verify(code, {
-    plugins: { 'no-direct-fetch': { rules: { 'no-direct-fetch': rule } } },
+    plugins: { 'no-direct-fetch': plugin },
     rules: { [RULE_ID]: 'error' },
   }, { filename: 'shared/mirakl/api-client.js' });
 
@@ -351,14 +352,13 @@ test('no-direct-fetch ESLint rule — allows fetch() inside shared/mirakl/api-cl
 
 test('no-direct-fetch ESLint rule — allows fetch() inside shared/mirakl/pri01-writer.js', async () => {
   const { Linter } = await import('eslint');
-  const { default: rule } = await import('../../../eslint-rules/no-direct-fetch.js');
+  const { default: plugin } = await import('../../../eslint-rules/no-direct-fetch.js');
   const linter = new Linter();
-  // ESLint v9+ flat config: rules are registered via plugins in the config object
   const RULE_ID = 'no-direct-fetch/no-direct-fetch';
 
   const code = `const res = await fetch('https://example.com', { method: 'POST' });`;
   const messages = linter.verify(code, {
-    plugins: { 'no-direct-fetch': { rules: { 'no-direct-fetch': rule } } },
+    plugins: { 'no-direct-fetch': plugin },
     rules: { [RULE_ID]: 'error' },
   }, { filename: 'shared/mirakl/pri01-writer.js' });
 
@@ -368,14 +368,13 @@ test('no-direct-fetch ESLint rule — allows fetch() inside shared/mirakl/pri01-
 
 test('no-direct-fetch ESLint rule — flags import { fetch } destructuring outside shared/mirakl/', async () => {
   const { Linter } = await import('eslint');
-  const { default: rule } = await import('../../../eslint-rules/no-direct-fetch.js');
+  const { default: plugin } = await import('../../../eslint-rules/no-direct-fetch.js');
   const linter = new Linter();
-  // ESLint v9+ flat config: rules are registered via plugins in the config object
   const RULE_ID = 'no-direct-fetch/no-direct-fetch';
 
   const code = `import { fetch } from 'node:fetch';`;
   const messages = linter.verify(code, {
-    plugins: { 'no-direct-fetch': { rules: { 'no-direct-fetch': rule } } },
+    plugins: { 'no-direct-fetch': plugin },
     rules: { [RULE_ID]: 'error' },
     languageOptions: { sourceType: 'module', ecmaVersion: 2022 },
   }, { filename: 'worker/src/engine/decide.js' });
