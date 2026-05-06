@@ -101,17 +101,27 @@ CREATE TRIGGER trg_audit_log_set_priority
 ALTER TABLE audit_log ENABLE ROW LEVEL SECURITY;
 
 -- Customer read-only: own rows via customer_marketplace_id chain.
--- auth.uid() IS NOT NULL guard prevents anon-role reads from accidentally
--- matching NULL = NULL in the subquery.
+--
+-- DEFERRED PLACEHOLDER: the full USING clause requires customer_marketplaces (Epic 4,
+-- Story 4.1). PostgreSQL validates subquery table references at CREATE POLICY time, so
+-- the proper subquery cannot be installed here. Story 4.1's migration MUST replace this
+-- policy with the full isolation expression:
+--
+--   CREATE POLICY audit_log_select_own ON audit_log
+--     FOR SELECT
+--     USING (
+--       auth.uid() IS NOT NULL
+--       AND customer_marketplace_id IN (
+--         SELECT id FROM customer_marketplaces WHERE customer_id = auth.uid()
+--       )
+--     );
+--
+-- Until Story 4.1 lands, USING (false) correctly blocks all customer-role reads —
+-- the engine does not emit audit rows before Epic 4 anyway, so no real data is
+-- hidden from legitimate users at this stage.
 CREATE POLICY audit_log_select_own ON audit_log
   FOR SELECT
-  USING (
-    auth.uid() IS NOT NULL
-    AND customer_marketplace_id IN (
-      SELECT id FROM customer_marketplaces
-      WHERE customer_id = auth.uid()
-    )
-  );
+  USING (false);
 
 -- INSERT / UPDATE / DELETE: denied for customers (service-role only).
 -- No permissive policies for these operations = denied by default under RLS.
