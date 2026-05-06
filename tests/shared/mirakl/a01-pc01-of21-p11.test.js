@@ -129,12 +129,20 @@ test('getPlatformConfiguration() — returns PC01 response with required fields'
   try {
     const { getPlatformConfiguration } = await import('../../../shared/mirakl/pc01.js');
     const pc01 = await getPlatformConfiguration(baseUrl, 'test-api-key');
-    // Required fields per epics spec AC2
+    // Required fields per epics spec AC2 (full flat shape)
     assert.ok('channel_pricing' in pc01, 'Missing channel_pricing');
     assert.ok('operator_csv_delimiter' in pc01, 'Missing operator_csv_delimiter');
     assert.ok('offer_prices_decimals' in pc01, 'Missing offer_prices_decimals');
     assert.ok('discount_period_required' in pc01, 'Missing discount_period_required');
     assert.ok('competitive_pricing_tool' in pc01, 'Missing competitive_pricing_tool');
+    assert.ok('scheduled_pricing' in pc01, 'Missing scheduled_pricing');
+    assert.ok('volume_pricing' in pc01, 'Missing volume_pricing');
+    assert.ok('multi_currency' in pc01, 'Missing multi_currency');
+    assert.ok('order_tax_mode' in pc01, 'Missing order_tax_mode');
+    // Type lock-ins (AC2): offer_prices_decimals must be a number even though live API returns string
+    assert.equal(typeof pc01.offer_prices_decimals, 'number', 'offer_prices_decimals must be number type');
+    assert.equal(typeof pc01.discount_period_required, 'boolean', 'discount_period_required must be boolean');
+    assert.equal(typeof pc01.competitive_pricing_tool, 'boolean', 'competitive_pricing_tool must be boolean');
   } finally {
     await mockServer.close();
   }
@@ -178,13 +186,19 @@ test('getOffers() — returns offers array with required fields', async () => {
     const { getOffers } = await import('../../../shared/mirakl/of21.js');
     const { offers, pageToken } = await getOffers(baseUrl, 'test-api-key', {});
     assert.ok(Array.isArray(offers), 'offers must be an array');
-    if (offers.length > 0) {
-      const offer = offers[0];
-      assert.ok('shop_sku' in offer, 'Missing shop_sku');
-      assert.ok('product_sku' in offer, 'Missing product_sku or null ok');
-      assert.ok('price' in offer || offer.price === undefined, 'price field expected');
-      assert.ok(typeof offer.active === 'boolean', 'active must be boolean');
-    }
+    assert.ok(pageToken === null || typeof pageToken === 'number', 'pageToken must be number or null');
+    // The fixture is non-empty (asserted in the next test), so shape assertions
+    // run unconditionally — no `if (offers.length > 0)` guard.
+    assert.ok(offers.length > 0, 'OF21 fixture must yield at least one offer for shape assertion');
+    const offer = offers[0];
+    assert.ok('shop_sku' in offer, 'Missing shop_sku');
+    assert.ok('product_sku' in offer, 'Missing product_sku');
+    assert.ok('price' in offer, 'Missing price');
+    assert.ok('total_price' in offer, 'Missing total_price');
+    assert.ok('quantity' in offer, 'Missing quantity');
+    assert.ok('channels' in offer, 'Missing channels');
+    assert.ok('product_references' in offer, 'Missing product_references');
+    assert.equal(typeof offer.active, 'boolean', 'active must be boolean');
   } finally {
     await mockServer.close();
   }
@@ -205,13 +219,36 @@ test('getOffers() — fixture has at least 1 offer with shop_sku populated', asy
 test('getAllOffers() — iterates all pages until exhaustion', async () => {
   const { mockServer, baseUrl } = await startMockServer();
   try {
-    const { getAllOffers } = await import('../../../shared/mirakl/of21.js');
+    const { getAllOffers, getOffers } = await import('../../../shared/mirakl/of21.js');
     const allOffers = await getAllOffers(baseUrl, 'test-api-key');
     assert.ok(Array.isArray(allOffers), 'getAllOffers must return an array');
-    // All pages aggregated: total length >= single page length
+    // First page contract: pageToken === null when total_count is reached.
+    const firstPage = await getOffers(baseUrl, 'test-api-key', {});
+    assert.equal(allOffers.length, firstPage.offers.length, 'getAllOffers must equal first-page length when fixture fits one page');
+    // Aggregated list must match total_count from the fixture (exhaustion proof).
+    assert.equal(allOffers.length, 2, 'Mock fixture has total_count=2; loop must terminate after collecting both');
+    assert.equal(firstPage.pageToken, null, 'pageToken must be null when first page already satisfies total_count');
+  } finally {
+    await mockServer.close();
+  }
+});
+
+test('getOffers() — pageToken signals next offset when more pages exist', async () => {
+  // Lock in the offset-based pagination contract: when offers.length < total_count,
+  // pageToken === offset + offers.length (integer next offset).
+  const { mockServer, baseUrl } = await startMockServer();
+  try {
     const { getOffers } = await import('../../../shared/mirakl/of21.js');
-    const { offers: firstPage } = await getOffers(baseUrl, 'test-api-key', {});
-    assert.ok(allOffers.length >= firstPage.length, 'getAllOffers must include at least as many offers as first page');
+    // First page: offset 0, pageSize 1 → offers.length 1, total_count 2 → pageToken=1
+    const page1 = await getOffers(baseUrl, 'test-api-key', { offset: 0, pageSize: 1 });
+    // Mock returns full fixture for offset=0 regardless of pageSize, so the
+    // wrapper computes nextOffset from offers.length vs total_count.
+    if (page1.offers.length < 2) {
+      assert.equal(page1.pageToken, page1.offers.length, 'pageToken must equal next offset (integer) when more pages exist');
+    } else {
+      // Single-page case: fixture exhausted in one call.
+      assert.equal(page1.pageToken, null, 'pageToken must be null when exhausted');
+    }
   } finally {
     await mockServer.close();
   }
@@ -228,20 +265,22 @@ test('getOffers() — does NOT bypass api-client (no direct fetch())', async () 
 test('getProductOffersByEan() — issues correct P11 GET params', async () => {
   const { mockServer, baseUrl } = await startMockServer();
   let capturedParams;
-  // Override the P11 handler to capture the query string
+  // Capture the query string of the next /api/products/offers request
   mockServer.captureNextRequest('/api/products/offers', (params) => { capturedParams = params; });
   try {
     const { getProductOffersByEan } = await import('../../../shared/mirakl/p11.js');
+    // Must not throw — mock server returns a valid fixture for any P11 query.
     await getProductOffersByEan(baseUrl, 'test-api-key', {
       ean: '8809606851663',
       channel: 'WRT_PT_ONLINE',
       pricingChannelCode: 'WRT_PT_ONLINE',
-    }).catch(() => {}); // may throw if no fixture for that EAN — that's OK for this test
-    if (capturedParams) {
-      assert.ok(capturedParams.product_references?.includes('EAN|8809606851663'), 'product_references must use EAN| prefix');
-      assert.ok(capturedParams.channel_codes?.includes('WRT_PT_ONLINE'), 'channel_codes param missing');
-      assert.ok(capturedParams.pricing_channel_code?.includes('WRT_PT_ONLINE'), 'pricing_channel_code param missing');
-    }
+    });
+    // Capture MUST have fired — otherwise the wrapper bypassed the mock or the
+    // capture API is broken. Both are fail conditions, not soft passes.
+    assert.ok(capturedParams, 'captureNextRequest callback must fire — wrapper must hit mock server');
+    assert.ok(capturedParams.product_references?.includes('EAN|8809606851663'), 'product_references must use EAN| prefix');
+    assert.ok(capturedParams.channel_codes?.includes('WRT_PT_ONLINE'), 'channel_codes param missing');
+    assert.ok(capturedParams.pricing_channel_code?.includes('WRT_PT_ONLINE'), 'pricing_channel_code param missing');
   } finally {
     await mockServer.close();
   }
@@ -257,13 +296,15 @@ test('getProductOffersByEanBatch() — concatenates up to 100 EANs as EAN|x,EAN|
     await getProductOffersByEanBatch(baseUrl, 'test-api-key', {
       eans,
       channel: 'WRT_PT_ONLINE',
-    }).catch(() => {});
-    if (capturedParams) {
-      const productRefs = capturedParams.product_references ?? '';
-      for (const ean of eans) {
-        assert.ok(productRefs.includes(`EAN|${ean}`), `product_references must include EAN|${ean}`);
-      }
+    });
+    // Capture MUST have fired — turn the previously-conditional assertion into a hard one.
+    assert.ok(capturedParams, 'captureNextRequest callback must fire — wrapper must hit mock server');
+    const productRefs = capturedParams.product_references ?? '';
+    for (const ean of eans) {
+      assert.ok(productRefs.includes(`EAN|${ean}`), `product_references must include EAN|${ean}`);
     }
+    // Lock in the comma-separated concatenation contract.
+    assert.equal(productRefs, eans.map(e => `EAN|${e}`).join(','), 'EAN list must be comma-joined in encounter order');
   } finally {
     await mockServer.close();
   }
@@ -289,20 +330,17 @@ test('getProductOffersByEan() — returns raw offer list (filtering done by self
   const { mockServer, baseUrl } = await startMockServer();
   try {
     const { getProductOffersByEan } = await import('../../../shared/mirakl/p11.js');
-    // Use a known-good EAN from the fixture
-    let result;
-    try {
-      result = await getProductOffersByEan(baseUrl, 'test-api-key', {
-        ean: '8809606851663',
-        channel: 'WRT_PT_ONLINE',
-        pricingChannelCode: 'WRT_PT_ONLINE',
-      });
-    } catch {
-      // Fixture may not include this EAN — test the shape contract
-      return;
-    }
+    // Mock fixture FIXTURE_P11_PT covers WRT_PT_ONLINE — call must succeed.
+    const result = await getProductOffersByEan(baseUrl, 'test-api-key', {
+      ean: '8809606851663',
+      channel: 'WRT_PT_ONLINE',
+      pricingChannelCode: 'WRT_PT_ONLINE',
+    });
     assert.ok(Array.isArray(result), 'getProductOffersByEan must return an array of offers');
-    // Must be raw — no filtering applied (filtering is self-filter.js responsibility)
+    // Must be raw — no filtering applied. Confirm the own-shop offer is still present
+    // in the result; self-filter.js (not p11.js) is the layer that removes it.
+    assert.ok(result.length >= 1, 'Mock fixture must yield offers for the captured EAN');
+    assert.ok(result.some(o => o.shop_name === 'Easy - Store'), 'Own-shop offer must NOT be filtered by p11.js — self-filter.js is responsible');
   } finally {
     await mockServer.close();
   }
