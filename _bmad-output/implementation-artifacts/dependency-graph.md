@@ -1,5 +1,5 @@
 # Story Dependency Graph
-_Last updated: 2026-05-06T17:00:00Z_
+_Last updated: 2026-05-06T21:00:00Z_
 
 ## Stories
 
@@ -17,10 +17,10 @@ _Last updated: 2026-05-06T17:00:00Z_
 | 3.1 | 3 | Mirakl HTTP client port — apiClient + retry/backoff + safe-error mapping + no-direct-fetch ESLint rule | done | #10 | #68 | merged | 1.1, 1.3; epic 2 complete | ✅ Yes (done) |
 | 3.2 | 3 | Endpoint wrappers A01, PC01, OF21, P11 + Mirakl mock server | done | #11 | #69 | merged | 3.1, 2.1 | ✅ Yes (done) |
 | 3.3 | 3 | Mirakl empirical verify smoke-test script | done | #12 | #70 | merged | 3.1, 3.2 | ✅ Yes (done) |
-| 4.1 | 4 | customer_marketplaces schema + F4 PROVISIONING + cron state machine transitions matrix | backlog | #13 | — | — | 2.1, 9.0, 9.1 | ✅ Yes |
-| 4.2 | 4 | skus, sku_channels, baseline_snapshots, scan_jobs schemas + RLS | backlog | #14 | — | — | 4.1 | ❌ No (4.1 not done) |
-| 4.3 | 4 | Key entry form /onboarding/key + inline 5s validation + encrypted persistence [MERGE_BLOCK until 4.4] | backlog | #15 | — | — | 4.1, 1.2, 3.1 | ❌ No (4.1 not done) |
-| 4.4 | 4 | Async catalog scan orchestration A01 PC01 OF21 P11 tier-classify baseline (atomicity sibling 4.1) | backlog | #16 | — | — | 4.3, 3.2, 4.2 | ❌ No (4.1 not done) |
+| 4.1 | 4 | customer_marketplaces schema + F4 PROVISIONING + cron state machine transitions matrix | done | #13 | #71 | merged | 2.1, 9.0, 9.1 | ✅ Yes (done) |
+| 4.2 | 4 | skus, sku_channels, baseline_snapshots, scan_jobs schemas + RLS | backlog | #14 | — | — | 4.1 | ✅ Yes |
+| 4.3 | 4 | Key entry form /onboarding/key + inline 5s validation + encrypted persistence [MERGE_BLOCK until 4.4] | backlog | #15 | — | — | 4.1, 1.2, 3.1 | ✅ Yes |
+| 4.4 | 4 | Async catalog scan orchestration A01 PC01 OF21 P11 tier-classify baseline (atomicity sibling 4.1) | backlog | #16 | — | — | 4.3, 3.2, 4.2 | ❌ No (4.3 not done) |
 | 4.5 | 4 | Scan progress page /onboarding/scan — closeable + reconnectable + status polling | backlog | #17 | — | — | 4.4 | ❌ No (4.4 not done) |
 | 4.6 | 4 | Scan-failed email + /scan-failed interception | backlog | #18 | — | — | 4.4 | ❌ No (4.4 not done) |
 | 4.7 | 4 | Scan-ready interstitial /onboarding/scan-ready (UX-DR33-34) | backlog | #21 | — | — | 4.4 | ❌ No (4.4 not done) |
@@ -144,11 +144,13 @@ _Last updated: 2026-05-06T17:00:00Z_
 - Story 3.2 merged (PR #69, 2026-05-06). sprint-status: done.
 - Story 3.3 merged (PR #70, 2026-05-06). sprint-status: done. Epic 3 complete (3/3 done).
 - Epic 3 complete. Epic 3 retrospective complete (2026-05-06). Live smoke passed ✅ (A01/PC01/OF21/P11).
-- Current Ready to Work: **4.1** (depends on 2.1 (done) + 9.0 (done) + 9.1 (done) — all met; epic 3 now complete).
+- Story 4.1 merged (PR #71, 2026-05-06). sprint-status: done. ATOMICITY BUNDLE B (1/2) shipped.
+- Current Ready to Work: **4.2** and **4.3** (both depend on 4.1 which is now done; epic 3+all prior complete).
+  - 4.2: Ready (depends on 4.1 — done).
+  - 4.3: Ready (depends on 4.1, 1.2, 3.1 — all done; MERGE_BLOCK until 4.4 done).
 
 ### Parallelization Opportunities
-- Current batch: Story **4.1** is the only story Ready to Work (epic 4 gating story — sequential entry point).
-- After 4.1 done: 4.2, 4.3 unlock in parallel (both depend only on 4.1).
+- Current batch: Stories **4.2** and **4.3** are Ready to Work in parallel (4.1 is now done).
 - After 4.3 + 4.2 done: 4.4 unlocks. After 4.4 done: 4.5, 4.6, 4.7 unlock in parallel.
 - After 4.7: 4.8, then 4.9 (sequential chain).
 - After epic 4 complete: Epic 5 stories unblock (5.1 depends on 4.1 + 9.1 — both done; epic 4 must complete).
@@ -160,4 +162,5 @@ _Last updated: 2026-05-06T17:00:00Z_
 - **Bundle C**: Stories 5.1, 5.2, 6.1, 6.2, 6.3, 7.2, 7.3, 7.6 PRs must not merge until Story 7.8 integration gate passes. Engine + writer + cooperative-absorption + circuit-breaker must be validated together against all 17 P11 fixtures before any participant ships to main.
 
 ### Integration Test Gate (Phase 4.5)
-- Stories 2.1, 2.2, and 9.1 have `integration_test_required: true` — Pedro must run `npm run test:integration` locally after each of these stories completes and report pass/fail before BAD continues.
+- Stories 2.1, 2.2, 9.1, and 4.1 have `integration_test_required: true` — Pedro must run `npm run test:integration` locally after each of these stories completes and report pass/fail before BAD continues.
+- Story 4.1's gate is the next integration-test obligation (schema + F4 CHECK constraint + RLS isolation + transitionCronState audit emission).
