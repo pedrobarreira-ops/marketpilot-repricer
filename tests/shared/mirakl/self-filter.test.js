@@ -181,10 +181,9 @@ test('p11-fixture: p11-self-marked-inactive-but-returned — inactive own offer 
   const { filteredOffers, collisionDetected } = filterCompetitorOffers(rawOffers, 'My Store');
   assert.equal(filteredOffers.length, 1, 'Inactive own offer filtered by active rule');
   assert.equal(filteredOffers[0].shop_name, 'Comp A');
-  // Collision: own shop_name appears once but the offer is inactive — collisionDetected depends on
-  // whether collision check is pre-filter or post-filter. Either behavior is acceptable;
-  // document the actual implementation choice here.
-  assert.equal(typeof collisionDetected, 'boolean');
+  // SSoT: collision check runs on RAW input (pre-filter). With exactly one own-shop
+  // row (regardless of active flag), collisionDetected MUST be false.
+  assert.equal(collisionDetected, false, 'Single own-shop raw row → collisionDetected=false (active flag irrelevant to collision check)');
 });
 
 test('p11-fixture: p11-shop-name-collision — two own-shop rows signal collision', async () => {
@@ -216,19 +215,44 @@ test('p11-fixture: p11-tier3-no-competitors — empty after all filters (Tier 3)
 
 test('p11-fixture: p11-pri01-pending-skip — cooperative-absorption mock: own offer is 0-price placeholder', async () => {
   // When own offer is in-flight PRI01 import, Worten may return a 0-price placeholder.
-  // The active+positive filter must remove it cleanly without collision signal.
+  // The active+positive filter must remove it cleanly. Collision check (run on raw
+  // input per SSoT) sees exactly one own-shop row → collisionDetected=false.
   const { filterCompetitorOffers } = await import('../../../shared/mirakl/self-filter.js');
   const rawOffers = [
     { shop_name: 'My Store',  active: true, total_price: 0 },      // in-flight placeholder
     { shop_name: 'Comp A',    active: true, total_price: 28.99 },
   ];
   const { filteredOffers, collisionDetected } = filterCompetitorOffers(rawOffers, 'My Store');
-  // The 0-price own offer should be filtered by the positive-price rule first,
-  // so it should NOT trigger a shop_name match in the own-shop filter.
-  // However, since filter chain order is: active → positive → own → sort,
-  // the 0-price offer is removed at step 2 before reaching step 3.
-  // Therefore collisionDetected should be false (the own-shop row never survived to step 3).
-  // Document the actual behavior; this test may need adjustment based on implementation.
   assert.equal(filteredOffers.length, 1);
   assert.equal(filteredOffers[0].shop_name, 'Comp A');
+  // SSoT: collision check is pre-filter on raw input. One own-shop raw row → false.
+  assert.equal(collisionDetected, false, 'Single own-shop placeholder → collisionDetected=false');
+});
+
+// ── Defensive input validation (Step 7 review) ────────────────────────────────
+
+test('filterCompetitorOffers — throws TypeError on null ownShopName', async () => {
+  const { filterCompetitorOffers } = await import('../../../shared/mirakl/self-filter.js');
+  assert.throws(
+    () => filterCompetitorOffers([{ shop_name: 'A', active: true, total_price: 10 }], null),
+    TypeError,
+    'null ownShopName must throw — would otherwise match shop_name-less offers as own',
+  );
+});
+
+test('filterCompetitorOffers — throws TypeError on undefined ownShopName', async () => {
+  const { filterCompetitorOffers } = await import('../../../shared/mirakl/self-filter.js');
+  assert.throws(
+    () => filterCompetitorOffers([{ shop_name: 'A', active: true, total_price: 10 }], undefined),
+    TypeError,
+  );
+});
+
+test('filterCompetitorOffers — throws TypeError on empty-string ownShopName', async () => {
+  const { filterCompetitorOffers } = await import('../../../shared/mirakl/self-filter.js');
+  assert.throws(
+    () => filterCompetitorOffers([{ shop_name: '', active: true, total_price: 10 }], ''),
+    TypeError,
+    'empty-string ownShopName would match shop_name="" placeholders incorrectly',
+  );
 });
