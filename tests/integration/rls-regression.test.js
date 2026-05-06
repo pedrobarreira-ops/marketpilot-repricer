@@ -168,20 +168,79 @@ const CUSTOMER_SCOPED_TABLES = [
     cleanHelper: async (_pool, _customerId) => { /* cleaned by CASCADE from customers */ },
   },
   {
+    table: 'customer_marketplaces',
+    ownerCol: 'customer_id',
+    // Story 4.1: customer_marketplaces ships with F4 PROVISIONING state.
+    // Seed a minimal row in PROVISIONING with all A01/PC01 columns NULL (satisfies F4 CHECK).
+    // max_discount_pct is required (no DEFAULT per architecture constraint).
+    seedHelper: async (pool, customerId) => {
+      await pool.query(
+        `INSERT INTO customer_marketplaces
+           (customer_id, operator, marketplace_instance_url, max_discount_pct)
+         VALUES ($1, 'WORTEN', 'https://marketplace.worten.pt', 0.015)
+         ON CONFLICT DO NOTHING`,
+        [customerId],
+      );
+    },
+    cleanHelper: async (pool, customerId) => {
+      await pool.query(
+        'DELETE FROM customer_marketplaces WHERE customer_id = $1',
+        [customerId],
+      );
+    },
+  },
+  {
     table: 'shop_api_key_vault',
     ownerCol: 'customer_marketplace_id',
-    // Note: customer_marketplace_id is a FK to customer_marketplaces (Epic 4).
-    // At Epic 2 the table exists (via deferred migration, once applied) but
-    // customer_marketplaces does not yet. Row-level RLS isolation is deferred to Story 4.x.
-    // The test skips row ops when the table doesn't exist; policy existence is checked separately.
-    seedHelper: async (_pool, _customerId) => {
-      // Deferred until Epic 4 ships customer_marketplaces migration.
-      // Story 4.2: INSERT INTO customer_marketplaces (...) then shop_api_key_vault (...).
+    // Story 4.1: customer_marketplaces now exists as FK target.
+    // shop_api_key_vault rows are seeded via a customer_marketplaces row.
+    // RLS is customer-scoped via join through customer_marketplaces.
+    seedHelper: async (pool, customerId) => {
+      // Insert a customer_marketplaces row first (to satisfy the FK).
+      const { rows } = await pool.query(
+        `INSERT INTO customer_marketplaces
+           (customer_id, operator, marketplace_instance_url, max_discount_pct)
+         VALUES ($1, 'WORTEN', 'https://marketplace-vault-seed.worten.pt', 0.015)
+         ON CONFLICT DO NOTHING
+         RETURNING id`,
+        [customerId],
+      );
+      if (rows.length === 0) {
+        // Row already exists from customer_marketplaces seedHelper — find it
+        const { rows: existing } = await pool.query(
+          `SELECT id FROM customer_marketplaces WHERE customer_id = $1 LIMIT 1`,
+          [customerId],
+        );
+        if (existing.length === 0) return;
+        const cmId = existing[0].id;
+        await pool.query(
+          `INSERT INTO shop_api_key_vault
+             (customer_marketplace_id, ciphertext, nonce, auth_tag, master_key_version)
+           VALUES ($1, '\\xdeadbeef', '\\xdeadbeef', '\\xdeadbeef', 1)
+           ON CONFLICT DO NOTHING`,
+          [cmId],
+        );
+        return;
+      }
+      const cmId = rows[0].id;
+      await pool.query(
+        `INSERT INTO shop_api_key_vault
+           (customer_marketplace_id, ciphertext, nonce, auth_tag, master_key_version)
+         VALUES ($1, '\\xdeadbeef', '\\xdeadbeef', '\\xdeadbeef', 1)
+         ON CONFLICT DO NOTHING`,
+        [cmId],
+      );
     },
-    cleanHelper: async (_pool, _customerId) => {
-      // Deferred until Epic 4 ships customer_marketplaces migration.
+    cleanHelper: async (pool, customerId) => {
+      // shop_api_key_vault rows cascade-delete when customer_marketplaces rows are deleted.
+      await pool.query(
+        `DELETE FROM shop_api_key_vault
+         WHERE customer_marketplace_id IN (
+           SELECT id FROM customer_marketplaces WHERE customer_id = $1
+         )`,
+        [customerId],
+      );
     },
-    deferred: true, // Signals parameterized tests to skip row operations for this table.
   },
   {
     table: 'audit_log',
@@ -193,12 +252,11 @@ const CUSTOMER_SCOPED_TABLES = [
     // The RLS policy (audit_log_select_own) is present in the migration; policy
     // existence is verified by negative_assertion_no_migration_missing_rls_policy.
     seedHelper: async (_pool, _customerId) => {
-      // Deferred until Epic 4 ships customer_marketplaces migration.
-      // Story 9.x: INSERT INTO audit_log (customer_marketplace_id, event_type, payload)
+      // Deferred until Story 9.x: INSERT INTO audit_log (customer_marketplace_id, event_type, payload)
       // using a real customer_marketplace row seeded for the test customer.
     },
     cleanHelper: async (_pool, _customerId) => {
-      // Deferred until Epic 4 ships customer_marketplaces migration.
+      // Deferred until Story 9.x.
     },
     deferred: true, // Signals parameterized tests to skip row operations for this table.
   },
@@ -602,10 +660,11 @@ test('rls_isolation_suite', { concurrency: 1 }, async (t) => {
 });
 
 // ---------------------------------------------------------------------------
-// AC#5 — Deferred: assert shop_api_key_vault RLS policy exists in pg_policies
-// (row-level isolation deferred until Epic 4)
+// Story 4.1 / AC#4 — shop_api_key_vault row-level RLS isolation
+// (deferred placeholder from Epic 2 now replaced with real tests, unlocked by
+// customer_marketplaces migration shipping in Story 4.1)
 // ---------------------------------------------------------------------------
-test('rls_isolation_shop_api_key_vault_deferred_awaiting_epic4', { concurrency: 1 }, async (t) => {
+test('shop_api_key_vault_select_own_policy_exists_and_has_auth_uid_guard', { concurrency: 1 }, async (t) => {
   t.after(async () => {
     await closeServiceRolePool();
   });
@@ -614,12 +673,11 @@ test('rls_isolation_shop_api_key_vault_deferred_awaiting_epic4', { concurrency: 
   const exists = await tableExists(pool, 'shop_api_key_vault');
 
   if (!exists) {
-    // Migration is deferred (202604301204_create_shop_api_key_vault.sql.deferred-until-story-4.1)
-    // — table not yet applied. This is expected at Epic 2 baseline.
+    // Migration not yet applied — skip gracefully.
     return;
   }
 
-  // Table exists: assert RLS is enabled and the select policy is present.
+  // Assert RLS is enabled and the select policy is present.
   const { rows: policyRows } = await pool.query(
     `SELECT policyname, cmd, qual
      FROM pg_policies
@@ -636,6 +694,80 @@ test('rls_isolation_shop_api_key_vault_deferred_awaiting_epic4', { concurrency: 
     qual.includes('auth.uid() IS NOT NULL') || qual.includes('uid() IS NOT NULL'),
     `shop_api_key_vault_select_own USING clause must include "auth.uid() IS NOT NULL" defensive guard; got: ${qual}`
   );
+});
+
+test('shop_api_key_vault_customer_a_cannot_read_customer_b_vault_row', { concurrency: 1 }, async (t) => {
+  t.after(async () => {
+    await closeServiceRolePool();
+    await endResetAuthPool();
+  });
+
+  const pool = getServiceRoleClient();
+  const vaultExists = await tableExists(pool, 'shop_api_key_vault');
+  const cmExists = await tableExists(pool, 'customer_marketplaces');
+
+  if (!vaultExists || !cmExists) {
+    // Migrations not yet applied — skip gracefully.
+    return;
+  }
+
+  await resetAuthAndCustomers();
+
+  const { userAId, userBId, jwtA } = await seedTwoCustomers();
+
+  // Create customer_marketplaces rows for both customers (service-role)
+  const { rows: cmBRows } = await pool.query(
+    `INSERT INTO customer_marketplaces
+       (customer_id, operator, marketplace_instance_url, max_discount_pct)
+     VALUES ($1, 'WORTEN', 'https://marketplace.worten.pt', 0.015)
+     RETURNING id`,
+    [userBId],
+  );
+  const cmBId = cmBRows[0].id;
+
+  // Create shop_api_key_vault row for customer B
+  await pool.query(
+    `INSERT INTO shop_api_key_vault
+       (customer_marketplace_id, ciphertext, nonce, auth_tag, master_key_version)
+     VALUES ($1, '\\xdeadbeef', '\\xdeadbeef', '\\xdeadbeef', 1)`,
+    [cmBId],
+  );
+
+  // Also seed customer A's marketplace (needed for pre-condition: A is authenticated)
+  await pool.query(
+    `INSERT INTO customer_marketplaces
+       (customer_id, operator, marketplace_instance_url, max_discount_pct)
+     VALUES ($1, 'WORTEN', 'https://marketplace.worten.pt', 0.015)`,
+    [userAId],
+  );
+
+  // Pre-condition: service-role can see B's vault row
+  const { rows: preRows } = await pool.query(
+    'SELECT customer_marketplace_id FROM shop_api_key_vault WHERE customer_marketplace_id = $1',
+    [cmBId],
+  );
+  assert.strictEqual(preRows.length, 1, 'pre-condition: B vault row must exist via service-role');
+
+  // Customer A's JWT-scoped connection must see 0 vault rows for B's marketplace
+  const clientA = await getRlsAwareClient(jwtA);
+  try {
+    const { rows } = await clientA.query(
+      `SELECT s.customer_marketplace_id
+       FROM shop_api_key_vault s
+       JOIN customer_marketplaces cm ON cm.id = s.customer_marketplace_id
+       WHERE cm.customer_id = $1`,
+      [userBId],
+    );
+    assert.strictEqual(
+      rows.length,
+      0,
+      'customer A must not be able to read customer B vault rows in shop_api_key_vault via JOIN',
+    );
+  } finally {
+    await clientA.release();
+  }
+
+  await resetAuthAndCustomers();
 });
 
 // ---------------------------------------------------------------------------

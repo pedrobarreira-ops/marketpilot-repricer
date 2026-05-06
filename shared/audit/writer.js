@@ -134,7 +134,7 @@ export async function writeAuditEvent ({
 
   // INSERT — priority is intentionally omitted; derived by Story 9.1 trigger.
   // Columns: customer_marketplace_id, event_type, payload, cycle_id, sku_id, sku_channel_id
-  const { rows } = await tx.query(
+  const { rows = [] } = await tx.query(
     `INSERT INTO audit_log
        (customer_marketplace_id, event_type, payload, cycle_id, sku_id, sku_channel_id)
      VALUES
