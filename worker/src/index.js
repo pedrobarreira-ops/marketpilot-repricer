@@ -55,4 +55,19 @@ startHeartbeat(logger);
 // for 2 months ahead (e.g., May 28 → creates July's partition).
 // safe: cross-customer cron — Story 9.1's monthly-partition-create.js carries the
 // worker-must-filter-by-customer opt-out comment at the top of that file.
-cron.schedule('0 2 28 * *', () => runMonthlyPartitionCreate(logger), { timezone: 'Europe/Lisbon' });
+//
+// Defensive .catch(): runMonthlyPartitionCreate is async; node-cron does not await
+// the callback. If the function rejects (e.g. getServiceRoleClient() throws
+// synchronously due to missing env, or db.query rejects outside the inner try),
+// the rejection would propagate as an unhandledRejection and could destabilise the
+// worker process. Catching here turns any escaping rejection into a structured
+// log entry so the worker stays up and the next month's cron tick still runs.
+cron.schedule(
+  '0 2 28 * *',
+  () => {
+    runMonthlyPartitionCreate(logger).catch((err) => {
+      logger.error({ err }, 'monthly-partition-create: cron callback rejected');
+    });
+  },
+  { timezone: 'Europe/Lisbon' }
+);
