@@ -676,3 +676,30 @@ Modified files:
 ### Change Log
 
 - 2026-05-06 — Story 4.1 implementation complete: customer_marketplaces migration (F4+F13), cron_state transitions matrix SSoT, transitionCronState function, no-raw-cron-state-update ESLint rule, RLS regression debt paid (Epic 2 retro item 6), shop_api_key_vault deferred migration activated
+
+---
+
+### Review Findings (2026-05-06)
+
+Code review run via `bmad-code-review` — diff vs `main` (2612 lines, 14 files). All 8 ACs verified:
+- AC#1 schema + 4 enums + state defaults: `supabase/migrations/202604301203_create_customer_marketplaces.sql` matches verbatim DDL
+- AC#2 F4 CHECK constraint: present and asserts all A01/PC01 NOT NULL when leaving PROVISIONING
+- AC#3 indexes + UNIQUE: all 3 indexes + `(customer_id, operator, shop_id)` UNIQUE present
+- AC#4 RLS + regression debt: policies in same migration; `customer_marketplaces` + `shop_api_key_vault` added to `CUSTOMER_SCOPED_TABLES` in BOTH `tests/integration/rls-regression.test.js` and `scripts/rls-regression-suite.js`; deferred Epic-2 vault test replaced with two live tests
+- AC#5 LEGAL_CRON_TRANSITIONS: 12 pairs exact, named export, no inline conditionals
+- AC#6 transitionCronState: validates before DB call, optimistic UPDATE, conditional audit dispatch, both error classes exported
+- AC#7 unit tests: `node --test tests/shared/state/cron-state.test.js` → 7/7 pass
+- AC#8 ESLint rule: 0 errors on `npx eslint shared/state/ eslint-rules/no-raw-cron-state-update.js`; ESLint fixture test in `cron-state.test.js` exercises the rule programmatically
+
+All critical constraints honored: UPPER_SNAKE_CASE enum values, no `export default` in source (eslint-rules use plugin-shape default export consistent with existing `no-direct-fetch.js` etc.), no `.then()` chains, no `console.log`, transitions matrix is the spec, RLS in same migration, `max_discount_pct` no DEFAULT.
+
+Triage outcome: **0 decision-needed, 0 patch, 4 defer, 5 dismiss** — clean review. No code changes applied.
+
+#### Deferred items (also recorded in `_bmad-output/implementation-artifacts/deferred-work.md`)
+
+- [x] [Review][Defer] `transitionCronState` silently skips audit emission when `tx.query` is not callable [shared/state/cron-state.js:151] — deferred, latent risk gated by always passing `tx = client` in production
+- [x] [Review][Defer] Audit-emission integration test compares `COUNT(*)` to `LIMIT 1` length [tests/shared/state/cron-state.test.js:982-994] — deferred, fragile but works post-reset
+- [x] [Review][Defer] Stale TODO in `shop_api_key_vault` migration [supabase/migrations/202604301204_create_shop_api_key_vault.sql:55-57] — deferred, blocked by migration immutability rule
+- [x] [Review][Defer] `fullA01Pc01Columns()` test fixture uses `channels: ['{}']` placeholder [tests/shared/state/cron-state.test.js:288] — deferred, shape-only test, real values land in Story 4.4
+
+Dismissed (5): writeAuditEvent `rows = []` default (acceptable defensive fix); two-customers.sql placeholder UUIDs (regex-parsed only, comment explains); deferred-migration rename (planned activation per Story 1.2); `.gitkeep` in `shared/state/` (harmless scaffold artifact); generic INSERT path 23502-vs-42501 conflation (already a pre-existing deferred item from Story 2.2 review, not regressed by this story).
