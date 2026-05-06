@@ -1,5 +1,5 @@
 # Story Dependency Graph
-_Last updated: 2026-05-06T00:00:00Z_
+_Last updated: 2026-05-06T12:00:00Z_
 
 ## Stories
 
@@ -13,7 +13,7 @@ _Last updated: 2026-05-06T00:00:00Z_
 | 2.1 | 2 | RLS-aware app DB client + service-role worker DB client + transaction helper | done | #6 | #64 | merged | 1.4 | ✅ Yes (done) |
 | 2.2 | 2 | RLS regression suite + CI block | done | #7 | #65 | merged | 1.4, 1.2, 2.1 | ✅ Yes (done) |
 | 9.0 | 9 | writeAuditEvent SSoT module + audit_log_event_types lookup table (CALENDAR-EARLY) | done | #8 | #66 | merged | 1.1, 1.3, 2.1; after_epic: 2 | ✅ Yes (done) |
-| 9.1 | 9 | Audit log partitioned base table + priority-derivation trigger + monthly partition cron (CALENDAR-EARLY) | backlog | #9 | — | — | 9.0, 2.1; after_epic: 2 | ✅ Yes (calendar-early) |
+| 9.1 | 9 | Audit log partitioned base table + priority-derivation trigger + monthly partition cron (CALENDAR-EARLY) | done | #9 | #67 | merged | 9.0, 2.1; after_epic: 2 | ✅ Yes (done) |
 | 3.1 | 3 | Mirakl HTTP client port — apiClient + retry/backoff + safe-error mapping + no-direct-fetch ESLint rule | backlog | #10 | — | — | 1.1, 1.3; epic 2 complete | ✅ Yes |
 | 3.2 | 3 | Endpoint wrappers A01, PC01, OF21, P11 + Mirakl mock server | backlog | #11 | — | — | 3.1, 2.1 | ❌ No (3.1 not done) |
 | 3.3 | 3 | Mirakl empirical verify smoke-test script | backlog | #12 | — | — | 3.1, 3.2 | ❌ No (3.1 not done) |
@@ -137,17 +137,16 @@ _Last updated: 2026-05-06T00:00:00Z_
   - Story 2.2 merged (PR #65, 2026-05-04). sprint-status: done.
 - Epic 2 retrospective complete (2026-05-04).
 - Calendar-early: Story 9.0 merged (PR #66, 2026-05-04). sprint-status: done.
-  - epic-9 row flipped from backlog → in-progress (9.0 done; 9.1-9.6 still backlog).
-- Story 9.1 is now Ready to Work (calendar-early; 9.0 done + after_epic:2 satisfied).
-- After 9.1 merges: 12 Batch-2 dependents (4.1, 5.1, 5.2, 6.1, 6.2, 6.3, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7) unblock.
+- Calendar-early: Story 9.1 merged (PR #67, 2026-05-06). sprint-status: done.
+  - epic-9 row: in-progress (9.0 + 9.1 done; 9.2-9.6 still backlog).
+- Calendar-early block complete (9.0 + 9.1 both done). 12 Batch-2 dependents (4.1, 5.1, 5.2, 6.1, 6.2, 6.3, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7) unblocked from the calendar-early gate — but still blocked on epic 3 completion.
 - Epic 3 unblocked (epic 2 complete): Story 3.1 is Ready to Work.
-- Current Ready to Work: 9.1 (calendar-early), 3.1 (Epic 3 start). 9.1 and 3.1 can run in parallel.
+- Current Ready to Work: 3.1 (Epic 3 start — only active ready story).
 
 ### Parallelization Opportunities
-- Current batch: Stories 9.1 (calendar-early) + 3.1 (Epic 3 start) can run in parallel.
-- After 9.1 done: Epic 4 batch-2 dependents unblock (4.1, plus 5.1 onwards).
+- Current batch: Story 3.1 is the only story Ready to Work. Epic 3 is sequential (3.1 → 3.2 → 3.3).
 - After 3.1 done: 3.2 unlocks; after 3.2 done: 3.3 unlocks (Epic 3 sequential chain).
-- Batch 4 (after calendar-early 9.0+9.1 complete + Epic 3 complete): Epic 4 stories unblock.
+- After epic 3 complete: Epic 4 stories unblock (4.1 depends on 9.0+9.1 — both now done + epic 3).
 - Epic 4 onwards: larger parallelization possible within each epic (e.g., 4.5, 4.6, 4.7 can run in parallel after 4.4 ships).
 - Bundle C (Epics 5-7): Stories 5.1, 5.2, 6.1, 6.2, 6.3, 7.2, 7.3, 7.6 can be developed in parallel but ALL must hold for merge until 7.8 gate passes.
 - Epic 8 has the most parallelism: stories 8.3-8.12 can mostly run in parallel after 8.1 ships.
@@ -157,4 +156,4 @@ _Last updated: 2026-05-06T00:00:00Z_
 - **Bundle C**: Stories 5.1, 5.2, 6.1, 6.2, 6.3, 7.2, 7.3, 7.6 PRs must not merge until Story 7.8 integration gate passes. Engine + writer + cooperative-absorption + circuit-breaker must be validated together against all 17 P11 fixtures before any participant ships to main.
 
 ### Integration Test Gate (Phase 4.5)
-- Stories 2.1 and 2.2 have `integration_test_required: true` — Pedro must run `npm run test:integration` locally after each of these stories completes and report pass/fail before BAD continues.
+- Stories 2.1, 2.2, and 9.1 have `integration_test_required: true` — Pedro must run `npm run test:integration` locally after each of these stories completes and report pass/fail before BAD continues.
