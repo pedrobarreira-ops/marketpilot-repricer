@@ -244,7 +244,7 @@ development_status:
 epic_test_design:
   1: done
   2: done
-  3: pending
+  3: done  # test scaffolds committed 2026-05-06 (epic-start-test-design subagent)
   4: pending
   5: pending
   6: pending

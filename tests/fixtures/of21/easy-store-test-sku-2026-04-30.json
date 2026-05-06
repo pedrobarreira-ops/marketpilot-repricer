@@ -1,0 +1,30 @@
+{
+  "_note": "Fixture derived from verification-results.json — Easy-Store OF21 first page, 2026-04-30. Contains 2 representative SKUs with EAN references.",
+  "total_count": 2,
+  "offers": [
+    {
+      "shop_sku": "EZ8809606851663",
+      "offer_sku": null,
+      "product_sku": "mirakl-internal-uuid-001",
+      "price": 29.99,
+      "total_price": 31.99,
+      "min_shipping_price": 2.00,
+      "quantity": 10,
+      "active": true,
+      "channels": [{ "code": "WRT_PT_ONLINE" }],
+      "product_references": [{ "reference_type": "EAN", "reference": "8809606851663" }]
+    },
+    {
+      "shop_sku": "EZ5901234123457",
+      "offer_sku": null,
+      "product_sku": "mirakl-internal-uuid-002",
+      "price": 49.99,
+      "total_price": 51.99,
+      "min_shipping_price": 2.00,
+      "quantity": 5,
+      "active": true,
+      "channels": [{ "code": "WRT_PT_ONLINE" }, { "code": "WRT_ES_ONLINE" }],
+      "product_references": [{ "reference_type": "EAN", "reference": "5901234123457" }]
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "_note": "Fixture derived from verification-results.json — P11 call for EAN 8809606851663, WRT_ES_ONLINE channel, 2026-04-30.",
+  "products": [
+    {
+      "product_references": [{ "reference_type": "EAN", "reference": "8809606851663" }],
+      "product_sku": "mirakl-internal-uuid-001",
+      "offers": [
+        { "shop_name": "Competitor X",  "active": true,  "total_price": 27.00, "shop_id": null },
+        { "shop_name": "Easy - Store",  "active": true,  "total_price": 30.00, "shop_id": null }
+      ]
+    }
+  ]
+}

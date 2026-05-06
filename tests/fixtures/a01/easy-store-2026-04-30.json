@@ -1,0 +1,13 @@
+{
+  "_note": "Fixture derived from verification-results.json — Easy-Store (Gabriel) Worten account, 2026-04-30. Values match empirical captures. PII: shop_id 19706, shop_name 'Easy - Store'.",
+  "shop_id": 19706,
+  "shop_name": "Easy - Store",
+  "shop_state": "OPEN",
+  "currency_iso_code": "EUR",
+  "is_professional": true,
+  "channels": [
+    { "code": "WRT_PT_ONLINE", "label": "Worten PT Online" },
+    { "code": "WRT_ES_ONLINE", "label": "Worten ES Online" }
+  ],
+  "domains": ["worten.pt", "worten.es"]
+}

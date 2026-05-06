@@ -1,0 +1,12 @@
+{
+  "_note": "Fixture derived from verification-results.json — Worten PC01 response, 2026-04-30. Key empirical facts: channel_pricing=SINGLE, operator_csv_delimiter=SEMICOLON, offer_prices_decimals=2.",
+  "channel_pricing": "SINGLE",
+  "operator_csv_delimiter": "SEMICOLON",
+  "offer_prices_decimals": 2,
+  "discount_period_required": false,
+  "scheduled_pricing": false,
+  "volume_pricing": false,
+  "multi_currency": false,
+  "competitive_pricing_tool": true,
+  "order_tax_mode": "TAX_EXCLUSIVE"
+}

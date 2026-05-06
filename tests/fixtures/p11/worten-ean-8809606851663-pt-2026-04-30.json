@@ -1,0 +1,15 @@
+{
+  "_note": "Fixture derived from verification-results.json — P11 call for EAN 8809606851663, WRT_PT_ONLINE channel, 2026-04-30. Represents p11-tier1-undercut-succeeds scenario. Note: shop_id is null for competitor offers (empirically verified AD13).",
+  "products": [
+    {
+      "product_references": [{ "reference_type": "EAN", "reference": "8809606851663" }],
+      "product_sku": "mirakl-internal-uuid-001",
+      "offers": [
+        { "shop_name": "Competitor A",  "active": true,  "total_price": 28.50, "shop_id": null },
+        { "shop_name": "Competitor B",  "active": true,  "total_price": 32.00, "shop_id": null },
+        { "shop_name": "Easy - Store",  "active": true,  "total_price": 31.99, "shop_id": null },
+        { "shop_name": "Strawberrynet", "active": true,  "total_price": 0,     "shop_id": null }
+      ]
+    }
+  ]
+}
