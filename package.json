@@ -14,7 +14,8 @@
     "test:smoke": "node --env-file=.env.test --test tests/integration/scaffold-smoke.test.js",
     "test:rls": "node --env-file=.env.test --test --test-concurrency=1 tests/integration/rls-regression.test.js && node --env-file=.env.test scripts/rls-regression-suite.js",
     "db:migrate": "npx supabase db push",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "mirakl:verify": "node --env-file=.env.local scripts/mirakl-empirical-verify.js"
   },
   "repository": {
     "type": "git",

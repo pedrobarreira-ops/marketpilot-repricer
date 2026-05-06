@@ -134,33 +134,158 @@ test('.gitignore — verification-results.json is gitignored', async () => {
 // to validate the script's flow without live credentials.
 
 test('mirakl-empirical-verify — smoke-test sequence passes against mock server', async () => {
-  // Import the reusable verification function and run it against the mock server
+  // Import the reusable verification function and run it against the mock server.
+  // Story 3.3 is implemented — runVerification MUST exist as a named export.
   const { createMiraklMockServer } = await import('../mocks/mirakl-server.js');
   const { mockServer, baseUrl } = await createMiraklMockServer();
   try {
-    // Dynamically import the script — it must be importable as an ES module
-    let verifyFn;
-    try {
-      const mod = await import('../../scripts/mirakl-empirical-verify.js');
-      verifyFn = mod.runVerification ?? mod.verifyMiraklConnection ?? mod.default;
-    } catch (e) {
-      // Script not yet implemented — skip behavioral test, structural tests above suffice
-      assert.ok(true, `Script not yet implemented (${e.message}); structural tests above are the pre-implementation contract`);
-      return;
-    }
-    if (typeof verifyFn !== 'function') {
-      assert.ok(true, 'Script does not export a named function yet; structural tests are sufficient pre-implementation');
-      return;
-    }
+    const mod = await import('../../scripts/mirakl-empirical-verify.js');
+    assert.equal(typeof mod.runVerification, 'function',
+      'Script must export named function runVerification (Story 4.3 / 4.4 contract)');
     // Run the verification against the mock — should pass all assertions
-    const result = await verifyFn({
+    const result = await mod.runVerification({
       baseUrl,
       apiKey: 'test-api-key',
       referenceEan: '8809606851663',
       channel: 'WRT_PT_ONLINE',
       dryRun: true,  // do not write verification-results.json
     });
-    assert.ok(result?.success !== false, 'Verification must pass against mock server with fixture data');
+    assert.equal(result.success, true, 'Verification must pass against mock server with fixture data');
+  } finally {
+    await mockServer.close();
+  }
+});
+
+// ── AC1 (full sequence): all four calls fire in correct order ───────────────
+
+test('runVerification — full sequence calls A01, PC01, OF21, P11 in order', async () => {
+  const { createMiraklMockServer } = await import('../mocks/mirakl-server.js');
+  const { mockServer, baseUrl } = await createMiraklMockServer();
+  try {
+    const { runVerification } = await import('../../scripts/mirakl-empirical-verify.js');
+    const result = await runVerification({
+      baseUrl,
+      apiKey: 'test-api-key',
+      referenceEan: '8809606851663',
+      channel: 'WRT_PT_ONLINE',
+      dryRun: true,
+    });
+    const callOrder = result.results.map(r => r.call);
+    assert.deepEqual(callOrder, ['A01', 'PC01', 'OF21', 'P11'],
+      'AD16 mandates A01 → PC01 → OF21 → P11 sequence');
+  } finally {
+    await mockServer.close();
+  }
+});
+
+// ── AC2: inlineOnly path runs ONLY P11 (5s budget for Story 4.3) ────────────
+
+test('runVerification — inlineOnly: true runs only P11 (skips A01/PC01/OF21)', async () => {
+  const { createMiraklMockServer } = await import('../mocks/mirakl-server.js');
+  const { mockServer, baseUrl } = await createMiraklMockServer();
+  try {
+    const { runVerification } = await import('../../scripts/mirakl-empirical-verify.js');
+    const result = await runVerification({
+      baseUrl,
+      apiKey: 'test-api-key',
+      referenceEan: '8809606851663',
+      channel: 'WRT_PT_ONLINE',
+      dryRun: true,
+      inlineOnly: true,
+    });
+    const callOrder = result.results.map(r => r.call);
+    assert.deepEqual(callOrder, ['P11'],
+      'inlineOnly=true must skip A01/PC01/OF21 — only P11 fires (NFR-P6 5s budget)');
+    assert.equal(result.success, true, 'inlineOnly path must succeed against mock server');
+  } finally {
+    await mockServer.close();
+  }
+});
+
+// ── AC1 abort branch: PC01 channel_pricing=DISABLED must fail success flag ──
+
+test('runVerification — channel_pricing=DISABLED triggers PT abort (success=false)', async () => {
+  // Stand up a custom mock that returns DISABLED for PC01
+  const Fastify = (await import('fastify')).default;
+  const fastify = Fastify({ logger: false });
+  fastify.get('/api/account', (_req, reply) => reply.send({
+    shop_id: 19706, shop_name: 'Easy - Store', shop_state: 'OPEN',
+    currency_iso_code: 'EUR', is_professional: true,
+    channels: [{ code: 'WRT_PT_ONLINE', label: 'Worten PT Online' }],
+    domains: ['worten.pt'],
+  }));
+  fastify.get('/api/platform/configuration', (_req, reply) => reply.send({
+    channel_pricing: 'DISABLED',
+    operator_csv_delimiter: 'SEMICOLON',
+    offer_prices_decimals: 2,
+  }));
+  fastify.get('/api/offers', (_req, reply) => reply.send({ total_count: 0, offers: [] }));
+  fastify.get('/api/products/offers', (_req, reply) => reply.send({ products: [] }));
+  await fastify.listen({ port: 0, host: '127.0.0.1' });
+  const { port } = fastify.server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  // Suppress the expected stderr write so test output stays clean
+  const origStderrWrite = process.stderr.write.bind(process.stderr);
+  let stderrCapture = '';
+  process.stderr.write = (chunk) => { stderrCapture += String(chunk); return true; };
+  try {
+    const { runVerification } = await import('../../scripts/mirakl-empirical-verify.js');
+    const result = await runVerification({
+      baseUrl,
+      apiKey: 'test-api-key',
+      referenceEan: '8809606851663',
+      channel: 'WRT_PT_ONLINE',
+      dryRun: true,
+    });
+    assert.equal(result.success, false,
+      'DISABLED channel_pricing must drive success=false (MarketPilot cannot operate)');
+    const pc01 = result.results.find(r => r.call === 'PC01');
+    const disabledAssertion = pc01.assertions.find(a => a.label.includes('!== DISABLED'));
+    assert.equal(disabledAssertion.passed, false,
+      'PC01 channel_pricing !== DISABLED assertion must fail');
+    // PT user-facing message confirms the abort branch ran
+    assert.match(stderrCapture, /MarketPilot/,
+      'DISABLED branch must write PT abort message to stderr');
+  } finally {
+    process.stderr.write = origStderrWrite;
+    await fastify.close();
+  }
+});
+
+// ── AC3: result shape — apiKeyHash masked, apiKey absent, fields present ────
+
+test('runVerification — result shape: apiKeyHash is 16 hex chars, apiKey absent', async () => {
+  const { createMiraklMockServer } = await import('../mocks/mirakl-server.js');
+  const { mockServer, baseUrl } = await createMiraklMockServer();
+  try {
+    const { runVerification } = await import('../../scripts/mirakl-empirical-verify.js');
+    const apiKey = 'super-secret-key-do-not-leak-12345';
+    const result = await runVerification({
+      baseUrl,
+      apiKey,
+      referenceEan: '8809606851663',
+      channel: 'WRT_PT_ONLINE',
+      dryRun: true,
+    });
+    // AC3: apiKeyHash present, exactly 16 hex chars
+    assert.match(result.apiKeyHash, /^[0-9a-f]{16}$/,
+      'apiKeyHash must be 16 hex chars (SHA-256 prefix)');
+    // AC3: timestamp ISO 8601
+    assert.match(result.timestamp, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/,
+      'timestamp must be ISO 8601');
+    // AC3 security: raw apiKey NEVER appears anywhere in serialized result
+    const serialized = JSON.stringify(result);
+    assert.equal(serialized.includes(apiKey), false,
+      'Raw apiKey value must never appear in result (security contract)');
+    // AC3: results[] entries have the required shape
+    for (const call of result.results) {
+      assert.ok(['A01', 'PC01', 'OF21', 'P11'].includes(call.call), 'call label valid');
+      assert.equal(typeof call.status, 'number', 'status numeric');
+      assert.equal(typeof call.ok, 'boolean', 'ok boolean');
+      assert.equal(typeof call.latency_ms, 'number', 'latency_ms numeric');
+      assert.ok(Array.isArray(call.assertions), 'assertions array');
+    }
   } finally {
     await mockServer.close();
   }
