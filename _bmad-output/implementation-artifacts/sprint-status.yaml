@@ -104,7 +104,7 @@ development_status:
   # Numerical Epic 9 slot retains 9.2-9.6 only (post-Epic 8).
   # =========================================================================
   9-0-writeauditevent-ssot-module-audit-log-event-types-lookup-table-26-row-ad20-taxonomy-seed: done  # CALENDAR-EARLY; ships eslint-rules/no-raw-INSERT-audit-log.js; bmad-create-story: Story 9.0 sharded 2026-05-04 (Bob)
-  9-1-audit-log-partitioned-base-table-priority-derivation-trigger-initial-partition-monthly-partition-cron: atdd-done  # CALENDAR-EARLY; depends on 9.0 + 2.1 (RLS clients); bmad-create-story: Story 9.1 sharded 2026-05-06 (BAD Step 1)
+  9-1-audit-log-partitioned-base-table-priority-derivation-trigger-initial-partition-monthly-partition-cron: review  # CALENDAR-EARLY; depends on 9.0 + 2.1 (RLS clients); bmad-create-story: Story 9.1 sharded 2026-05-06 (BAD Step 1); dev-done 2026-05-06 (BAD dev-story)
 
   # =========================================================================
   # EPIC 3 -- Mirakl Integration Foundation  (architecture S-I phase 3)
