@@ -115,6 +115,7 @@
 <script type="text/babel" src="audit-surfaces.jsx"></script>
 <script type="text/babel" src="modal-shared.jsx"></script>
 <script type="text/babel" src="phase-c.jsx"></script>
+<script type="text/babel" src="phase-d.jsx"></script>
 
 <script type="text/babel" data-presets="react">
 // useState is already exposed on window by dashboard-shared.jsx
@@ -394,6 +395,9 @@ const ARTBOARDS = [
   { id: 'onb-scan',         label: '10 · Onboarding · scan-ready ("porquê?" expandido)',  screen: ScreenScanReady,      height: 1080, scroll: true },
   { id: 'onb-key',          label: '11 · Onboarding · chave (trust block prominent)',        screen: ScreenOnboardingKey,  height: 1080, scroll: true },
   { id: 'audit-search',     label: '12 · Audit log search-active · Bose PRI01 failure',     screen: ScreenAuditSearch,    height: 1200, scroll: true },
+  { id: 'admin-status',     label: '13 · /admin/status · Founder Status Page',              screen: ScreenAdminStatus,    height: 1080, scroll: true },
+  { id: 'key-revoked',      label: '14 · /key-revoked · Worten key revocation interception', screen: ScreenKeyRevoked,    height: 900,  scroll: true },
+  { id: 'payment-failed',   label: '15 · /payment-failed · first-login billing interception', screen: ScreenPaymentFailed, height: 900,  scroll: true },
 ];
 
 function ChannelToggleStub() { return null; }
@@ -445,6 +449,14 @@ function App() {
 
       <DCSection id="audit-search" title="Audit log · busca activa">
         {[ARTBOARDS[12]].map(renderArtboard)}
+      </DCSection>
+
+      <DCSection id="admin" title="Admin · founder view (visual register diferente)">
+        {[ARTBOARDS[13]].map(renderArtboard)}
+      </DCSection>
+
+      <DCSection id="interception" title="Interceptions · key revoked + payment failed (first login)">
+        {ARTBOARDS.slice(14, 16).map(renderArtboard)}
       </DCSection>
     </DesignCanvas>
   );

@@ -738,3 +738,55 @@ Phase C is delivered cleanly — all 13 artboards rendering in 6 sections (Dashb
 
 Ready for your next direction — Phase D, copy passes, polish, or close out.
 
+## User
+
+
+
+## Assistant
+
+_[tool: snip]_
+
+_[tool: update_todos]_
+
+_[tool: write_file]_
+
+Now wire the three artboards into the canvas. Let me check the current state of the HTML:
+
+_[tool: read_file]_
+
+_[tool: str_replace_edit]_
+
+_[tool: snip]_
+
+_[tool: update_todos]_
+
+_[tool: done]_
+
+_[tool: fork_verifier_agent]_
+
+_[tool: snip]_
+
+_[tool: update_todos]_
+
+Phase D delivered — 16 artboards across 7 sections.
+
+**New surfaces:**
+
+- **13 · /admin/status** — slate `#0f172a` background, JetBrains Mono throughout, `[ADMIN]` chip in desaturated red, three sections (Sistema · Customers · Recent critical events) with thin rules. Customer rows use green/amber/grey left-border coding (You Get healthy · WDMI 2 anomalias + circuit-breaker sub-row · Servelec dry-run scan 31%). Cross-customer event feed below.
+
+- **14 · /key-revoked** — centred 560px card on light bg, amber `key_off` badge, "A tua chave Worten precisa de renovação", green inline pill on "ficam todos intactos", navy primary CTA, "Como gerar uma chave Worten?" secondary link.
+
+- **15 · /payment-failed** — same card structure but distinctly red register: loss-red `credit_card_off` badge, red filled "Atualizar pagamento" CTA (urgency signal vs. amber key-revoked), green "ficam intactos" pill carries the trust anchor, two secondary actions (Ver audit log + Fala connosco) so the customer isn't trapped.
+
+The admin register is intentionally legible-as-different at a glance — if Pedro shares a screenshot, no customer sees a fancier version of their own data.
+
+## User
+
+Verifier agent check completed
+
+## Assistant
+
+_[tool: snip]_
+
+Verifier passed. Phase D sealed — 16 artboards live. Ready for the standalone bundle when you want it (or whatever's next).
+
