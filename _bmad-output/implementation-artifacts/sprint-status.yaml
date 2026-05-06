@@ -245,7 +245,7 @@ epic_test_design:
   1: done
   2: done
   3: done  # test scaffolds committed 2026-05-06 (epic-start-test-design subagent)
-  4: pending
+  4: done  # test scaffolds committed 2026-05-06 (epic-start-test-design subagent); 9 scaffold files + epic-4-test-plan.md; 55 test cases across 9 stories; Atomicity Bundle B gate, RLS debt, SSoT negative assertions
   5: pending
   6: pending
   7: pending
