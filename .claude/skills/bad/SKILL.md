@@ -818,8 +818,26 @@ Run `npx supabase start` from REPO_ROOT (allow up to 120 seconds). 📣 **Notify
   📣 **Notify:** `⚠ Phase 4.5 blocked — Supabase start failed, waiting for Pedro`.
   On `[R]`: proceed to B3. On `[S]`: stop BAD.
 
-**Sub-step B3 — Run tests:**
-Derive the test command from `TEST_INTEGRATION_CMD`:
+**Sub-step B3 — Reset DB + run tests:**
+
+First, reset the local Supabase DB from the worktree so all pending migrations are applied:
+```
+cd "{worktree_path}" && npx supabase db reset
+```
+This ensures any migration added by the batch stories is applied before the test run.
+If the reset fails (non-zero exit), halt:
+```
+❌ Phase 4.5 — supabase db reset failed.
+
+Stories tested: {list}
+Error output: {trimmed to ≤20 lines}
+
+Fix the migration issue, then re-run BAD.
+
+[S] Stop BAD entirely
+```
+
+Then derive and run the test command from `TEST_INTEGRATION_CMD`:
 - Take the raw script string from package.json.
 - Replace `--env-file=.env.test` with `--env-file="{REPO_ROOT}/.env.test"` (absolute path so it works from any worktree).
 - Run this modified command from the worktree of the first tagged story (the worktree contains the latest test files).
