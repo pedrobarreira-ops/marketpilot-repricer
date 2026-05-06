@@ -53,6 +53,7 @@
 
   function openModal () {
     if (!modal) return;
+    modal.style.display = 'block';
     modal.setAttribute('aria-hidden', 'false');
     modal.classList.add('modal--open');
     // Focus the close button so keyboard users can immediately close
@@ -65,6 +66,7 @@
 
   function closeModal () {
     if (!modal) return;
+    modal.style.display = 'none';
     modal.setAttribute('aria-hidden', 'true');
     modal.classList.remove('modal--open');
     document.body.style.overflow = '';
