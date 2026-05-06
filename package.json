@@ -10,7 +10,7 @@
     "start:app": "node app/src/server.js",
     "start:worker": "node worker/src/index.js",
     "test": "node --test",
-    "test:integration": "node --env-file=.env.test --test --test-concurrency=1 tests/integration/signup-flow.test.js tests/integration/admin-middleware.test.js tests/shared/db/clients.test.js tests/integration/rls-regression.test.js",
+    "test:integration": "node --env-file=.env.test --test --test-concurrency=1 tests/integration/signup-flow.test.js tests/integration/admin-middleware.test.js tests/shared/db/clients.test.js tests/integration/rls-regression.test.js tests/integration/audit-log-partition.test.js",
     "test:smoke": "node --env-file=.env.test --test tests/integration/scaffold-smoke.test.js",
     "test:rls": "node --env-file=.env.test --test --test-concurrency=1 tests/integration/rls-regression.test.js && node --env-file=.env.test scripts/rls-regression-suite.js",
     "db:migrate": "npx supabase db push",

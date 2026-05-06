@@ -396,12 +396,18 @@ claude-sonnet-4-6
 ### File List
 
 - `supabase/migrations/202604301208_create_audit_log_partitioned.sql` (new)
-- `worker/src/jobs/monthly-partition-create.js` (new)
+- `worker/src/jobs/monthly-partition-create.js` (new — extracted pure helper `computeNextPartitionSpec` during test review for unit-testability)
 - `worker/src/index.js` (modified)
 - `tests/integration/rls-regression.test.js` (modified)
 - `scripts/rls-regression-suite.js` (modified)
+- `tests/worker/src/jobs/monthly-partition-create.test.js` (new — added during test review; 5 cases covering year/month boundaries)
+- `package.json` (modified during test review — added `tests/integration/audit-log-partition.test.js` to `test:integration` script so Story 9.1 assertions run in CI)
 - `_bmad-output/implementation-artifacts/9-1-audit-log-partitioned-base-table-priority-derivation-trigger-initial-partition-monthly-partition-cron.md` (modified — status, completion notes, file list)
 
 ### Change Log
 
 - 2026-05-06: Story 9.1 implementation complete. Added `audit_log` partitioned base table migration, monthly partition cron job, worker registration, and RLS registry extensions. Status → review.
+- 2026-05-06 (test review): Two findings applied.
+  - **HIGH** — `tests/integration/audit-log-partition.test.js` was not in `npm run test:integration` script, so all Story 9.1 AC1/2/3/4/5/7 assertions never ran in CI. Added the file to the test:integration script invocation list. Coverage of audit_log partition table, indexes, trigger, RLS now exercised on every CI run alongside the existing Story 9.0 audit_log_event_types assertions in the same file.
+  - **MEDIUM** — `worker/src/jobs/monthly-partition-create.js` had zero unit-test coverage for its non-trivial date math (year/month boundary handling around Nov→Jan, Dec→Feb). Extracted the pure date-math into `computeNextPartitionSpec(now)` (exported), refactored `runMonthlyPartitionCreate` to use it, and added `tests/worker/src/jobs/monthly-partition-create.test.js` with 5 boundary cases (in-year, Nov→Jan, Dec→Feb, single-digit month padding, Oct→Dec partial wrap). All 5 pass; ESLint clean.
+  - Findings 3 (trigger guard exercisable without Epic 4) and 4 (cron error-swallow could mask persistent failures) noted but deferred — out of scope for Story 9.1's spec.
