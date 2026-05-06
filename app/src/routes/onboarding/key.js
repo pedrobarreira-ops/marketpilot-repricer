@@ -9,7 +9,7 @@
 //
 // Critical constraints (do NOT relax):
 //   - No re-implementation of encryption — import encryptShopApiKey from shared/crypto/envelope.js
-//   - No direct fetch() — runVerification from scripts/mirakl-empirical-verify.js uses api-client.js
+//   - No direct HTTP fetch — runVerification from scripts/mirakl-empirical-verify.js uses api-client.js
 //   - No export default in source modules — named export only (ESLint AD convention)
 //   - No .then() chains — async/await only
 //   - No console.log — pino only (req.log)
