@@ -1,3 +1,9 @@
+-- Story 4.2 dependency (scan_jobs table required by Story 4.3 integration tests).
+-- Canonical source: Story 4.2 branch (story-4.2-skus-...).
+-- Included here so Story 4.3's integration tests can run against a local DB
+-- that has the full schema. When Story 4.2 merges, this migration is the same
+-- file (same timestamp, same content) so no conflict arises.
+
 -- Required for EXCLUDE constraint on non-range types
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 
@@ -32,9 +38,18 @@ CREATE TABLE scan_jobs (
 
 ALTER TABLE scan_jobs ENABLE ROW LEVEL SECURITY;
 
--- Customer reads own scan status (worker writes via service-role, bypassing RLS)
+-- Customer reads own scan status
 CREATE POLICY scan_jobs_select_own ON scan_jobs
   FOR SELECT USING (
+    customer_marketplace_id IN (
+      SELECT id FROM customer_marketplaces WHERE customer_id = auth.uid()
+    )
+  );
+
+-- Customer can INSERT their initial scan_jobs row (PENDING only) from the onboarding
+-- route (Story 4.3). Worker updates status transitions via service-role (bypassing RLS).
+CREATE POLICY scan_jobs_insert_own ON scan_jobs
+  FOR INSERT WITH CHECK (
     customer_marketplace_id IN (
       SELECT id FROM customer_marketplaces WHERE customer_id = auth.uid()
     )

@@ -1,0 +1,45 @@
+<%
+  /* Trust block component — UX-DR23 / §5.1
+   * Verbatim PT copy per AC#2.
+   * Visual treatment: green-edged box with lock icon (Material Symbols).
+   * Used on /onboarding/key and can be included on other pages.
+   */
+%>
+<div
+  class="mp-trust-block"
+  style="
+    background: var(--mp-win-soft, oklch(95% 0.04 155));
+    border: 1px solid color-mix(in oklch, var(--mp-win, oklch(58% 0.14 155)) 25%, transparent);
+    border-radius: 12px;
+    padding: 16px 20px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    margin-top: 24px;
+  "
+>
+  <span
+    class="material-symbols-outlined lock_icon icon"
+    aria-hidden="true"
+    style="
+      color: var(--mp-win, oklch(58% 0.14 155));
+      font-size: 22px;
+      line-height: 1;
+      flex: 0 0 24px;
+      font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    "
+  >lock</span>
+  <p
+    style="
+      margin: 0;
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.55;
+      color: var(--mp-ink, #0a1230);
+    "
+  >
+    A tua chave fica <strong>encriptada em repouso</strong>. Apenas o motor de repricing a usa para falar com o Worten — nem o nosso fundador a vê em texto puro.
+    <br />
+    <a href="/security" class="mp-trust-link" style="font-weight: 600;">Ver as nossas garantias →</a>
+  </p>
+</div>

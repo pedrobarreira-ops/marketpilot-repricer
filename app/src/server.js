@@ -11,6 +11,7 @@ import { getFastifyLoggerOptions, FASTIFY_REQUEST_ID_LOG_LABEL } from '../../sha
 import { closeServiceRolePool } from '../../shared/db/service-role-client.js';
 import { healthRoutes } from './routes/health.js';
 import { publicRoutes } from './routes/_public/index.js';
+import { keyRoutes } from './routes/onboarding/key.js';
 
 getEnv();
 
@@ -57,6 +58,7 @@ try {
 
   await fastify.register(healthRoutes);
   await fastify.register(publicRoutes);
+  await fastify.register(keyRoutes);
 
   fastify.get('/', async (_request, _reply) => {
     return 'Hello MarketPilot';
