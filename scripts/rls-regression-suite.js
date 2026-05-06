@@ -95,18 +95,53 @@ const CUSTOMER_SCOPED_TABLES = [
     serviceRoleOnly: false,
   },
   {
+    table: 'customer_marketplaces',
+    ownerCol: 'customer_id',
+    // Story 4.1: customer_marketplaces ships with F4 PROVISIONING state (all A01/PC01 nullable).
+    // max_discount_pct is required (no DEFAULT); all other A01/PC01 columns are NULL.
+    selectQuery: (ownerId) => ({
+      text: 'SELECT customer_id FROM customer_marketplaces WHERE customer_id = $1 LIMIT 1',
+      values: [ownerId],
+    }),
+    insertQuery: (_ownerId, otherId) => ({
+      text: `INSERT INTO customer_marketplaces
+               (customer_id, operator, marketplace_instance_url, max_discount_pct)
+             VALUES ($1, 'WORTEN', 'https://hack.worten.pt', 0.015)`,
+      values: [otherId],
+    }),
+    updateQuery: (_ownerId, otherId) => ({
+      text: `UPDATE customer_marketplaces
+             SET marketplace_instance_url = 'https://hacked.worten.pt'
+             WHERE customer_id = $1`,
+      values: [otherId],
+    }),
+    deleteQuery: (_ownerId, otherId) => ({
+      text: `DELETE FROM customer_marketplaces WHERE customer_id = $1`,
+      values: [otherId],
+    }),
+    deferred: false,
+    serviceRoleOnly: false,
+  },
+  {
     table: 'shop_api_key_vault',
     ownerCol: 'customer_marketplace_id',
-    deferred: true, // Requires customer_marketplaces FK (Epic 4) — skip row ops.
-    serviceRoleOnly: false,
-    // Query builders left as no-ops because the deferred branch in run()
-    // skips this table entirely. Kept for shape parity with non-deferred
-    // entries so the registry is uniform — Epic 4 will replace these with
-    // real query builders when customer_marketplaces ships.
-    selectQuery: () => null,
-    insertQuery: () => null,
-    updateQuery: () => null,
-    deleteQuery: () => null,
+    // Story 4.1: customer_marketplaces now exists as FK target — row isolation is now live.
+    // shop_api_key_vault SELECT is customer-scoped via JOIN through customer_marketplaces.
+    // INSERT/UPDATE/DELETE require service-role (worker writes only).
+    // SELECT isolation verified via joined query.
+    selectQuery: (_ownerId, otherId) => ({
+      text: `SELECT s.customer_marketplace_id
+             FROM shop_api_key_vault s
+             JOIN customer_marketplaces cm ON cm.id = s.customer_marketplace_id
+             WHERE cm.customer_id = $1
+             LIMIT 1`,
+      values: [otherId],
+    }),
+    insertQuery: () => null, // service-role only — skip insert test
+    updateQuery: () => null, // service-role only — skip update test
+    deleteQuery: () => null, // service-role only — skip delete test
+    deferred: false,
+    serviceRoleOnly: true, // Only SELECT RLS is testable from customer JWT context
   },
   {
     table: 'audit_log',
@@ -115,10 +150,9 @@ const CUSTOMER_SCOPED_TABLES = [
     // INSERT/UPDATE/DELETE are service-role only (NFR-S6 append-only at app layer).
     // Row-level isolation testing is deferred to Story 9.x because it requires
     // customer_marketplaces (Epic 4) as an FK target for seeding real audit rows.
-    deferred: true, // Requires customer_marketplaces FK (Epic 4) — skip row ops.
+    deferred: true, // Requires real audit rows — deferred to Story 9.x.
     serviceRoleOnly: false,
     // Query builders are no-ops — deferred branch in run() skips this table entirely.
-    // Epic 4 will provide real customer_marketplace rows enabling full isolation tests.
     selectQuery: () => null,
     insertQuery: () => null,
     updateQuery: () => null,

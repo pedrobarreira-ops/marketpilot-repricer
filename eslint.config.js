@@ -10,6 +10,7 @@ import globals from 'globals';
 import noDirPgInApp from './eslint-rules/no-direct-pg-in-app.js';
 import noRawInsertAuditLog from './eslint-rules/no-raw-INSERT-audit-log.js';
 import noDirectFetch from './eslint-rules/no-direct-fetch.js';
+import noRawCronStateUpdate from './eslint-rules/no-raw-cron-state-update.js';
 
 export default [
   {
@@ -57,6 +58,19 @@ export default [
     plugins: { 'no-direct-fetch': noDirectFetch },
     rules: {
       'no-direct-fetch/no-direct-fetch': 'error',
+    },
+  },
+  {
+    // Story 4.1: no-raw-cron-state-update rule — forbids raw SQL strings that mutate
+    // customer_marketplaces.cron_state outside shared/state/cron-state.js SSoT.
+    // All cron_state transitions MUST flow through transitionCronState() which enforces
+    // validation, optimistic concurrency, and audit event emission (Bundle B atomicity).
+    // Scoped to app/, worker/, shared/ production source (excludes tests/ and scripts/).
+    // The SSoT module itself (shared/state/cron-state.js) is allowlisted inside the rule.
+    files: ['app/**/*.js', 'worker/**/*.js', 'shared/**/*.js'],
+    plugins: { 'local-cron': noRawCronStateUpdate },
+    rules: {
+      'local-cron/no-raw-cron-state-update': 'error',
     },
   },
   {
