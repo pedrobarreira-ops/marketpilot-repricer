@@ -84,6 +84,9 @@ export class MiraklApiError extends Error {
 export async function mirAklGet (baseUrl, path, params, apiKey) {
   const url = new URL(baseUrl + path);
   for (const [k, v] of Object.entries(params ?? {})) {
+    // Skip null/undefined values — `String(null)` → `"null"` would otherwise
+    // emit `?foo=null` which is almost never what callers intend.
+    if (v === undefined || v === null) continue;
     url.searchParams.set(k, String(v));
   }
 

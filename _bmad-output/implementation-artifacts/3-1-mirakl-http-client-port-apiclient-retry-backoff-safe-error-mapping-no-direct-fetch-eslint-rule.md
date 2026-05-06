@@ -381,6 +381,21 @@ Status: **review**
 
 ---
 
+### Review Findings
+
+Code review pass 2026-05-06 — Blind Hunter + Edge Case Hunter + Acceptance Auditor. 22/22 tests pass; ESLint clean; all 5 ACs verified satisfied.
+
+- [x] [Review][Patch] Filter undefined/null query params in `mirAklGet` so callers passing `{ foo: undefined }` don't emit `?foo=undefined` in the URL [shared/mirakl/api-client.js:86-91]
+- [x] [Review][Defer] `res.json()` may throw `SyntaxError` on malformed 2xx body — caller gets non-MiraklApiError [shared/mirakl/api-client.js:113] — deferred, not exercised in MVP, no test coverage; revisit if Worten ever returns malformed JSON
+- [x] [Review][Defer] ESLint `no-direct-fetch` does not catch `obj['fetch']()` computed-access bypass [eslint-rules/no-direct-fetch.js:55-66] — deferred, requires deliberate evasion; the rule prevents accidental usage which is the actual goal
+- [x] [Review][Defer] ESLint `no-direct-fetch` does not catch `export { fetch } from 'node:fetch'` re-export bypass [eslint-rules/no-direct-fetch.js:75-81] — deferred, same reasoning as computed-access
+- [x] [Review][Defer] ESLint `no-direct-fetch` does not catch dynamic `await import('node:fetch')` [eslint-rules/no-direct-fetch.js:75-81] — deferred, same reasoning; bypass requires intent
+- [x] [Review][Defer] `backoffDelay` does not propagate AbortSignal — worker shutdown waits up to 16s for in-flight delay [shared/mirakl/api-client.js:32-34] — deferred, MVP shutdown handling is outside Story 3.1 scope
+- [x] [Review][Defer] Test "transport errors are retried (5xx schedule)" only asserts final error, not retry count [tests/shared/mirakl/api-client.test.js:169-176] — deferred, retry-count assertion would require fake timers or deeper mocking
+- [x] [Review][Defer] Source-file string-sniff test (`for dep of forbidden`) is brittle to comments mentioning forbidden libs [tests/shared/mirakl/api-client.test.js:97-104] — deferred, current source has no such comments; useful guardrail despite fragility
+
+---
+
 ## File List
 
 - `shared/mirakl/api-client.js` (new)
