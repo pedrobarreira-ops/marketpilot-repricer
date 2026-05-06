@@ -528,6 +528,7 @@ No blockers encountered. The original script used raw `fetch()` via `safeGet()` 
 ## Review Findings (bmad-code-review, 2026-05-06)
 
 - [x] [Review][Patch] CLI entry point used `.then()/.catch()` chain — violated Critical Constraint #5 ("No `.then()` chains. async/await only.") and architecture-distillate cross-cutting rule "NO `.then()` chains (async/await only)." [scripts/mirakl-empirical-verify.js:265-271] — fixed: replaced with async IIFE wrapping `try { await runVerification(...) } catch (err) {...}`. Tests still pass (20/20), ESLint 0 errors.
+- [x] [Review][Patch] JSDoc function body comment on line 76 said "skips OF21, runs only A01 + PC01 + P11" — contradicts `@param` description and actual implementation which runs P11-only. [scripts/mirakl-empirical-verify.js:76] — fixed: updated to "runs only P11 (skips A01, PC01, OF21)". Tests still pass (20/20).
 
 ### Dismissed (false positives / intentional / approved upstream)
 

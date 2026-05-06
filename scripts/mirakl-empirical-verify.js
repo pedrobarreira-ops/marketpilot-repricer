@@ -73,7 +73,7 @@ const PROJECT_ROOT = join(__dirname, '..');
  * Run the Mirakl empirical verification sequence.
  *
  * Full sequence: A01 → PC01 → OF21 → P11 (AD16 smoke-test order)
- * Inline-only path (opts.inlineOnly): skips OF21, runs only A01 + PC01 + P11 —
+ * Inline-only path (opts.inlineOnly): runs only P11 (skips A01, PC01, OF21) —
  * keeps Story 4.3 inline key validation within the 5s NFR-P6 budget.
  *
  * @param {object} opts
