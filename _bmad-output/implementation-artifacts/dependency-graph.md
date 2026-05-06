@@ -1,5 +1,5 @@
 # Story Dependency Graph
-_Last updated: 2026-05-06T12:00:00Z_
+_Last updated: 2026-05-06T14:00:00Z_
 
 ## Stories
 
@@ -14,8 +14,8 @@ _Last updated: 2026-05-06T12:00:00Z_
 | 2.2 | 2 | RLS regression suite + CI block | done | #7 | #65 | merged | 1.4, 1.2, 2.1 | ✅ Yes (done) |
 | 9.0 | 9 | writeAuditEvent SSoT module + audit_log_event_types lookup table (CALENDAR-EARLY) | done | #8 | #66 | merged | 1.1, 1.3, 2.1; after_epic: 2 | ✅ Yes (done) |
 | 9.1 | 9 | Audit log partitioned base table + priority-derivation trigger + monthly partition cron (CALENDAR-EARLY) | done | #9 | #67 | merged | 9.0, 2.1; after_epic: 2 | ✅ Yes (done) |
-| 3.1 | 3 | Mirakl HTTP client port — apiClient + retry/backoff + safe-error mapping + no-direct-fetch ESLint rule | backlog | #10 | — | — | 1.1, 1.3; epic 2 complete | ✅ Yes |
-| 3.2 | 3 | Endpoint wrappers A01, PC01, OF21, P11 + Mirakl mock server | backlog | #11 | — | — | 3.1, 2.1 | ❌ No (3.1 not done) |
+| 3.1 | 3 | Mirakl HTTP client port — apiClient + retry/backoff + safe-error mapping + no-direct-fetch ESLint rule | done | #10 | #68 | merged | 1.1, 1.3; epic 2 complete | ✅ Yes (done) |
+| 3.2 | 3 | Endpoint wrappers A01, PC01, OF21, P11 + Mirakl mock server | backlog | #11 | — | — | 3.1, 2.1 | ✅ Yes |
 | 3.3 | 3 | Mirakl empirical verify smoke-test script | backlog | #12 | — | — | 3.1, 3.2 | ❌ No (3.1 not done) |
 | 4.1 | 4 | customer_marketplaces schema + F4 PROVISIONING + cron state machine transitions matrix | backlog | #13 | — | — | 2.1, 9.0, 9.1 | ❌ No (epic 3 not complete) |
 | 4.2 | 4 | skus, sku_channels, baseline_snapshots, scan_jobs schemas + RLS | backlog | #14 | — | — | 4.1 | ❌ No (epic 3 not complete) |
@@ -140,11 +140,11 @@ _Last updated: 2026-05-06T12:00:00Z_
 - Calendar-early: Story 9.1 merged (PR #67, 2026-05-06). sprint-status: done.
   - epic-9 row: in-progress (9.0 + 9.1 done; 9.2-9.6 still backlog).
 - Calendar-early block complete (9.0 + 9.1 both done). 12 Batch-2 dependents (4.1, 5.1, 5.2, 6.1, 6.2, 6.3, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7) unblocked from the calendar-early gate — but still blocked on epic 3 completion.
-- Epic 3 unblocked (epic 2 complete): Story 3.1 is Ready to Work.
-- Current Ready to Work: 3.1 (Epic 3 start — only active ready story).
+- Story 3.1 merged (PR #68, 2026-05-06). sprint-status: done. Epic 3 in-progress (1/3 done).
+- Current Ready to Work: 3.2 (depends on 3.1 (done) + 2.1 (done) — both met).
 
 ### Parallelization Opportunities
-- Current batch: Story 3.1 is the only story Ready to Work. Epic 3 is sequential (3.1 → 3.2 → 3.3).
+- Current batch: Story 3.2 is the only story Ready to Work. Epic 3 is sequential (3.1 (done) → 3.2 → 3.3).
 - After 3.1 done: 3.2 unlocks; after 3.2 done: 3.3 unlocks (Epic 3 sequential chain).
 - After epic 3 complete: Epic 4 stories unblock (4.1 depends on 9.0+9.1 — both now done + epic 3).
 - Epic 4 onwards: larger parallelization possible within each epic (e.g., 4.5, 4.6, 4.7 can run in parallel after 4.4 ships).
