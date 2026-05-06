@@ -1,5 +1,5 @@
 # Story Dependency Graph
-_Last updated: 2026-05-06T16:00:00Z_
+_Last updated: 2026-05-06T17:00:00Z_
 
 ## Stories
 
@@ -16,16 +16,16 @@ _Last updated: 2026-05-06T16:00:00Z_
 | 9.1 | 9 | Audit log partitioned base table + priority-derivation trigger + monthly partition cron (CALENDAR-EARLY) | done | #9 | #67 | merged | 9.0, 2.1; after_epic: 2 | ✅ Yes (done) |
 | 3.1 | 3 | Mirakl HTTP client port — apiClient + retry/backoff + safe-error mapping + no-direct-fetch ESLint rule | done | #10 | #68 | merged | 1.1, 1.3; epic 2 complete | ✅ Yes (done) |
 | 3.2 | 3 | Endpoint wrappers A01, PC01, OF21, P11 + Mirakl mock server | done | #11 | #69 | merged | 3.1, 2.1 | ✅ Yes (done) |
-| 3.3 | 3 | Mirakl empirical verify smoke-test script | backlog | #12 | — | — | 3.1, 3.2 | ✅ Yes |
-| 4.1 | 4 | customer_marketplaces schema + F4 PROVISIONING + cron state machine transitions matrix | backlog | #13 | — | — | 2.1, 9.0, 9.1 | ❌ No (epic 3 not complete) |
-| 4.2 | 4 | skus, sku_channels, baseline_snapshots, scan_jobs schemas + RLS | backlog | #14 | — | — | 4.1 | ❌ No (epic 3 not complete) |
-| 4.3 | 4 | Key entry form /onboarding/key + inline 5s validation + encrypted persistence [MERGE_BLOCK until 4.4] | backlog | #15 | — | — | 4.1, 1.2, 3.1 | ❌ No (epic 3 not complete) |
-| 4.4 | 4 | Async catalog scan orchestration A01 PC01 OF21 P11 tier-classify baseline (atomicity sibling 4.1) | backlog | #16 | — | — | 4.3, 3.2, 4.2 | ❌ No (epic 3 not complete) |
-| 4.5 | 4 | Scan progress page /onboarding/scan — closeable + reconnectable + status polling | backlog | #17 | — | — | 4.4 | ❌ No (epic 3 not complete) |
-| 4.6 | 4 | Scan-failed email + /scan-failed interception | backlog | #18 | — | — | 4.4 | ❌ No (epic 3 not complete) |
-| 4.7 | 4 | Scan-ready interstitial /onboarding/scan-ready (UX-DR33-34) | backlog | #21 | — | — | 4.4 | ❌ No (epic 3 not complete) |
-| 4.8 | 4 | Margin question /onboarding/margin + smart-default mapping + <5% warning | backlog | #63 | — | — | 4.7 | ❌ No (epic 3 not complete) |
-| 4.9 | 4 | Dashboard root in DRY_RUN — minimal landing only | backlog | #20 | — | — | 4.8 | ❌ No (epic 3 not complete) |
+| 3.3 | 3 | Mirakl empirical verify smoke-test script | done | #12 | #70 | merged | 3.1, 3.2 | ✅ Yes (done) |
+| 4.1 | 4 | customer_marketplaces schema + F4 PROVISIONING + cron state machine transitions matrix | backlog | #13 | — | — | 2.1, 9.0, 9.1 | ✅ Yes |
+| 4.2 | 4 | skus, sku_channels, baseline_snapshots, scan_jobs schemas + RLS | backlog | #14 | — | — | 4.1 | ❌ No (4.1 not done) |
+| 4.3 | 4 | Key entry form /onboarding/key + inline 5s validation + encrypted persistence [MERGE_BLOCK until 4.4] | backlog | #15 | — | — | 4.1, 1.2, 3.1 | ❌ No (4.1 not done) |
+| 4.4 | 4 | Async catalog scan orchestration A01 PC01 OF21 P11 tier-classify baseline (atomicity sibling 4.1) | backlog | #16 | — | — | 4.3, 3.2, 4.2 | ❌ No (4.1 not done) |
+| 4.5 | 4 | Scan progress page /onboarding/scan — closeable + reconnectable + status polling | backlog | #17 | — | — | 4.4 | ❌ No (4.4 not done) |
+| 4.6 | 4 | Scan-failed email + /scan-failed interception | backlog | #18 | — | — | 4.4 | ❌ No (4.4 not done) |
+| 4.7 | 4 | Scan-ready interstitial /onboarding/scan-ready (UX-DR33-34) | backlog | #21 | — | — | 4.4 | ❌ No (4.4 not done) |
+| 4.8 | 4 | Margin question /onboarding/margin + smart-default mapping + <5% warning | backlog | #63 | — | — | 4.7 | ❌ No (4.7 not done) |
+| 4.9 | 4 | Dashboard root in DRY_RUN — minimal landing only | backlog | #20 | — | — | 4.8 | ❌ No (4.8 not done) |
 | 5.1 | 5 | Master cron dispatcher + advisory locks + worker-must-filter-by-customer ESLint rule [MERGE_BLOCK until 7.8] | backlog | #24 | — | — | 4.1, 9.1 | ❌ No (epic 4 not complete) |
 | 5.2 | 5 | PRI01 staging schema + cycle assembly skeleton [MERGE_BLOCK until 7.8] | backlog | #25 | — | — | 5.1 | ❌ No (epic 4 not complete) |
 | 6.1 | 6 | shared/mirakl/pri01-writer.js + per-SKU aggregation + multipart submit + no-raw-CSV-building ESLint rule [MERGE_BLOCK until 7.8] | backlog | #22 | — | — | 5.2, 3.1 | ❌ No (epic 5 not complete) |
@@ -139,16 +139,19 @@ _Last updated: 2026-05-06T16:00:00Z_
 - Calendar-early: Story 9.0 merged (PR #66, 2026-05-04). sprint-status: done.
 - Calendar-early: Story 9.1 merged (PR #67, 2026-05-06). sprint-status: done.
   - epic-9 row: in-progress (9.0 + 9.1 done; 9.2-9.6 still backlog).
-- Calendar-early block complete (9.0 + 9.1 both done). 12 Batch-2 dependents (4.1, 5.1, 5.2, 6.1, 6.2, 6.3, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7) unblocked from the calendar-early gate — but still blocked on epic 3 completion.
-- Story 3.1 merged (PR #68, 2026-05-06). sprint-status: done. Epic 3 in-progress (1/3 done).
-- Story 3.2 merged (PR #69, 2026-05-06). sprint-status: done. Epic 3 in-progress (2/3 done).
-- Current Ready to Work: 3.3 (depends on 3.1 (done) + 3.2 (done) — both met; epic 2 complete).
+- Calendar-early block complete (9.0 + 9.1 both done). 12 Batch-2 dependents (4.1, 5.1, 5.2, 6.1, 6.2, 6.3, 7.2, 7.3, 7.4, 7.5, 7.6, 7.7) unblocked from the calendar-early gate.
+- Story 3.1 merged (PR #68, 2026-05-06). sprint-status: done.
+- Story 3.2 merged (PR #69, 2026-05-06). sprint-status: done.
+- Story 3.3 merged (PR #70, 2026-05-06). sprint-status: done. Epic 3 complete (3/3 done).
+- Epic 3 complete. Epic 3 retrospective complete (2026-05-06). Live smoke passed ✅ (A01/PC01/OF21/P11).
+- Current Ready to Work: **4.1** (depends on 2.1 (done) + 9.0 (done) + 9.1 (done) — all met; epic 3 now complete).
 
 ### Parallelization Opportunities
-- Current batch: Story 3.3 is the only story Ready to Work. Epic 3 is sequential (3.1 (done) → 3.2 (done) → 3.3).
-- After 3.2 done: 3.3 unlocks (now the case). After 3.3 done: epic 3 complete.
-- After epic 3 complete: Epic 4 stories unblock (4.1 depends on 9.0+9.1 — both now done + epic 3).
-- Epic 4 onwards: larger parallelization possible within each epic (e.g., 4.5, 4.6, 4.7 can run in parallel after 4.4 ships).
+- Current batch: Story **4.1** is the only story Ready to Work (epic 4 gating story — sequential entry point).
+- After 4.1 done: 4.2, 4.3 unlock in parallel (both depend only on 4.1).
+- After 4.3 + 4.2 done: 4.4 unlocks. After 4.4 done: 4.5, 4.6, 4.7 unlock in parallel.
+- After 4.7: 4.8, then 4.9 (sequential chain).
+- After epic 4 complete: Epic 5 stories unblock (5.1 depends on 4.1 + 9.1 — both done; epic 4 must complete).
 - Bundle C (Epics 5-7): Stories 5.1, 5.2, 6.1, 6.2, 6.3, 7.2, 7.3, 7.6 can be developed in parallel but ALL must hold for merge until 7.8 gate passes.
 - Epic 8 has the most parallelism: stories 8.3-8.12 can mostly run in parallel after 8.1 ships.
 
