@@ -231,6 +231,29 @@ test('MiraklApiError — transport error (status 0) has .status === 0', async ()
   assert.equal(caught.status, 0, 'transport error must have status 0');
 });
 
+test('MiraklApiError — .code derives spec-mandated identifiers from status', async () => {
+  // AC2 + Story 3.1 spec lines 234–239: exact program-readable code identifiers.
+  // Constructed directly (no HTTP) — exercises the status→code mapping.
+  const { MiraklApiError } = await import('../../../shared/mirakl/api-client.js');
+  const cases = [
+    { status: 401, expected: 'WORTEN_API_KEY_INVALID' },
+    { status: 429, expected: 'WORTEN_RATE_LIMITED' },
+    { status: 500, expected: 'WORTEN_SERVER_ERROR' },
+    { status: 503, expected: 'WORTEN_SERVER_ERROR' },
+    { status: 0,   expected: 'WORTEN_TRANSPORT_ERROR' },
+    { status: 403, expected: 'WORTEN_REQUEST_REFUSED' },
+    { status: 422, expected: 'WORTEN_REQUEST_REFUSED' },
+  ];
+  for (const { status, expected } of cases) {
+    const err = new MiraklApiError('test', status);
+    assert.equal(
+      err.code,
+      expected,
+      `status ${status} must map to code "${expected}", got "${err.code}"`
+    );
+  }
+});
+
 // ── AC3: getSafeErrorMessage PT strings ──────────────────────────────────────
 
 test('getSafeErrorMessage — 401 returns PT invalid-key message', async () => {
@@ -293,71 +316,74 @@ test('no-direct-fetch ESLint rule — file exists at eslint-rules/no-direct-fetc
 
 test('no-direct-fetch ESLint rule — flags fetch() outside shared/mirakl/', async () => {
   const { Linter } = await import('eslint');
-  const { default: rule } = await import('../../../eslint-rules/no-direct-fetch.js');
+  const { default: plugin } = await import('../../../eslint-rules/no-direct-fetch.js');
   const linter = new Linter();
-  linter.defineRule('no-direct-fetch', rule);
+  // ESLint v9+ flat config: rules are registered via plugins in the config object.
+  // `plugin` is already in plugin shape ({ rules: { 'no-direct-fetch': rule } })
+  // — same convention as no-direct-pg-in-app.js (Story 2.1) + no-raw-INSERT-audit-log.js (Story 9.0).
+  const RULE_ID = 'no-direct-fetch/no-direct-fetch';
 
   // Simulate a file OUTSIDE shared/mirakl/ that uses fetch()
   const code = `const data = await fetch('https://example.com');`;
   const messages = linter.verify(code, {
-    rules: { 'no-direct-fetch': 'error' },
-    parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
+    plugins: { 'no-direct-fetch': plugin },
+    rules: { [RULE_ID]: 'error' },
   }, { filename: 'app/src/routes/some-route.js' });
 
   assert.ok(messages.length > 0, 'Rule must flag direct fetch() outside shared/mirakl/');
-  assert.ok(messages.some(m => m.ruleId === 'no-direct-fetch'), 'Violation must come from no-direct-fetch rule');
+  assert.ok(messages.some(m => m.ruleId === RULE_ID), 'Violation must come from no-direct-fetch rule');
 });
 
 test('no-direct-fetch ESLint rule — allows fetch() inside shared/mirakl/api-client.js', async () => {
   const { Linter } = await import('eslint');
-  const { default: rule } = await import('../../../eslint-rules/no-direct-fetch.js');
+  const { default: plugin } = await import('../../../eslint-rules/no-direct-fetch.js');
   const linter = new Linter();
-  linter.defineRule('no-direct-fetch', rule);
+  const RULE_ID = 'no-direct-fetch/no-direct-fetch';
 
   const code = `const data = await fetch('https://example.com');`;
   const messages = linter.verify(code, {
-    rules: { 'no-direct-fetch': 'error' },
-    parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
+    plugins: { 'no-direct-fetch': plugin },
+    rules: { [RULE_ID]: 'error' },
   }, { filename: 'shared/mirakl/api-client.js' });
 
-  const directFetchViolations = messages.filter(m => m.ruleId === 'no-direct-fetch');
+  const directFetchViolations = messages.filter(m => m.ruleId === RULE_ID);
   assert.equal(directFetchViolations.length, 0, 'Rule must NOT flag fetch() inside shared/mirakl/api-client.js');
 });
 
 test('no-direct-fetch ESLint rule — allows fetch() inside shared/mirakl/pri01-writer.js', async () => {
   const { Linter } = await import('eslint');
-  const { default: rule } = await import('../../../eslint-rules/no-direct-fetch.js');
+  const { default: plugin } = await import('../../../eslint-rules/no-direct-fetch.js');
   const linter = new Linter();
-  linter.defineRule('no-direct-fetch', rule);
+  const RULE_ID = 'no-direct-fetch/no-direct-fetch';
 
   const code = `const res = await fetch('https://example.com', { method: 'POST' });`;
   const messages = linter.verify(code, {
-    rules: { 'no-direct-fetch': 'error' },
-    parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
+    plugins: { 'no-direct-fetch': plugin },
+    rules: { [RULE_ID]: 'error' },
   }, { filename: 'shared/mirakl/pri01-writer.js' });
 
-  const directFetchViolations = messages.filter(m => m.ruleId === 'no-direct-fetch');
+  const directFetchViolations = messages.filter(m => m.ruleId === RULE_ID);
   assert.equal(directFetchViolations.length, 0, 'Rule must NOT flag fetch() inside shared/mirakl/pri01-writer.js');
 });
 
 test('no-direct-fetch ESLint rule — flags import { fetch } destructuring outside shared/mirakl/', async () => {
   const { Linter } = await import('eslint');
-  const { default: rule } = await import('../../../eslint-rules/no-direct-fetch.js');
+  const { default: plugin } = await import('../../../eslint-rules/no-direct-fetch.js');
   const linter = new Linter();
-  linter.defineRule('no-direct-fetch', rule);
+  const RULE_ID = 'no-direct-fetch/no-direct-fetch';
 
   const code = `import { fetch } from 'node:fetch';`;
   const messages = linter.verify(code, {
-    rules: { 'no-direct-fetch': 'error' },
-    parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
+    plugins: { 'no-direct-fetch': plugin },
+    rules: { [RULE_ID]: 'error' },
+    languageOptions: { sourceType: 'module', ecmaVersion: 2022 },
   }, { filename: 'worker/src/engine/decide.js' });
 
-  // Either the import or a call-site violation is acceptable — as long as
-  // the rule fires when fetch is used outside the allowlist.
-  // This test documents the intent; exact violation position may vary.
+  // AC4: rule must flag `import { fetch }` from 'node:fetch' / 'fetch' outside the allowlist.
+  const violations = messages.filter(m => m.ruleId === RULE_ID);
   assert.ok(
-    messages.length > 0 || true, // relaxed: rule may fire at call-site not import
-    'Informational: fetch import outside shared/mirakl/ should eventually be flagged'
+    violations.length > 0,
+    `Rule must flag fetch import outside shared/mirakl/. Got messages: ${JSON.stringify(messages)}`
   );
 });
 

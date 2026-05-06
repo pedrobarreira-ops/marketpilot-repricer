@@ -9,6 +9,7 @@ import jsdoc from 'eslint-plugin-jsdoc';
 import globals from 'globals';
 import noDirPgInApp from './eslint-rules/no-direct-pg-in-app.js';
 import noRawInsertAuditLog from './eslint-rules/no-raw-INSERT-audit-log.js';
+import noDirectFetch from './eslint-rules/no-direct-fetch.js';
 
 export default [
   {
@@ -40,6 +41,22 @@ export default [
     plugins: { 'no-raw-audit': noRawInsertAuditLog },
     rules: {
       'no-raw-audit/no-raw-INSERT-audit-log': 'error',
+    },
+  },
+  {
+    // Story 3.1: no-direct-fetch rule — forbids direct fetch() calls outside
+    // shared/mirakl/. All Mirakl HTTP GET calls must flow through
+    // shared/mirakl/api-client.js. PRI01 writes live in shared/mirakl/pri01-writer.js.
+    // Scoped to app/, worker/, shared/ only — tests/ and scripts/ are excluded
+    // (test files may mock fetch; scripts are operational utilities).
+    //
+    // eslint-rules/no-direct-fetch.js exports a plugin shape
+    // (`{ rules: { 'no-direct-fetch': rule } }`) — registered the same way as
+    // no-direct-pg-in-app.js (Story 2.1) and no-raw-INSERT-audit-log.js (Story 9.0).
+    files: ['app/**/*.js', 'worker/**/*.js', 'shared/**/*.js'],
+    plugins: { 'no-direct-fetch': noDirectFetch },
+    rules: {
+      'no-direct-fetch/no-direct-fetch': 'error',
     },
   },
   {
