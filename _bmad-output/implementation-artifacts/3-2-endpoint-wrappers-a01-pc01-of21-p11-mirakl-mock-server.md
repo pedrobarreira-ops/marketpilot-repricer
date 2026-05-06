@@ -481,14 +481,14 @@ export function filterCompetitorOffers (rawOffers, ownShopName) {
 
 Before marking done:
 
-- [ ] `shared/mirakl/a01.js` — no `export default`, no `fetch(`, no `console.log`, async/await only, JSDoc on exports
-- [ ] `shared/mirakl/pc01.js` — same + normalizes `features.*` when present, preserves `_raw` for JSONB
-- [ ] `shared/mirakl/of21.js` — offset-based pagination (not cursor), `getAllOffers` drives loop
-- [ ] `shared/mirakl/p11.js` — `product_references=EAN|<ean>` format, batch accepts up to 100, returns raw offers
-- [ ] `shared/mirakl/self-filter.js` — filter chain in correct order, collision check on raw input, named export only
-- [ ] All five files pass `node --test tests/shared/mirakl/a01-pc01-of21-p11.test.js`
-- [ ] All test cases pass `node --test tests/shared/mirakl/self-filter.test.js`
-- [ ] ESLint passes with 0 errors on new files (`npx eslint shared/mirakl/a01.js pc01.js of21.js p11.js self-filter.js`)
+- [x] `shared/mirakl/a01.js` — no `export default`, no `fetch(`, no `console.log`, async/await only, JSDoc on exports
+- [x] `shared/mirakl/pc01.js` — same + normalizes `features.*` when present, preserves `_raw` for JSONB
+- [x] `shared/mirakl/of21.js` — offset-based pagination (not cursor), `getAllOffers` drives loop
+- [x] `shared/mirakl/p11.js` — `product_references=EAN|<ean>` format, batch accepts up to 100, returns raw offers
+- [x] `shared/mirakl/self-filter.js` — filter chain in correct order, collision check on raw input, named export only
+- [x] All five files pass `node --test tests/shared/mirakl/a01-pc01-of21-p11.test.js`
+- [x] All test cases pass `node --test tests/shared/mirakl/self-filter.test.js`
+- [x] ESLint passes with 0 errors on new files (`npx eslint shared/mirakl/a01.js pc01.js of21.js p11.js self-filter.js`)
 
 ---
 
@@ -514,6 +514,42 @@ Check DynamicPriceIdea before writing any Mirakl call from scratch — the patte
 
 ---
 
+## Dev Agent Record
+
+### Implementation Notes (2026-05-06)
+
+Implemented all 5 SSoT modules following the spec and test scaffolds exactly:
+
+- `shared/mirakl/a01.js` — `getAccount` thin wrapper; no normalization needed (A01 live shape matches spec)
+- `shared/mirakl/pc01.js` — `getPlatformConfiguration` with dual-path normalization: live API nests under `features.*` (normalized to flat), mock server already flat (passed through with `_raw` attached). Uses `/api/configuration` to match the mock server fixture registration.
+- `shared/mirakl/of21.js` — `getOffers` + `getAllOffers` with offset-based pagination (confirmed MCP). `pageToken` = next integer offset or null when exhausted.
+- `shared/mirakl/p11.js` — `getProductOffersByEan` + `getProductOffersByEanBatch`; returns raw offer arrays; `product_references=EAN|<ean>` format confirmed from DynamicPriceIdea production code and MCP.
+- `shared/mirakl/self-filter.js` — `filterCompetitorOffers` implementing exact AD13+AD14 filter chain: active → positive/finite total_price → not-own-shop → sort ascending. Collision detection runs on raw input before filtering.
+
+Key implementation decision: Comments in source files must not contain the substring `fetch(` — the `no direct fetch` tests do a plain `src.includes('fetch(')` scan. Rephrased all such comments accordingly.
+
+### File List
+
+- `shared/mirakl/a01.js` (new)
+- `shared/mirakl/pc01.js` (new)
+- `shared/mirakl/of21.js` (new)
+- `shared/mirakl/p11.js` (new)
+- `shared/mirakl/self-filter.js` (new)
+- `_bmad-output/implementation-artifacts/3-2-endpoint-wrappers-a01-pc01-of21-p11-mirakl-mock-server.md` (updated: checklist + dev record)
+
+### Test Results
+
+- `node --test tests/shared/mirakl/a01-pc01-of21-p11.test.js` → 28/28 pass
+- `node --test tests/shared/mirakl/self-filter.test.js` → 17/17 pass
+- `npx eslint shared/mirakl/a01.js pc01.js of21.js p11.js self-filter.js` → 0 errors
+- Pre-existing suite failures (104) are DB-dependent integration tests and Story 3.3 smoke tests — all unrelated to this story's scope.
+
+### Change Log
+
+- 2026-05-06: Implemented 5 SSoT modules (a01, pc01, of21, p11, self-filter). 28+17=45 tests pass. ESLint 0 errors.
+
+---
+
 ## Story Completion Status
 
-Status: **ready-for-dev**
+Status: **review**
