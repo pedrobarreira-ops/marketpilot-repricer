@@ -262,11 +262,15 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     process.exit(1);
   }
 
-  runVerification({ baseUrl, apiKey, referenceEan }).then(result => {
-    process.stdout.write(JSON.stringify(result, null, 2) + '\n');
-    if (!result.success) process.exit(1);
-  }).catch(err => {
-    process.stderr.write(`FATAL: ${err?.message ?? 'unknown error'}\n`);
-    process.exit(3);
-  });
+  // async IIFE — Critical Constraint #5 forbids .then() chains; use await instead.
+  (async () => {
+    try {
+      const result = await runVerification({ baseUrl, apiKey, referenceEan });
+      process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+      if (!result.success) process.exit(1);
+    } catch (err) {
+      process.stderr.write(`FATAL: ${err?.message ?? 'unknown error'}\n`);
+      process.exit(3);
+    }
+  })();
 }
