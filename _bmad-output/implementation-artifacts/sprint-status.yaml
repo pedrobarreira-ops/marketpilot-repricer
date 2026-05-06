@@ -186,7 +186,7 @@ development_status:
   # Stories 9.0 + 9.1 already shipped calendar-early between Epic 2 and Epic 3.
   # 9.2-9.6 ship here in numerical order.
   # =========================================================================
-  epic-9: backlog
+  epic-9: in-progress  # Phase 0 epic-row reconciliation 2026-05-06: 9.0 done (PR #66 merged), 9.1-9.6 still backlog → in-progress
   9-2-daily-kpi-snapshots-cycle-summaries-schemas-daily-aggregate-cron-5-min-today-partial-refresh: backlog
   9-3-5-surface-query-endpoints-audit-root-with-daily-summary-atencao-feed-notavel-feed: backlog
   9-4-search-by-sku-ean-endpoint-primary-investigation-primitive: backlog
