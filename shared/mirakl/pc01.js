@@ -44,13 +44,17 @@ export async function getPlatformConfiguration (baseUrl, apiKey) {
   }
 
   // Normalize nested live response to flat shape.
+  // Optional chaining guards against partial responses where features.pricing
+  // may be absent (Mirakl version drift / restricted accounts) — surfaces as
+  // undefined instead of TypeError so callers can handle missing fields.
+  const p = f.pricing ?? {};
   return {
-    channel_pricing:          f.pricing.channel_pricing,
+    channel_pricing:          p.channel_pricing,
     operator_csv_delimiter:   f.operator_csv_delimiter,
     offer_prices_decimals:    Number(f.offer_prices_decimals),  // MCP returns string
-    discount_period_required: f.pricing.discount_period_required,
-    scheduled_pricing:        f.pricing.scheduled_pricing,
-    volume_pricing:           f.pricing.volume_pricing,
+    discount_period_required: p.discount_period_required,
+    scheduled_pricing:        p.scheduled_pricing,
+    volume_pricing:           p.volume_pricing,
     competitive_pricing_tool: f.competitive_pricing_tool,
     order_tax_mode:           f.order_tax_mode,
     multi_currency:           f.multi_currency,

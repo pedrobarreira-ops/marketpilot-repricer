@@ -352,6 +352,119 @@ test('p11.js — does NOT bypass api-client (no direct fetch())', async () => {
   assert.ok(!src.includes('fetch('), 'p11.js must not call fetch() directly — use api-client.js');
 });
 
+// ── Defensive input validation (Step 7 review) ───────────────────────────────
+
+test('getProductOffersByEan() — throws TypeError on missing ean', async () => {
+  const { mockServer, baseUrl } = await startMockServer();
+  try {
+    const { getProductOffersByEan } = await import('../../../shared/mirakl/p11.js');
+    await assert.rejects(
+      () => getProductOffersByEan(baseUrl, 'k', { ean: undefined, channel: 'WRT_PT_ONLINE', pricingChannelCode: 'WRT_PT_ONLINE' }),
+      TypeError,
+      'undefined ean must throw at call site, not interpolate as "EAN|undefined"',
+    );
+    await assert.rejects(
+      () => getProductOffersByEan(baseUrl, 'k', { ean: '', channel: 'WRT_PT_ONLINE', pricingChannelCode: 'WRT_PT_ONLINE' }),
+      TypeError,
+      'empty-string ean must throw at call site',
+    );
+  } finally {
+    await mockServer.close();
+  }
+});
+
+test('getProductOffersByEanBatch() — empty eans returns [] without API call', async () => {
+  const { mockServer, baseUrl } = await startMockServer();
+  let capturedFired = false;
+  // If the wrapper made an API call, the capture would fire. Confirm it does NOT.
+  mockServer.captureNextRequest('/api/products/offers', () => { capturedFired = true; });
+  try {
+    const { getProductOffersByEanBatch } = await import('../../../shared/mirakl/p11.js');
+    const result = await getProductOffersByEanBatch(baseUrl, 'k', { eans: [], channel: 'WRT_PT_ONLINE' });
+    assert.deepEqual(result, [], 'Empty eans must short-circuit to []');
+    assert.equal(capturedFired, false, 'Empty eans must skip the API call entirely');
+  } finally {
+    await mockServer.close();
+  }
+});
+
+test('getProductOffersByEanBatch() — throws on non-array eans', async () => {
+  const { mockServer, baseUrl } = await startMockServer();
+  try {
+    const { getProductOffersByEanBatch } = await import('../../../shared/mirakl/p11.js');
+    await assert.rejects(
+      () => getProductOffersByEanBatch(baseUrl, 'k', { eans: 'not-an-array', channel: 'WRT_PT_ONLINE' }),
+      TypeError,
+    );
+  } finally {
+    await mockServer.close();
+  }
+});
+
+test('getProductOffersByEanBatch() — throws RangeError when more than 100 EANs', async () => {
+  const { mockServer, baseUrl } = await startMockServer();
+  try {
+    const { getProductOffersByEanBatch } = await import('../../../shared/mirakl/p11.js');
+    const eans = Array.from({ length: 101 }, (_, i) => String(i).padStart(13, '0'));
+    await assert.rejects(
+      () => getProductOffersByEanBatch(baseUrl, 'k', { eans, channel: 'WRT_PT_ONLINE' }),
+      RangeError,
+      '>100 EANs must throw before issuing an over-long URL',
+    );
+  } finally {
+    await mockServer.close();
+  }
+});
+
+test('getProductOffersByEan() — ES channel routes to ES fixture', async () => {
+  // Coverage: previously only PT path was exercised; lock in the ES fallback.
+  const { mockServer, baseUrl } = await startMockServer();
+  try {
+    const { getProductOffersByEan } = await import('../../../shared/mirakl/p11.js');
+    const offers = await getProductOffersByEan(baseUrl, 'k', {
+      ean: '8809606851663',
+      channel: 'WRT_ES_ONLINE',
+      pricingChannelCode: 'WRT_ES_ONLINE',
+    });
+    assert.ok(Array.isArray(offers));
+    // ES fixture has Competitor X, not Competitor A or B
+    assert.ok(offers.some(o => o.shop_name === 'Competitor X'), 'ES channel must hit FIXTURE_P11_ES');
+  } finally {
+    await mockServer.close();
+  }
+});
+
+// ── pc01.js partial-features defensive normalization (Step 7 review) ─────────
+
+test('getPlatformConfiguration() — partial features (no pricing sub-object) does not throw', async () => {
+  // If the live API ever returns features without a `pricing` sub-object,
+  // the wrapper must normalize to `undefined` fields rather than TypeError.
+  const Fastify = (await import('fastify')).default;
+  const srv = Fastify({ logger: false });
+  srv.get('/api/platform/configuration', (_req, reply) => {
+    reply.send({
+      features: {
+        operator_csv_delimiter:   'COMMA',
+        offer_prices_decimals:    '3',
+        competitive_pricing_tool: false,
+        order_tax_mode:           'INCL',
+        multi_currency:           true,
+      },
+    });
+  });
+  await srv.listen({ port: 0, host: '127.0.0.1' });
+  const port = srv.server.address().port;
+  try {
+    const { getPlatformConfiguration } = await import('../../../shared/mirakl/pc01.js');
+    const pc01 = await getPlatformConfiguration(`http://127.0.0.1:${port}`, 'k');
+    assert.equal(pc01.channel_pricing, undefined, 'Missing pricing.channel_pricing → undefined, not TypeError');
+    assert.equal(pc01.operator_csv_delimiter, 'COMMA');
+    assert.equal(pc01.offer_prices_decimals, 3);
+  } finally {
+    await srv.close();
+  }
+});
+
 // ── AC7: self-filter.js filterCompetitorOffers ────────────────────────────────
 
 test('self-filter — filters out inactive offers (o.active !== true)', async () => {

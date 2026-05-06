@@ -18,6 +18,12 @@ import { mirAklGet } from './api-client.js';
  * @throws {import('./api-client.js').MiraklApiError}
  */
 export async function getProductOffersByEan (baseUrl, apiKey, { ean, channel, pricingChannelCode }) {
+  if (typeof ean !== 'string' || ean.length === 0) {
+    // Defensive guard: an empty/undefined EAN would interpolate as
+    // "EAN|undefined" or "EAN|" and yield an opaque Mirakl 400 stripped
+    // of useful diagnostics. Fail loud at the call site instead.
+    throw new TypeError(`getProductOffersByEan: ean must be a non-empty string, got ${typeof ean === 'string' ? '""' : typeof ean}`);
+  }
   const params = {
     product_references: `EAN|${ean}`,
     channel_codes: channel,
@@ -40,12 +46,24 @@ export async function getProductOffersByEan (baseUrl, apiKey, { ean, channel, pr
  * @throws {import('./api-client.js').MiraklApiError}
  */
 export async function getProductOffersByEanBatch (baseUrl, apiKey, { eans, channel }) {
+  if (!Array.isArray(eans)) {
+    throw new TypeError(`getProductOffersByEanBatch: eans must be an array, got ${typeof eans}`);
+  }
+  if (eans.length === 0) {
+    // Empty input is a no-op: avoid a wasted API call that would either return
+    // every product or yield an opaque 400 from product_references="".
+    return [];
+  }
   if (eans.length > 100) {
     // Defensive guard: Mirakl P11 caps batch lookups at 100 EANs per call.
     // Caller must chunk; an over-large URL would otherwise yield an opaque
     // 414 URI Too Long instead of this explicit error.
     throw new RangeError(`getProductOffersByEanBatch: max 100 EANs per call, got ${eans.length}`);
   }
+  // Note: pricing_channel_code reuses `channel` because batch callers (Story 4.4
+  // catalog scan) always operate within a single pricing channel. The single-EAN
+  // wrapper exposes pricingChannelCode separately for engine callers (Story 7.2)
+  // that may need cross-channel ranking.
   const productRefs = eans.map(e => `EAN|${e}`).join(',');
   const params = {
     product_references: productRefs,

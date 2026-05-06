@@ -228,3 +228,31 @@ test('p11-fixture: p11-pri01-pending-skip — cooperative-absorption mock: own o
   // SSoT: collision check is pre-filter on raw input. One own-shop raw row → false.
   assert.equal(collisionDetected, false, 'Single own-shop placeholder → collisionDetected=false');
 });
+
+// ── Defensive input validation (Step 7 review) ────────────────────────────────
+
+test('filterCompetitorOffers — throws TypeError on null ownShopName', async () => {
+  const { filterCompetitorOffers } = await import('../../../shared/mirakl/self-filter.js');
+  assert.throws(
+    () => filterCompetitorOffers([{ shop_name: 'A', active: true, total_price: 10 }], null),
+    TypeError,
+    'null ownShopName must throw — would otherwise match shop_name-less offers as own',
+  );
+});
+
+test('filterCompetitorOffers — throws TypeError on undefined ownShopName', async () => {
+  const { filterCompetitorOffers } = await import('../../../shared/mirakl/self-filter.js');
+  assert.throws(
+    () => filterCompetitorOffers([{ shop_name: 'A', active: true, total_price: 10 }], undefined),
+    TypeError,
+  );
+});
+
+test('filterCompetitorOffers — throws TypeError on empty-string ownShopName', async () => {
+  const { filterCompetitorOffers } = await import('../../../shared/mirakl/self-filter.js');
+  assert.throws(
+    () => filterCompetitorOffers([{ shop_name: '', active: true, total_price: 10 }], ''),
+    TypeError,
+    'empty-string ownShopName would match shop_name="" placeholders incorrectly',
+  );
+});

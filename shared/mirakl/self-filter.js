@@ -33,6 +33,14 @@ export function filterCompetitorOffers (rawOffers, ownShopName) {
   // "no competitors" rather than an opaque TypeError mid-pipeline).
   const offers = rawOffers ?? [];
 
+  // ownShopName must be a non-empty string. A null/undefined/empty value would
+  // make the collision and own-shop checks match offers that lack a shop_name
+  // field (or have shop_name === ''), incorrectly attributing them as own.
+  // Fail fast — this is always a caller bug.
+  if (typeof ownShopName !== 'string' || ownShopName.length === 0) {
+    throw new TypeError(`filterCompetitorOffers: ownShopName must be a non-empty string, got ${ownShopName === '' ? '""' : typeof ownShopName}`);
+  }
+
   // AD13 collision check on raw input (before any filtering)
   const collisionDetected = offers.filter(o => o.shop_name === ownShopName).length > 1;
 
