@@ -158,6 +158,119 @@ const CUSTOMER_SCOPED_TABLES = [
     updateQuery: () => null,
     deleteQuery: () => null,
   },
+  // ---------------------------------------------------------------------------
+  // Story 4.2: skus, sku_channels, baseline_snapshots, scan_jobs
+  // Ownership is indirect via customer_marketplace_id → customer_marketplaces.customer_id.
+  // SELECT queries resolve the FK via JOIN to find the other customer's rows.
+  // ---------------------------------------------------------------------------
+  {
+    table: 'skus',
+    ownerCol: 'customer_marketplace_id',
+    // SELECT: customer A queries skus joined to customer B's marketplace — must return 0 rows.
+    // ownerId = userBId (the target whose rows we're trying to access), otherId = userAId (the attacker).
+    // WHERE cm.customer_id = ownerId (= userBId) so the query targets B's rows; RLS on skus
+    // (customer_marketplace_id IN subquery for auth.uid()=A) must filter them all out.
+    selectQuery: (ownerId, _otherId) => ({
+      text: `SELECT s.customer_marketplace_id
+             FROM skus s
+             JOIN customer_marketplaces cm ON cm.id = s.customer_marketplace_id
+             WHERE cm.customer_id = $1
+             LIMIT 1`,
+      values: [ownerId],
+    }),
+    insertQuery: (_ownerId, otherId) => ({
+      text: `INSERT INTO skus (customer_marketplace_id, ean, shop_sku)
+             VALUES ($1, '0000000000000', 'HACK-INSERT')`,
+      values: [otherId],
+    }),
+    updateQuery: (_ownerId, otherId) => ({
+      text: `UPDATE skus SET shop_sku = 'HACK-UPDATE'
+             WHERE customer_marketplace_id = $1`,
+      values: [otherId],
+    }),
+    deleteQuery: (_ownerId, otherId) => ({
+      text: `DELETE FROM skus WHERE customer_marketplace_id = $1`,
+      values: [otherId],
+    }),
+    deferred: false,
+    serviceRoleOnly: false,
+  },
+  {
+    table: 'sku_channels',
+    ownerCol: 'customer_marketplace_id',
+    selectQuery: (ownerId, _otherId) => ({
+      text: `SELECT sc.customer_marketplace_id
+             FROM sku_channels sc
+             JOIN customer_marketplaces cm ON cm.id = sc.customer_marketplace_id
+             WHERE cm.customer_id = $1
+             LIMIT 1`,
+      values: [ownerId],
+    }),
+    insertQuery: (_ownerId, otherId) => ({
+      text: `INSERT INTO sku_channels (customer_marketplace_id, sku_id, channel_code,
+               list_price_cents, tier, tier_cadence_minutes, last_checked_at)
+             VALUES ($1, gen_random_uuid(), 'WRT_PT_ONLINE', 100, '3', 1440, NOW())`,
+      values: [otherId],
+    }),
+    updateQuery: (_ownerId, otherId) => ({
+      text: `UPDATE sku_channels SET channel_code = 'WRT_PT_ONLINE'
+             WHERE customer_marketplace_id = $1`,
+      values: [otherId],
+    }),
+    deleteQuery: (_ownerId, otherId) => ({
+      text: `DELETE FROM sku_channels WHERE customer_marketplace_id = $1`,
+      values: [otherId],
+    }),
+    deferred: false,
+    serviceRoleOnly: false,
+  },
+  {
+    table: 'baseline_snapshots',
+    ownerCol: 'customer_marketplace_id',
+    selectQuery: (ownerId, _otherId) => ({
+      text: `SELECT bs.customer_marketplace_id
+             FROM baseline_snapshots bs
+             JOIN customer_marketplaces cm ON cm.id = bs.customer_marketplace_id
+             WHERE cm.customer_id = $1
+             LIMIT 1`,
+      values: [ownerId],
+    }),
+    insertQuery: (_ownerId, otherId) => ({
+      text: `INSERT INTO baseline_snapshots (customer_marketplace_id, sku_channel_id, list_price_cents, current_price_cents)
+             VALUES ($1, gen_random_uuid(), 100, 100)`,
+      values: [otherId],
+    }),
+    updateQuery: (_ownerId, otherId) => ({
+      text: `UPDATE baseline_snapshots SET list_price_cents = 1
+             WHERE customer_marketplace_id = $1`,
+      values: [otherId],
+    }),
+    deleteQuery: (_ownerId, otherId) => ({
+      text: `DELETE FROM baseline_snapshots WHERE customer_marketplace_id = $1`,
+      values: [otherId],
+    }),
+    deferred: false,
+    serviceRoleOnly: false,
+  },
+  {
+    table: 'scan_jobs',
+    ownerCol: 'customer_marketplace_id',
+    // scan_jobs: customer can only SELECT — worker writes via service-role (no modify policy).
+    // INSERT/UPDATE/DELETE queries return null to skip those sub-tests (serviceRoleOnly=true).
+    selectQuery: (ownerId, _otherId) => ({
+      text: `SELECT sj.customer_marketplace_id
+             FROM scan_jobs sj
+             JOIN customer_marketplaces cm ON cm.id = sj.customer_marketplace_id
+             WHERE cm.customer_id = $1
+             LIMIT 1`,
+      values: [ownerId],
+    }),
+    insertQuery: () => null, // service-role only — no customer INSERT policy
+    updateQuery: () => null, // service-role only — no customer UPDATE policy
+    deleteQuery: () => null, // service-role only — no customer DELETE policy
+    deferred: false,
+    serviceRoleOnly: true,
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -369,6 +482,107 @@ async function assertAuthUidMatchesJwt (jwt, expectedUserId, label) {
 }
 
 // ---------------------------------------------------------------------------
+// Story 4.2 seed helpers — ensure rows exist for the 4 new tables so SELECT
+// isolation checks don't pass vacuously (0 rows because table is empty, not
+// because RLS filtered them). Called once per customer in run() after auth.
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve or create a customer_marketplaces row for the given customer.
+ * @param {import('pg').Pool} pool
+ * @param {string} customerId
+ * @returns {Promise<string>} marketplace UUID
+ */
+async function resolveOrCreateMarketplace (pool, customerId, urlSuffix) {
+  const { rows: existing } = await pool.query(
+    'SELECT id FROM customer_marketplaces WHERE customer_id = $1 LIMIT 1',
+    [customerId],
+  );
+  if (existing.length > 0) return existing[0].id;
+  const { rows: inserted } = await pool.query(
+    `INSERT INTO customer_marketplaces
+       (customer_id, operator, marketplace_instance_url, max_discount_pct)
+     VALUES ($1, 'WORTEN', $2, 0.015)
+     RETURNING id`,
+    [customerId, `https://suite-${urlSuffix}.worten.pt`],
+  );
+  return inserted[0].id;
+}
+
+/**
+ * Seed Story 4.2 rows for a customer — skus, sku_channels, baseline_snapshots, scan_jobs.
+ * Idempotent: uses ON CONFLICT DO NOTHING where possible.
+ */
+async function seedStory42RowsForCustomer (pool, customerId, suffix) {
+  const cmId = await resolveOrCreateMarketplace(pool, customerId, suffix);
+
+  // Check if the tables exist before trying to insert (graceful skip if migrations not applied).
+  const { rows: skusExist } = await pool.query(
+    `SELECT 1 FROM information_schema.tables
+     WHERE table_schema = 'public' AND table_name = 'skus' LIMIT 1`
+  );
+  if (skusExist.length === 0) return; // migrations not yet applied
+
+  // skus
+  const { rows: skuRows } = await pool.query(
+    `INSERT INTO skus (customer_marketplace_id, ean, shop_sku, product_title)
+     VALUES ($1, '560123450${suffix}00', 'EZ560123450${suffix}00', 'Suite Test SKU')
+     ON CONFLICT DO NOTHING
+     RETURNING id`,
+    [cmId],
+  );
+  let skuId;
+  if (skuRows.length > 0) {
+    skuId = skuRows[0].id;
+  } else {
+    const { rows: existingSkus } = await pool.query(
+      'SELECT id FROM skus WHERE customer_marketplace_id = $1 LIMIT 1', [cmId]
+    );
+    skuId = existingSkus[0]?.id;
+  }
+  if (!skuId) return;
+
+  // sku_channels
+  const { rows: scRows } = await pool.query(
+    `INSERT INTO sku_channels
+       (sku_id, customer_marketplace_id, channel_code,
+        list_price_cents, tier, tier_cadence_minutes, last_checked_at)
+     VALUES ($1, $2, 'WRT_PT_ONLINE', 2999, '3', 1440, NOW())
+     ON CONFLICT DO NOTHING
+     RETURNING id`,
+    [skuId, cmId],
+  );
+  let scId;
+  if (scRows.length > 0) {
+    scId = scRows[0].id;
+  } else {
+    const { rows: existingSc } = await pool.query(
+      'SELECT id FROM sku_channels WHERE sku_id = $1 LIMIT 1', [skuId]
+    );
+    scId = existingSc[0]?.id;
+  }
+
+  // baseline_snapshots
+  if (scId) {
+    await pool.query(
+      `INSERT INTO baseline_snapshots
+         (sku_channel_id, customer_marketplace_id, list_price_cents, current_price_cents)
+       VALUES ($1, $2, 2999, 2999)
+       ON CONFLICT DO NOTHING`,
+      [scId, cmId],
+    );
+  }
+
+  // scan_jobs — use COMPLETE to avoid EXCLUDE constraint conflict
+  await pool.query(
+    `INSERT INTO scan_jobs (customer_marketplace_id, status, phase_message)
+     VALUES ($1, 'COMPLETE', 'Pronto')
+     ON CONFLICT DO NOTHING`,
+    [cmId],
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main runner
 // ---------------------------------------------------------------------------
 async function run () {
@@ -380,6 +594,13 @@ async function run () {
   console.log('\n  Pre-flight: auth.uid() smoke test');
   await assertAuthUidMatchesJwt(jwtA, userAId, 'auth.uid() == userAId for jwtA');
   await assertAuthUidMatchesJwt(jwtB, userBId, 'auth.uid() == userBId for jwtB');
+
+  // Seed Story 4.2 rows for both customers so SELECT isolation checks are not vacuous.
+  // Uses service-role pool (bypasses RLS). Skips gracefully if migrations not yet applied.
+  console.log('\n  Pre-seed: Story 4.2 rows (skus, sku_channels, baseline_snapshots, scan_jobs)');
+  const seedPool = getServiceRoleClient();
+  await seedStory42RowsForCustomer(seedPool, userAId, 'a');
+  await seedStory42RowsForCustomer(seedPool, userBId, 'b');
 
   for (const tableConfig of CUSTOMER_SCOPED_TABLES) {
     const { table, deferred } = tableConfig;

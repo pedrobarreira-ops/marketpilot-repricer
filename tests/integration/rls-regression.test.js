@@ -260,6 +260,230 @@ const CUSTOMER_SCOPED_TABLES = [
     },
     deferred: true, // Signals parameterized tests to skip row operations for this table.
   },
+  // ---------------------------------------------------------------------------
+  // Story 4.2: skus, sku_channels, baseline_snapshots, scan_jobs
+  // ---------------------------------------------------------------------------
+  {
+    table: 'skus',
+    ownerCol: 'customer_marketplace_id',
+    // skus ownership is indirect: customer_marketplace_id → customer_marketplaces.customer_id.
+    // seedHelper inserts a skus row for the test customer's marketplace.
+    seedHelper: async (pool, customerId) => {
+      // Find (or create) the customer's marketplace row.
+      let cmId;
+      const { rows: existing } = await pool.query(
+        `SELECT id FROM customer_marketplaces WHERE customer_id = $1 LIMIT 1`,
+        [customerId],
+      );
+      if (existing.length > 0) {
+        cmId = existing[0].id;
+      } else {
+        const { rows: inserted } = await pool.query(
+          `INSERT INTO customer_marketplaces
+             (customer_id, operator, marketplace_instance_url, max_discount_pct)
+           VALUES ($1, 'WORTEN', 'https://marketplace-skus-seed.worten.pt', 0.015)
+           RETURNING id`,
+          [customerId],
+        );
+        cmId = inserted[0].id;
+      }
+      await pool.query(
+        `INSERT INTO skus
+           (customer_marketplace_id, ean, shop_sku, product_title)
+         VALUES ($1, '5601234500000', 'EZ5601234500000', 'Test SKU Seed')
+         ON CONFLICT DO NOTHING`,
+        [cmId],
+      );
+    },
+    cleanHelper: async (pool, customerId) => {
+      await pool.query(
+        `DELETE FROM skus
+         WHERE customer_marketplace_id IN (
+           SELECT id FROM customer_marketplaces WHERE customer_id = $1
+         )`,
+        [customerId],
+      );
+    },
+  },
+  {
+    table: 'sku_channels',
+    ownerCol: 'customer_marketplace_id',
+    // sku_channels ownership is indirect via customer_marketplace_id.
+    // seedHelper ensures a skus row exists first (FK: sku_id), then inserts sku_channels.
+    seedHelper: async (pool, customerId) => {
+      let cmId;
+      const { rows: existing } = await pool.query(
+        `SELECT id FROM customer_marketplaces WHERE customer_id = $1 LIMIT 1`,
+        [customerId],
+      );
+      if (existing.length > 0) {
+        cmId = existing[0].id;
+      } else {
+        const { rows: inserted } = await pool.query(
+          `INSERT INTO customer_marketplaces
+             (customer_id, operator, marketplace_instance_url, max_discount_pct)
+           VALUES ($1, 'WORTEN', 'https://marketplace-skuchan-seed.worten.pt', 0.015)
+           RETURNING id`,
+          [customerId],
+        );
+        cmId = inserted[0].id;
+      }
+      // Ensure a skus row exists to satisfy the FK.
+      let skuId;
+      const { rows: skuRows } = await pool.query(
+        `SELECT id FROM skus WHERE customer_marketplace_id = $1 LIMIT 1`,
+        [cmId],
+      );
+      if (skuRows.length > 0) {
+        skuId = skuRows[0].id;
+      } else {
+        const { rows: skuInserted } = await pool.query(
+          `INSERT INTO skus
+             (customer_marketplace_id, ean, shop_sku, product_title)
+           VALUES ($1, '5601234500001', 'EZ5601234500001', 'Test SKU for Channel')
+           RETURNING id`,
+          [cmId],
+        );
+        skuId = skuInserted[0].id;
+      }
+      await pool.query(
+        `INSERT INTO sku_channels
+           (sku_id, customer_marketplace_id, channel_code,
+            list_price_cents, tier, tier_cadence_minutes, last_checked_at)
+         VALUES ($1, $2, 'WRT_PT_ONLINE', 2999, '3', 1440, NOW())
+         ON CONFLICT DO NOTHING`,
+        [skuId, cmId],
+      );
+    },
+    cleanHelper: async (pool, customerId) => {
+      await pool.query(
+        `DELETE FROM sku_channels
+         WHERE customer_marketplace_id IN (
+           SELECT id FROM customer_marketplaces WHERE customer_id = $1
+         )`,
+        [customerId],
+      );
+    },
+  },
+  {
+    table: 'baseline_snapshots',
+    ownerCol: 'customer_marketplace_id',
+    // baseline_snapshots ownership is indirect via customer_marketplace_id.
+    // Requires a sku_channels row to satisfy the FK on sku_channel_id.
+    seedHelper: async (pool, customerId) => {
+      let cmId;
+      const { rows: existing } = await pool.query(
+        `SELECT id FROM customer_marketplaces WHERE customer_id = $1 LIMIT 1`,
+        [customerId],
+      );
+      if (existing.length > 0) {
+        cmId = existing[0].id;
+      } else {
+        const { rows: inserted } = await pool.query(
+          `INSERT INTO customer_marketplaces
+             (customer_id, operator, marketplace_instance_url, max_discount_pct)
+           VALUES ($1, 'WORTEN', 'https://marketplace-bsnap-seed.worten.pt', 0.015)
+           RETURNING id`,
+          [customerId],
+        );
+        cmId = inserted[0].id;
+      }
+      // Ensure sku + sku_channel exist.
+      let skuId;
+      const { rows: skuRows } = await pool.query(
+        `SELECT id FROM skus WHERE customer_marketplace_id = $1 LIMIT 1`,
+        [cmId],
+      );
+      if (skuRows.length > 0) {
+        skuId = skuRows[0].id;
+      } else {
+        const { rows: skuInserted } = await pool.query(
+          `INSERT INTO skus
+             (customer_marketplace_id, ean, shop_sku, product_title)
+           VALUES ($1, '5601234500002', 'EZ5601234500002', 'Test SKU for Snapshot')
+           RETURNING id`,
+          [cmId],
+        );
+        skuId = skuInserted[0].id;
+      }
+      let scId;
+      const { rows: scRows } = await pool.query(
+        `SELECT id FROM sku_channels WHERE sku_id = $1 LIMIT 1`,
+        [skuId],
+      );
+      if (scRows.length > 0) {
+        scId = scRows[0].id;
+      } else {
+        const { rows: scInserted } = await pool.query(
+          `INSERT INTO sku_channels
+             (sku_id, customer_marketplace_id, channel_code,
+              list_price_cents, tier, tier_cadence_minutes, last_checked_at)
+           VALUES ($1, $2, 'WRT_PT_ONLINE', 2999, '3', 1440, NOW())
+           RETURNING id`,
+          [skuId, cmId],
+        );
+        scId = scInserted[0].id;
+      }
+      await pool.query(
+        `INSERT INTO baseline_snapshots
+           (sku_channel_id, customer_marketplace_id, list_price_cents, current_price_cents)
+         VALUES ($1, $2, 2999, 2999)
+         ON CONFLICT DO NOTHING`,
+        [scId, cmId],
+      );
+    },
+    cleanHelper: async (pool, customerId) => {
+      await pool.query(
+        `DELETE FROM baseline_snapshots
+         WHERE customer_marketplace_id IN (
+           SELECT id FROM customer_marketplaces WHERE customer_id = $1
+         )`,
+        [customerId],
+      );
+    },
+  },
+  {
+    table: 'scan_jobs',
+    ownerCol: 'customer_marketplace_id',
+    // scan_jobs ownership is indirect via customer_marketplace_id.
+    // Worker creates scan_jobs rows via service-role; customers can only SELECT.
+    // Use COMPLETE status in seed so the EXCLUDE constraint does not block future INSERTs.
+    seedHelper: async (pool, customerId) => {
+      let cmId;
+      const { rows: existing } = await pool.query(
+        `SELECT id FROM customer_marketplaces WHERE customer_id = $1 LIMIT 1`,
+        [customerId],
+      );
+      if (existing.length > 0) {
+        cmId = existing[0].id;
+      } else {
+        const { rows: inserted } = await pool.query(
+          `INSERT INTO customer_marketplaces
+             (customer_id, operator, marketplace_instance_url, max_discount_pct)
+           VALUES ($1, 'WORTEN', 'https://marketplace-scanjob-seed.worten.pt', 0.015)
+           RETURNING id`,
+          [customerId],
+        );
+        cmId = inserted[0].id;
+      }
+      await pool.query(
+        `INSERT INTO scan_jobs
+           (customer_marketplace_id, status, phase_message)
+         VALUES ($1, 'COMPLETE', 'Pronto')
+         ON CONFLICT DO NOTHING`,
+        [cmId],
+      );
+    },
+    cleanHelper: async (pool, customerId) => {
+      await pool.query(
+        `DELETE FROM scan_jobs
+         WHERE customer_marketplace_id IN (
+           SELECT id FROM customer_marketplaces WHERE customer_id = $1
+         )`,
+        [customerId],
+      );
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -461,6 +685,36 @@ test('rls_isolation_suite', { concurrency: 1 }, async (t) => {
         return;
       }
 
+      // Story 4.2 tables: skus, sku_channels, baseline_snapshots, scan_jobs.
+      // Ownership is indirect via customer_marketplace_id — same pattern as shop_api_key_vault.
+      // Cannot use generic ownerCol=userId check (userBId is a customer UUID, not a marketplace UUID).
+      if (['skus', 'sku_channels', 'baseline_snapshots', 'scan_jobs'].includes(table)) {
+        const { userAId, userBId, jwtA } = await seedTwoCustomers();
+        await tableConfig.seedHelper(getServiceRoleClient(), userAId);
+        await tableConfig.seedHelper(getServiceRoleClient(), userBId);
+        const pool = getServiceRoleClient();
+        const { rows: cmB } = await pool.query(
+          'SELECT id FROM customer_marketplaces WHERE customer_id = $1 LIMIT 1', [userBId]
+        );
+        assert.strictEqual(cmB.length, 1, `pre-condition: customer B must have a customer_marketplace row (${table})`);
+        const cmBId = cmB[0].id;
+        const { rows: rowCheck } = await pool.query(
+          `SELECT 1 FROM ${table} WHERE customer_marketplace_id = $1 LIMIT 1`, [cmBId]
+        );
+        assert.strictEqual(rowCheck.length, 1,
+          `pre-condition: customer B ${table} row must exist via service-role; if 0 rows, seedHelper failed silently`
+        );
+        const clientA = await getRlsAwareClient(jwtA);
+        try {
+          const { rows } = await clientA.query(`SELECT customer_marketplace_id FROM ${table}`);
+          const bRows = rows.filter((r) => r.customer_marketplace_id === cmBId);
+          assert.strictEqual(bRows.length, 0, `customer A must not see customer B rows in ${table}`);
+        } finally {
+          await clientA.release();
+        }
+        return;
+      }
+
       const { userAId, userBId, jwtA } = await seedTwoCustomers();
       await tableConfig.seedHelper(getServiceRoleClient(), userAId);
       await tableConfig.seedHelper(getServiceRoleClient(), userBId);
@@ -525,6 +779,35 @@ test('rls_isolation_suite', { concurrency: 1 }, async (t) => {
           const { rows } = await clientB.query('SELECT customer_marketplace_id FROM shop_api_key_vault');
           const aRows = rows.filter((r) => r.customer_marketplace_id === cmAId);
           assert.strictEqual(aRows.length, 0, 'customer B must not see customer A vault row in shop_api_key_vault');
+        } finally {
+          await clientB.release();
+        }
+        return;
+      }
+
+      // Story 4.2 tables: skus, sku_channels, baseline_snapshots, scan_jobs.
+      // Ownership is indirect via customer_marketplace_id — resolve FK before asserting.
+      if (['skus', 'sku_channels', 'baseline_snapshots', 'scan_jobs'].includes(table)) {
+        const { userAId, userBId, jwtB } = await seedTwoCustomers();
+        await tableConfig.seedHelper(getServiceRoleClient(), userAId);
+        await tableConfig.seedHelper(getServiceRoleClient(), userBId);
+        const pool = getServiceRoleClient();
+        const { rows: cmA } = await pool.query(
+          'SELECT id FROM customer_marketplaces WHERE customer_id = $1 LIMIT 1', [userAId]
+        );
+        assert.strictEqual(cmA.length, 1, `pre-condition: customer A must have a customer_marketplace row (${table})`);
+        const cmAId = cmA[0].id;
+        const { rows: rowCheck } = await pool.query(
+          `SELECT 1 FROM ${table} WHERE customer_marketplace_id = $1 LIMIT 1`, [cmAId]
+        );
+        assert.strictEqual(rowCheck.length, 1,
+          `pre-condition: customer A ${table} row must exist via service-role; if 0 rows, seedHelper failed silently`
+        );
+        const clientB = await getRlsAwareClient(jwtB);
+        try {
+          const { rows } = await clientB.query(`SELECT customer_marketplace_id FROM ${table}`);
+          const aRows = rows.filter((r) => r.customer_marketplace_id === cmAId);
+          assert.strictEqual(aRows.length, 0, `customer B must not see customer A rows in ${table}`);
         } finally {
           await clientB.release();
         }
@@ -599,6 +882,32 @@ test('rls_isolation_suite', { concurrency: 1 }, async (t) => {
         return;
       }
 
+      // Story 4.2 tables: INSERT with customer B's marketplace_id must be rejected.
+      // scan_jobs has no customer-side modify policy (service-role only) — any INSERT is blocked.
+      // skus, sku_channels, baseline_snapshots use customer_marketplace_id as the RLS check column.
+      if (['skus', 'sku_channels', 'baseline_snapshots', 'scan_jobs'].includes(table)) {
+        const { userAId: _aId, userBId, jwtA } = await seedTwoCustomers();
+        await tableConfig.seedHelper(getServiceRoleClient(), userBId);
+        const pool = getServiceRoleClient();
+        const { rows: cmB } = await pool.query(
+          'SELECT id FROM customer_marketplaces WHERE customer_id = $1 LIMIT 1', [userBId]
+        );
+        assert.strictEqual(cmB.length, 1, `pre-condition: customer B must have a marketplace row for INSERT test (${table})`);
+        const cmBId = cmB[0].id;
+        const clientA = await getRlsAwareClient(jwtA);
+        try {
+          await assertInsertBlockedByRls(
+            clientA,
+            `INSERT INTO ${table} (customer_marketplace_id) VALUES ($1)`,
+            [cmBId],
+            `INSERT with customer B's customer_marketplace_id via A's JWT must be rejected by RLS in ${table}`
+          );
+        } finally {
+          await clientA.release();
+        }
+        return;
+      }
+
       // Generic: try INSERT with ownerCol = customerBId — expect rejection.
       const { userAId: _aId, userBId, jwtA } = await seedTwoCustomers();
       const clientA = await getRlsAwareClient(jwtA);
@@ -649,6 +958,31 @@ test('rls_isolation_suite', { concurrency: 1 }, async (t) => {
         return;
       }
 
+      // Story 4.2 tables: UPDATE targeting customer B's rows must be blocked.
+      // scan_jobs has no customer-side modify policy — any UPDATE is blocked (rowCount=0).
+      // skus, sku_channels, baseline_snapshots: UPDATE filtered by customer_marketplace_id → rowCount=0.
+      if (['skus', 'sku_channels', 'baseline_snapshots', 'scan_jobs'].includes(table)) {
+        const { userBId, jwtA } = await seedTwoCustomers();
+        await tableConfig.seedHelper(getServiceRoleClient(), userBId);
+        const pool = getServiceRoleClient();
+        const { rows: cmB } = await pool.query(
+          'SELECT id FROM customer_marketplaces WHERE customer_id = $1 LIMIT 1', [userBId]
+        );
+        assert.strictEqual(cmB.length, 1, `pre-condition: customer B must have a marketplace row for UPDATE test (${table})`);
+        const cmBId = cmB[0].id;
+        const clientA = await getRlsAwareClient(jwtA);
+        try {
+          const result = await clientA.query(
+            `UPDATE ${table} SET customer_marketplace_id = customer_marketplace_id WHERE customer_marketplace_id = $1`,
+            [cmBId]
+          );
+          assert.strictEqual(result.rowCount, 0, `RLS must block cross-customer UPDATE in ${table} (rowCount must be 0)`);
+        } finally {
+          await clientA.release();
+        }
+        return;
+      }
+
       // Generic: UPDATE ownerCol = customerBId via A's JWT → rowCount 0.
       const { userBId, jwtA } = await seedTwoCustomers();
       await tableConfig.seedHelper(getServiceRoleClient(), userBId);
@@ -693,6 +1027,31 @@ test('rls_isolation_suite', { concurrency: 1 }, async (t) => {
             [userBId]
           );
           assert.strictEqual(result.rowCount, 0, `customer_profiles DELETE by authenticated user must return rowCount=0 (no DELETE policy)`);
+        } finally {
+          await clientA.release();
+        }
+        return;
+      }
+
+      // Story 4.2 tables: DELETE targeting customer B's rows must be blocked.
+      // scan_jobs has no customer-side modify policy — any DELETE is blocked (rowCount=0).
+      // skus, sku_channels, baseline_snapshots: DELETE filtered by customer_marketplace_id → rowCount=0.
+      if (['skus', 'sku_channels', 'baseline_snapshots', 'scan_jobs'].includes(table)) {
+        const { userBId, jwtA } = await seedTwoCustomers();
+        await tableConfig.seedHelper(getServiceRoleClient(), userBId);
+        const pool = getServiceRoleClient();
+        const { rows: cmB } = await pool.query(
+          'SELECT id FROM customer_marketplaces WHERE customer_id = $1 LIMIT 1', [userBId]
+        );
+        assert.strictEqual(cmB.length, 1, `pre-condition: customer B must have a marketplace row for DELETE test (${table})`);
+        const cmBId = cmB[0].id;
+        const clientA = await getRlsAwareClient(jwtA);
+        try {
+          const result = await clientA.query(
+            `DELETE FROM ${table} WHERE customer_marketplace_id = $1`,
+            [cmBId]
+          );
+          assert.strictEqual(result.rowCount, 0, `RLS must block cross-customer DELETE in ${table} (rowCount must be 0)`);
         } finally {
           await clientA.release();
         }
@@ -823,6 +1182,365 @@ test('shop_api_key_vault_customer_a_cannot_read_customer_b_vault_row', { concurr
   } finally {
     await clientA.release();
   }
+
+  await resetAuthAndCustomers();
+});
+
+// ---------------------------------------------------------------------------
+// Story 4.2 / AC#1-4 — Schema existence checks for the 4 new tables
+//
+// These tests assert the migrations shipped the correct schema structure:
+// tables exist, RLS is enabled, and the expected policies are present.
+// They run as standalone tests (not parameterized) so they fail loudly on
+// schema errors without requiring a full two-customer seed cycle.
+// ---------------------------------------------------------------------------
+test('story_4_2_skus_table_exists_with_rls_policies', { concurrency: 1 }, async (t) => {
+  t.after(async () => { await closeServiceRolePool(); });
+
+  const pool = getServiceRoleClient();
+  const exists = await tableExists(pool, 'skus');
+  if (!exists) return; // migration not yet applied — skip gracefully
+
+  const { rows: policies } = await pool.query(
+    `SELECT policyname FROM pg_policies WHERE tablename = 'skus' AND schemaname = 'public'`
+  );
+  assert.ok(policies.length >= 2, 'skus must have at least 2 RLS policies (select + modify)');
+  assert.ok(
+    policies.find((p) => p.policyname === 'skus_select_own'),
+    'skus_select_own policy must exist'
+  );
+  assert.ok(
+    policies.find((p) => p.policyname === 'skus_modify_own'),
+    'skus_modify_own policy must exist'
+  );
+});
+
+test('story_4_2_sku_channels_table_exists_with_rls_policies', { concurrency: 1 }, async (t) => {
+  t.after(async () => { await closeServiceRolePool(); });
+
+  const pool = getServiceRoleClient();
+  const exists = await tableExists(pool, 'sku_channels');
+  if (!exists) return;
+
+  const { rows: policies } = await pool.query(
+    `SELECT policyname FROM pg_policies WHERE tablename = 'sku_channels' AND schemaname = 'public'`
+  );
+  assert.ok(policies.length >= 2, 'sku_channels must have at least 2 RLS policies (select + modify)');
+  assert.ok(
+    policies.find((p) => p.policyname === 'sku_channels_select_own'),
+    'sku_channels_select_own policy must exist'
+  );
+  assert.ok(
+    policies.find((p) => p.policyname === 'sku_channels_modify_own'),
+    'sku_channels_modify_own policy must exist'
+  );
+
+  // Verify tier_value enum exists with correct values.
+  const { rows: enumVals } = await pool.query(
+    `SELECT enumlabel FROM pg_enum
+     JOIN pg_type ON pg_type.oid = pg_enum.enumtypid
+     WHERE pg_type.typname = 'tier_value'
+     ORDER BY enumsortorder`
+  );
+  const labels = enumVals.map((r) => r.enumlabel);
+  assert.deepStrictEqual(labels, ['1', '2a', '2b', '3'], 'tier_value enum must have exactly 4 lowercase taxonomic values');
+});
+
+test('story_4_2_baseline_snapshots_table_exists_with_rls_policies', { concurrency: 1 }, async (t) => {
+  t.after(async () => { await closeServiceRolePool(); });
+
+  const pool = getServiceRoleClient();
+  const exists = await tableExists(pool, 'baseline_snapshots');
+  if (!exists) return;
+
+  const { rows: policies } = await pool.query(
+    `SELECT policyname FROM pg_policies WHERE tablename = 'baseline_snapshots' AND schemaname = 'public'`
+  );
+  assert.ok(policies.length >= 2, 'baseline_snapshots must have at least 2 RLS policies (select + modify)');
+  assert.ok(
+    policies.find((p) => p.policyname === 'baseline_snapshots_select_own'),
+    'baseline_snapshots_select_own policy must exist'
+  );
+  assert.ok(
+    policies.find((p) => p.policyname === 'baseline_snapshots_modify_own'),
+    'baseline_snapshots_modify_own policy must exist'
+  );
+});
+
+test('story_4_2_scan_jobs_table_exists_with_rls_select_only_policy', { concurrency: 1 }, async (t) => {
+  t.after(async () => { await closeServiceRolePool(); });
+
+  const pool = getServiceRoleClient();
+  const exists = await tableExists(pool, 'scan_jobs');
+  if (!exists) return;
+
+  const { rows: policies } = await pool.query(
+    `SELECT policyname, cmd FROM pg_policies WHERE tablename = 'scan_jobs' AND schemaname = 'public'`
+  );
+  // scan_jobs must have exactly 1 RLS policy (SELECT-only — no modify policy per AC#4).
+  // pg_policies.cmd values are uppercase strings: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE' | 'ALL'.
+  // (Short single-char codes 'r','a','w','d','*' come from pg_policy.polcmd, not from this view.)
+  const modifyPolicies = policies.filter((p) =>
+    ['INSERT', 'UPDATE', 'DELETE', 'ALL'].includes(p.cmd)
+  );
+  assert.ok(
+    policies.find((p) => p.policyname === 'scan_jobs_select_own'),
+    'scan_jobs_select_own policy must exist'
+  );
+  assert.strictEqual(
+    modifyPolicies.length,
+    0,
+    `scan_jobs must have NO customer-side modify policy (worker writes via service-role); found: ${modifyPolicies.map((p) => p.policyname).join(', ')}`
+  );
+
+  // Verify scan_job_status enum exists with exactly 9 UPPER_SNAKE_CASE values.
+  const { rows: enumVals } = await pool.query(
+    `SELECT enumlabel FROM pg_enum
+     JOIN pg_type ON pg_type.oid = pg_enum.enumtypid
+     WHERE pg_type.typname = 'scan_job_status'
+     ORDER BY enumsortorder`
+  );
+  const labels = enumVals.map((r) => r.enumlabel);
+  const expected = [
+    'PENDING', 'RUNNING_A01', 'RUNNING_PC01', 'RUNNING_OF21', 'RUNNING_P11',
+    'CLASSIFYING_TIERS', 'SNAPSHOTTING_BASELINE', 'COMPLETE', 'FAILED',
+  ];
+  assert.deepStrictEqual(labels, expected, 'scan_job_status enum must have exactly 9 UPPER_SNAKE_CASE values in order');
+});
+
+// ---------------------------------------------------------------------------
+// Story 4.2 / AC#1 — UNIQUE constraints on skus
+//
+// Two separate UNIQUE constraints (NOT a composite — see Critical Constraint #10):
+//   - UNIQUE (customer_marketplace_id, ean)
+//   - UNIQUE (customer_marketplace_id, shop_sku)
+//
+// Locked-in via pg_constraint introspection rather than a behavioural INSERT
+// test: an introspection assertion fails immediately with a clear "constraint
+// missing" message; a behavioural test would only catch removal indirectly
+// (via downstream INSERTs succeeding when they shouldn't).
+// ---------------------------------------------------------------------------
+test('story_4_2_skus_has_two_unique_constraints', { concurrency: 1 }, async (t) => {
+  t.after(async () => { await closeServiceRolePool(); });
+
+  const pool = getServiceRoleClient();
+  const exists = await tableExists(pool, 'skus');
+  if (!exists) return;
+
+  // Use string_agg(... ORDER BY column-name) so the per-constraint column set is
+  // a single deterministic comma-joined string, dodging pg-driver array parsing
+  // quirks (text[] columns deserialize as the raw `'{a,b}'` literal, not a JS
+  // array). Sorting by attname rather than conkey index is fine here — the
+  // story spec doesn't pin column order in UNIQUE constraints, only the set.
+  const { rows: uniques } = await pool.query(
+    `SELECT
+       conname,
+       string_agg(att.attname, ',' ORDER BY att.attname) AS cols
+     FROM pg_constraint c
+     JOIN pg_class rel ON rel.oid = c.conrelid
+     JOIN pg_namespace n ON n.oid = rel.relnamespace
+     JOIN unnest(c.conkey) AS conkey(attnum) ON true
+     JOIN pg_attribute att ON att.attrelid = c.conrelid AND att.attnum = conkey.attnum
+     WHERE rel.relname = 'skus' AND n.nspname = 'public' AND c.contype = 'u'
+     GROUP BY conname`
+  );
+  const colSets = new Set(uniques.map((u) => u.cols));
+  assert.ok(
+    colSets.has('customer_marketplace_id,ean'),
+    `skus must have UNIQUE (customer_marketplace_id, ean); got ${JSON.stringify(uniques)}`
+  );
+  assert.ok(
+    colSets.has('customer_marketplace_id,shop_sku'),
+    `skus must have UNIQUE (customer_marketplace_id, shop_sku); got ${JSON.stringify(uniques)}`
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Story 4.2 / AC#2 — UNIQUE constraint + indexes on sku_channels
+//
+// UNIQUE (sku_id, channel_code) per AC#2.
+// Three indexes per AC#2: idx_sku_channels_dispatch (partial, AD17 hot path),
+//   idx_sku_channels_tier (KPI), idx_sku_channels_pending_import_id (resolution).
+// Locking these in via pg_index introspection prevents silent regressions that
+// would cripple production performance (the dispatcher would table-scan).
+// ---------------------------------------------------------------------------
+test('story_4_2_sku_channels_has_unique_and_required_indexes', { concurrency: 1 }, async (t) => {
+  t.after(async () => { await closeServiceRolePool(); });
+
+  const pool = getServiceRoleClient();
+  const exists = await tableExists(pool, 'sku_channels');
+  if (!exists) return;
+
+  // UNIQUE (sku_id, channel_code) — string_agg over attname avoids text[]
+  // deserialization quirks (see skus_has_two_unique_constraints rationale).
+  const { rows: uniques } = await pool.query(
+    `SELECT
+       string_agg(att.attname, ',' ORDER BY att.attname) AS cols
+     FROM pg_constraint c
+     JOIN pg_class rel ON rel.oid = c.conrelid
+     JOIN pg_namespace n ON n.oid = rel.relnamespace
+     JOIN unnest(c.conkey) AS conkey(attnum) ON true
+     JOIN pg_attribute att ON att.attrelid = c.conrelid AND att.attnum = conkey.attnum
+     WHERE rel.relname = 'sku_channels' AND n.nspname = 'public' AND c.contype = 'u'
+     GROUP BY c.conname`
+  );
+  const colSets = new Set(uniques.map((u) => u.cols));
+  assert.ok(
+    colSets.has('channel_code,sku_id'),
+    `sku_channels must have UNIQUE (sku_id, channel_code); got ${JSON.stringify(uniques)}`
+  );
+
+  // Required indexes (by name).
+  const { rows: indexes } = await pool.query(
+    `SELECT indexname FROM pg_indexes WHERE tablename = 'sku_channels' AND schemaname = 'public'`
+  );
+  const indexNames = new Set(indexes.map((i) => i.indexname));
+  for (const required of [
+    'idx_sku_channels_dispatch',
+    'idx_sku_channels_tier',
+    'idx_sku_channels_pending_import_id',
+  ]) {
+    assert.ok(
+      indexNames.has(required),
+      `sku_channels must have index ${required}; existing indexes: ${[...indexNames].join(', ')}`
+    );
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Story 4.2 / AC#2 / Critical Constraint #8 — pri01_consecutive_failures column
+//
+// Story 6.3 escalation depends on this column being present on sku_channels
+// from the beginning (column shipped inline, NOT via a follow-up migration).
+// Pin it down explicitly so any future drift fails loudly.
+// ---------------------------------------------------------------------------
+test('story_4_2_sku_channels_has_pri01_consecutive_failures_column', { concurrency: 1 }, async (t) => {
+  t.after(async () => { await closeServiceRolePool(); });
+
+  const pool = getServiceRoleClient();
+  const exists = await tableExists(pool, 'sku_channels');
+  if (!exists) return;
+
+  const { rows } = await pool.query(
+    `SELECT data_type, is_nullable, column_default
+     FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'sku_channels'
+       AND column_name = 'pri01_consecutive_failures'`
+  );
+  assert.strictEqual(rows.length, 1, 'sku_channels.pri01_consecutive_failures column must exist');
+  assert.strictEqual(rows[0].data_type, 'smallint', 'pri01_consecutive_failures must be smallint');
+  assert.strictEqual(rows[0].is_nullable, 'NO', 'pri01_consecutive_failures must be NOT NULL');
+  assert.match(
+    rows[0].column_default ?? '',
+    /^0\b/,
+    `pri01_consecutive_failures must default to 0; got "${rows[0].column_default}"`
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Story 4.2 / AC#3 — index on baseline_snapshots(sku_channel_id)
+// ---------------------------------------------------------------------------
+test('story_4_2_baseline_snapshots_has_sku_channel_id_index', { concurrency: 1 }, async (t) => {
+  t.after(async () => { await closeServiceRolePool(); });
+
+  const pool = getServiceRoleClient();
+  const exists = await tableExists(pool, 'baseline_snapshots');
+  if (!exists) return;
+
+  const { rows: indexes } = await pool.query(
+    `SELECT indexname FROM pg_indexes WHERE tablename = 'baseline_snapshots' AND schemaname = 'public'`
+  );
+  const indexNames = new Set(indexes.map((i) => i.indexname));
+  assert.ok(
+    indexNames.has('idx_baseline_snapshots_sku_channel_id'),
+    `baseline_snapshots must have idx_baseline_snapshots_sku_channel_id; existing indexes: ${[...indexNames].join(', ')}`
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Story 4.2 / AC#4 — EXCLUDE constraint on scan_jobs
+//
+// Critical safety constraint: prevents more than one active (non-terminal) scan
+// job per marketplace. Without this, a UI bug or worker race could spawn
+// concurrent scans that race on writes to skus / sku_channels / baseline_snapshots.
+//
+// Two-part assertion:
+//   1. Constraint exists in pg_constraint with type 'x' (EXCLUDE).
+//   2. Behavioural verification — INSERT a second non-terminal row for the
+//      same marketplace and assert SQLSTATE 23P01 (exclusion_violation).
+//      This catches the case where the constraint exists but its predicate
+//      was authored incorrectly (e.g., swapped IN/NOT IN).
+// ---------------------------------------------------------------------------
+test('story_4_2_scan_jobs_exclude_constraint_blocks_concurrent_active_scans', { concurrency: 1 }, async (t) => {
+  t.after(async () => {
+    await closeServiceRolePool();
+    await endResetAuthPool();
+  });
+
+  const pool = getServiceRoleClient();
+  const exists = await tableExists(pool, 'scan_jobs');
+  if (!exists) return;
+
+  // Part 1: introspection — the constraint must be declared.
+  const { rows: constraints } = await pool.query(
+    `SELECT conname FROM pg_constraint c
+     JOIN pg_class rel ON rel.oid = c.conrelid
+     JOIN pg_namespace n ON n.oid = rel.relnamespace
+     WHERE rel.relname = 'scan_jobs' AND n.nspname = 'public' AND c.contype = 'x'`
+  );
+  assert.ok(
+    constraints.find((c) => c.conname === 'scan_job_unique_per_marketplace'),
+    `scan_jobs must have EXCLUDE constraint scan_job_unique_per_marketplace; got: ${JSON.stringify(constraints)}`
+  );
+
+  // Part 2: behavioural — a second non-terminal scan for the same marketplace must error.
+  // Set up a customer_marketplaces row via service-role (we need a real FK target).
+  await resetAuthAndCustomers();
+  const { userAId } = await seedTwoCustomers();
+  const { rows: cmRows } = await pool.query(
+    `INSERT INTO customer_marketplaces
+       (customer_id, operator, marketplace_instance_url, max_discount_pct)
+     VALUES ($1, 'WORTEN', 'https://exclude-test.worten.pt', 0.015)
+     RETURNING id`,
+    [userAId],
+  );
+  const cmId = cmRows[0].id;
+
+  // First PENDING scan must succeed.
+  await pool.query(
+    `INSERT INTO scan_jobs (customer_marketplace_id, status) VALUES ($1, 'PENDING')`,
+    [cmId],
+  );
+
+  // Second non-terminal scan must trip 23P01 exclusion_violation.
+  let err;
+  try {
+    await pool.query(
+      `INSERT INTO scan_jobs (customer_marketplace_id, status) VALUES ($1, 'RUNNING_A01')`,
+      [cmId],
+    );
+  } catch (caught) {
+    err = caught;
+  }
+  assert.ok(err, 'second non-terminal scan_jobs row for the same marketplace must be rejected');
+  assert.strictEqual(
+    err.code,
+    '23P01',
+    `expected SQLSTATE 23P01 (exclusion_violation); got ${err.code} ${err.message}`
+  );
+
+  // After flipping the first row to a terminal state, a fresh scan must succeed
+  // (proves the predicate `status NOT IN ('COMPLETE','FAILED')` is correct, not
+  // a blanket per-marketplace uniqueness that would never let scans re-run).
+  await pool.query(
+    `UPDATE scan_jobs SET status = 'COMPLETE' WHERE customer_marketplace_id = $1`,
+    [cmId],
+  );
+  await pool.query(
+    `INSERT INTO scan_jobs (customer_marketplace_id, status) VALUES ($1, 'PENDING')`,
+    [cmId],
+  );
 
   await resetAuthAndCustomers();
 });
