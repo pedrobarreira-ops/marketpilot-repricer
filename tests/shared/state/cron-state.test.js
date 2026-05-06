@@ -209,7 +209,8 @@ test('negative_assertion_no_raw_cron_state_update_outside_ssot', async () => {
 
 // ---------------------------------------------------------------------------
 // Integration tests (require .env.test + local Supabase)
-// Run separately or guard behind INTEGRATION_TESTS env var
+// Auto-skipped when SUPABASE_SERVICE_ROLE_DATABASE_URL is unset; auto-run
+// under `npm run test:integration` which loads .env.test.
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
@@ -299,12 +300,20 @@ function fullA01Pc01Columns () {
 }
 
 // ---------------------------------------------------------------------------
-// Integration tests — run only when INTEGRATION_TESTS=1 env var is set.
-// Require: .env.test with SUPABASE_SERVICE_ROLE_DATABASE_URL, SUPABASE_URL,
-// SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY pointing at local Supabase.
+// Integration tests — run only when an .env.test is loaded (i.e. when
+// SUPABASE_SERVICE_ROLE_DATABASE_URL is set). Skipped automatically by
+// `node --test` (no env-file) so the unit tests at the top of this file
+// remain runnable without a DB. Active under `npm run test:integration`,
+// which loads `.env.test` and includes this file in the suite.
+//
+// Pattern matches other integration tests (rls-regression.test.js,
+// signup-flow.test.js, audit-log-partition.test.js) which all rely on
+// `--env-file=.env.test` to populate the env. We gate on the database URL
+// because the unit tests above never touch the DB and must run cleanly
+// without `.env.test` present.
 // ---------------------------------------------------------------------------
 
-if (process.env.INTEGRATION_TESTS) {
+if (process.env.SUPABASE_SERVICE_ROLE_DATABASE_URL) {
   // AC#1 — migration creates the table with the full schema
   test('migration_creates_customer_marketplaces_table_with_full_schema', async (t) => {
     const pool = await getPool();
@@ -1083,21 +1092,28 @@ if (process.env.INTEGRATION_TESTS) {
     );
   });
 
-  // AC#8 — ESLint no-raw-cron-state-update rule fires on a file containing the violation
+  // AC#8 — ESLint no-raw-cron-state-update rule fires on a file containing the violation.
+  //
+  // Implementation note: we use ESLint's Node API (programmatic) rather than spawning
+  // the CLI. The CLI shim at node_modules/.bin/eslint is a shell script (or .cmd on
+  // Windows), so `node node_modules/.bin/eslint` does not work cross-platform. The
+  // programmatic API also avoids ESLint flat-config / legacy-flag friction —
+  // `--no-eslintrc`, `--rulesdir`, `--plugin` are removed in ESLint 9+ flat config.
+  // The ESLint constructor below loads the project's eslint.config.js (which already
+  // registers no-raw-cron-state-update), so this test exercises the same configuration
+  // the lint script uses in CI.
   test('eslint_no_raw_cron_state_update_fires_on_violation', async (t) => {
     const { writeFile, unlink } = await import('node:fs/promises');
     const { join } = await import('node:path');
     const { fileURLToPath } = await import('node:url');
-    const { execFile } = await import('node:child_process');
-    const { promisify } = await import('node:util');
-    const execFileAsync = promisify(execFile);
+    const { ESLint } = await import('eslint');
 
     const __dirname = (await import('node:path')).dirname(fileURLToPath(import.meta.url));
-    // Place the fixture in the project root (relative to repo root) to match what ESLint will see
     const repoRoot = join(__dirname, '..', '..', '..');
-    const fixturePath = join(repoRoot, '__eslint_fixture_cron_state_test__.js');
+    // Fixture lives under app/src/ so the project's eslint config (which scopes the
+    // local-cron rule to app/**, worker/**, shared/**) actually matches it.
+    const fixturePath = join(repoRoot, 'app', 'src', '__eslint_fixture_cron_state_test__.js');
 
-    // Fixture contains the forbidden raw SQL string as a JS string literal
     const fixtureContent = `
 // ESLint test fixture — DO NOT SHIP
 const sql = 'UPDATE customer_marketplaces SET cron_state = $1 WHERE id = $2';
@@ -1109,52 +1125,27 @@ const sql = 'UPDATE customer_marketplaces SET cron_state = $1 WHERE id = $2';
 
     await writeFile(fixturePath, fixtureContent, 'utf8');
 
-    // Run ESLint on the fixture. Expect exit code 1 (violations found).
-    let exitCode = 0;
-    let stdout = '';
-    try {
-      const result = await execFileAsync(
-        'node',
-        ['node_modules/.bin/eslint', '--no-eslintrc', '--rule',
-          '{"local/no-raw-cron-state-update": "error"}',
-          '--plugin', 'local',
-          '--rulesdir', 'eslint-rules',
-          fixturePath],
-        { cwd: repoRoot, env: process.env },
-      );
-      stdout = result.stdout;
-    } catch (err) {
-      exitCode = err.code ?? 1;
-      stdout = err.stdout ?? '';
-    }
+    // Run ESLint programmatically against the project config.
+    const eslint = new ESLint({ cwd: repoRoot });
+    const results = await eslint.lintFiles([fixturePath]);
 
-    // If the above flags aren't supported we need a different invocation.
-    // Use the project's full eslint.config.js but only check the fixture.
-    // The fixture must be scanned by the project's eslint config which
-    // already registers the no-raw-cron-state-update rule.
-    if (exitCode === 0) {
-      // Retry using project config — fixture must trigger the rule via project eslint.config.js
-      try {
-        await execFileAsync(
-          'node',
-          ['node_modules/.bin/eslint', fixturePath],
-          { cwd: repoRoot, env: process.env },
-        );
-        // If ESLint exits 0, the rule did NOT fire — test fails
-        assert.fail(
-          `ESLint exited 0 on fixture with raw cron_state UPDATE — no-raw-cron-state-update rule did not fire. stdout: ${stdout}`,
-        );
-      } catch (err) {
-        exitCode = err.code ?? 1;
-        stdout = (err.stdout ?? '') + (err.stderr ?? '');
-      }
-    }
+    assert.strictEqual(results.length, 1, 'ESLint must return exactly one result for the fixture');
+    const result = results[0];
 
-    assert.notStrictEqual(exitCode, 0, `ESLint must exit non-zero when no-raw-cron-state-update rule fires`);
+    // The rule must fire at least once on this fixture.
+    const violations = (result.messages ?? []).filter(
+      (m) => m.ruleId === 'local-cron/no-raw-cron-state-update',
+    );
     assert.ok(
-      stdout.includes('no-raw-cron-state-update') || stdout.includes('noRawCronStateUpdate') ||
-      stdout.includes('cron_state'),
-      `ESLint output must reference the rule or the violation; got: ${stdout.slice(0, 500)}`,
+      violations.length >= 1,
+      `no-raw-cron-state-update must fire on fixture with raw cron_state UPDATE; ` +
+      `got messages: ${JSON.stringify(result.messages)}`,
+    );
+
+    // And the overall errorCount must be > 0 — the rule is configured as 'error'.
+    assert.ok(
+      result.errorCount >= 1,
+      `ESLint must report >= 1 error for fixture with raw cron_state UPDATE; got errorCount=${result.errorCount}`,
     );
   });
 }
