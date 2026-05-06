@@ -108,6 +108,22 @@ const CUSTOMER_SCOPED_TABLES = [
     updateQuery: () => null,
     deleteQuery: () => null,
   },
+  {
+    table: 'audit_log',
+    ownerCol: 'customer_marketplace_id',
+    // Story 9.1 AC#5: audit_log is customer-scoped (SELECT gated by customer_marketplace_id).
+    // INSERT/UPDATE/DELETE are service-role only (NFR-S6 append-only at app layer).
+    // Row-level isolation testing is deferred to Story 9.x because it requires
+    // customer_marketplaces (Epic 4) as an FK target for seeding real audit rows.
+    deferred: true, // Requires customer_marketplaces FK (Epic 4) — skip row ops.
+    serviceRoleOnly: false,
+    // Query builders are no-ops — deferred branch in run() skips this table entirely.
+    // Epic 4 will provide real customer_marketplace rows enabling full isolation tests.
+    selectQuery: () => null,
+    insertQuery: () => null,
+    updateQuery: () => null,
+    deleteQuery: () => null,
+  },
 ];
 
 // ---------------------------------------------------------------------------
