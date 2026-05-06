@@ -11,6 +11,12 @@ import noDirPgInApp from './eslint-rules/no-direct-pg-in-app.js';
 import noRawInsertAuditLog from './eslint-rules/no-raw-INSERT-audit-log.js';
 
 export default [
+  {
+    // Exclude .claude/ tooling scripts — not part of the project's source or test
+    // surface. These files have no languageOptions globals block and trip no-undef
+    // for Node built-ins (console, process) when linted under js.configs.recommended.
+    ignores: ['.claude/**'],
+  },
   js.configs.recommended,
   {
     // Story 2.1: no-direct-pg-in-app rule — forbids direct pg Pool/Client import

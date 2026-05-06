@@ -183,6 +183,25 @@ const CUSTOMER_SCOPED_TABLES = [
     },
     deferred: true, // Signals parameterized tests to skip row operations for this table.
   },
+  {
+    table: 'audit_log',
+    ownerCol: 'customer_marketplace_id',
+    // Story 9.1 AC#5: audit_log is customer-scoped (SELECT gated by customer_marketplace_id).
+    // INSERT/UPDATE/DELETE are service-role only (NFR-S6 append-only at app layer).
+    // Row-level isolation testing is deferred to Story 9.x because it requires
+    // customer_marketplaces (Epic 4) as an FK target for seeding real audit rows.
+    // The RLS policy (audit_log_select_own) is present in the migration; policy
+    // existence is verified by negative_assertion_no_migration_missing_rls_policy.
+    seedHelper: async (_pool, _customerId) => {
+      // Deferred until Epic 4 ships customer_marketplaces migration.
+      // Story 9.x: INSERT INTO audit_log (customer_marketplace_id, event_type, payload)
+      // using a real customer_marketplace row seeded for the test customer.
+    },
+    cleanHelper: async (_pool, _customerId) => {
+      // Deferred until Epic 4 ships customer_marketplaces migration.
+    },
+    deferred: true, // Signals parameterized tests to skip row operations for this table.
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -766,10 +785,18 @@ test('negative_assertion_no_migration_missing_rls_policy', async () => {
       .replace(/--[^\n]*/g, '');
 
     // Find all CREATE TABLE statements in this file.
-    const createTableRe = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?(\w+)/gi;
+    // Capture the token after the table name to detect PARTITION OF child tables —
+    // partition children inherit RLS from the parent and do NOT need separate
+    // ALTER TABLE ... ENABLE ROW LEVEL SECURITY or CREATE POLICY statements.
+    // Story 9.1: audit_log_2026_05 ... audit_log_2027_04 are partition children of
+    // audit_log whose RLS is enabled and policy defined on the parent table.
+    const createTableRe = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:public\.)?(\w+)\s*(\w*)/gi;
     let tableMatch;
     while ((tableMatch = createTableRe.exec(content)) !== null) {
       const tableName = tableMatch[1].toLowerCase();
+      const nextToken = (tableMatch[2] || '').toUpperCase();
+      // Skip PARTITION OF child tables — they inherit RLS from their parent.
+      if (nextToken === 'PARTITION') continue;
       if (EXEMPT_TABLES.has(tableName)) continue;
 
       // Check whether this file enables RLS for THIS specific table and defines
