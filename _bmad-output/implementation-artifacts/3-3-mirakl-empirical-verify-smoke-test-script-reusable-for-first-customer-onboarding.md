@@ -3,7 +3,7 @@
 Endpoints verified against Mirakl MCP and architecture-distillate empirical facts (2026-05-06).
 
 **Sprint-status key:** `3-3-mirakl-empirical-verify-smoke-test-script-reusable-for-first-customer-onboarding`
-**Status:** ready-for-dev
+**Status:** review
 **Size:** S
 **Epic:** Epic 3 — Mirakl Integration Foundation (architecture S-I phase 3)
 
@@ -499,10 +499,26 @@ This story does NOT require `integration_test_required: true` — the test suite
 
 ### Agent Model Used
 
-<!-- To be filled by dev agent -->
+claude-sonnet-4-6 (2026-05-06)
 
 ### Debug Log References
 
+No blockers encountered. The original script used raw `fetch()` via `safeGet()` and ran env-validation at module load time (making it unimportable). Rewrite removes both issues.
+
 ### Completion Notes List
 
+- Rewrote `scripts/mirakl-empirical-verify.js` from raw-fetch CJS script to ES module using Story 3.2 wrappers (`getAccount`, `getPlatformConfiguration`, `getOffers`, `getProductOffersByEan`, `filterCompetitorOffers`).
+- Exported `runVerification(opts)` as a named ES module export (no `export default`).
+- Implemented full A01 → PC01 → OF21 → P11 sequence (AC1/AD16).
+- Implemented `inlineOnly` flag for Story 4.3 5s inline validation path (AC2/NFR-P6).
+- Implemented `dryRun` flag to skip writing `verification-results.json` (test isolation).
+- apiKey masked as 16-char SHA-256 hex prefix only — never in any output (AC3 security constraint).
+- Added `mirakl:verify` script to `package.json` (AC4).
+- All 16 story-specific tests pass (13 structural + 3 mock-server integration).
+- Full non-integration suite: 196/196 tests pass, 0 regressions.
+- ESLint: 0 errors on the rewritten file.
+
 ### File List
+
+- `scripts/mirakl-empirical-verify.js` (rewritten)
+- `package.json` (added `mirakl:verify` script)
