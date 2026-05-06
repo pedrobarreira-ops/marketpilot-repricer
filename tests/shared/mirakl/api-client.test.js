@@ -231,6 +231,29 @@ test('MiraklApiError — transport error (status 0) has .status === 0', async ()
   assert.equal(caught.status, 0, 'transport error must have status 0');
 });
 
+test('MiraklApiError — .code derives spec-mandated identifiers from status', async () => {
+  // AC2 + Story 3.1 spec lines 234–239: exact program-readable code identifiers.
+  // Constructed directly (no HTTP) — exercises the status→code mapping.
+  const { MiraklApiError } = await import('../../../shared/mirakl/api-client.js');
+  const cases = [
+    { status: 401, expected: 'WORTEN_API_KEY_INVALID' },
+    { status: 429, expected: 'WORTEN_RATE_LIMITED' },
+    { status: 500, expected: 'WORTEN_SERVER_ERROR' },
+    { status: 503, expected: 'WORTEN_SERVER_ERROR' },
+    { status: 0,   expected: 'WORTEN_TRANSPORT_ERROR' },
+    { status: 403, expected: 'WORTEN_REQUEST_REFUSED' },
+    { status: 422, expected: 'WORTEN_REQUEST_REFUSED' },
+  ];
+  for (const { status, expected } of cases) {
+    const err = new MiraklApiError('test', status);
+    assert.equal(
+      err.code,
+      expected,
+      `status ${status} must map to code "${expected}", got "${err.code}"`
+    );
+  }
+});
+
 // ── AC3: getSafeErrorMessage PT strings ──────────────────────────────────────
 
 test('getSafeErrorMessage — 401 returns PT invalid-key message', async () => {
@@ -354,14 +377,14 @@ test('no-direct-fetch ESLint rule — flags import { fetch } destructuring outsi
   const messages = linter.verify(code, {
     plugins: { 'no-direct-fetch': { rules: { 'no-direct-fetch': rule } } },
     rules: { [RULE_ID]: 'error' },
+    languageOptions: { sourceType: 'module', ecmaVersion: 2022 },
   }, { filename: 'worker/src/engine/decide.js' });
 
-  // Either the import or a call-site violation is acceptable — as long as
-  // the rule fires when fetch is used outside the allowlist.
-  // This test documents the intent; exact violation position may vary.
+  // AC4: rule must flag `import { fetch }` from 'node:fetch' / 'fetch' outside the allowlist.
+  const violations = messages.filter(m => m.ruleId === RULE_ID);
   assert.ok(
-    messages.length > 0 || true, // relaxed: rule may fire at call-site not import
-    'Informational: fetch import outside shared/mirakl/ should eventually be flagged'
+    violations.length > 0,
+    `Rule must flag fetch import outside shared/mirakl/. Got messages: ${JSON.stringify(messages)}`
   );
 });
 
