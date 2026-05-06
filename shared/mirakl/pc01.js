@@ -1,6 +1,7 @@
 // shared/mirakl/pc01.js — AD16 SSoT: PC01 platform configuration wrapper (Story 3.2)
 //
-// Single source of truth for the Mirakl PC01 endpoint (GET /api/configuration).
+// Single source of truth for the Mirakl PC01 endpoint (GET /api/platform/configuration).
+// Path verified against Mirakl MCP (Mirakl Marketplace APIs, operationId PC01).
 // Normalizes the nested features.* live-API response to a flat shape; the mock
 // server already returns the flat shape so the normalization path is a no-op there.
 // All calls go through mirAklGet — no direct fetch() allowed.
@@ -32,7 +33,7 @@ import { mirAklGet } from './api-client.js';
  * @throws {import('./api-client.js').MiraklApiError}
  */
 export async function getPlatformConfiguration (baseUrl, apiKey) {
-  const raw = await mirAklGet(baseUrl, '/api/configuration', null, apiKey);
+  const raw = await mirAklGet(baseUrl, '/api/platform/configuration', null, apiKey);
 
   // Live Mirakl response nests all settings under features.*.
   // Mock server returns flat shape directly — handle both paths.

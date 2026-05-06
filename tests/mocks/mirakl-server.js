@@ -152,9 +152,9 @@ export async function createMiraklMockServer () {
     reply.send(FIXTURE_A01);
   });
 
-  // ── PC01: GET /api/configuration ─────────────────────────────────────────
-  fastify.get('/api/configuration', (req, reply) => {
-    if (handleMiddleware('/api/configuration', req.query, reply)) return;
+  // ── PC01: GET /api/platform/configuration (MCP-verified) ─────────────────
+  fastify.get('/api/platform/configuration', (req, reply) => {
+    if (handleMiddleware('/api/platform/configuration', req.query, reply)) return;
     reply.send(FIXTURE_PC01);
   });
 

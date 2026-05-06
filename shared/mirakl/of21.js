@@ -42,6 +42,10 @@ export async function getAllOffers (baseUrl, apiKey) {
     const { offers, pageToken } = await getOffers(baseUrl, apiKey, { offset });
     all.push(...offers);
     if (pageToken === null) break;
+    // Defensive: if a page returned 0 offers but pageToken says continue
+    // (e.g. total_count overestimated by upstream), break to avoid an infinite
+    // loop on the same offset.
+    if (offers.length === 0) break;
     offset = pageToken;
   }
   return all;

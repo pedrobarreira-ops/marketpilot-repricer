@@ -29,10 +29,14 @@
  * @returns {FilterResult}
  */
 export function filterCompetitorOffers (rawOffers, ownShopName) {
-  // AD13 collision check on raw input (before any filtering)
-  const collisionDetected = rawOffers.filter(o => o.shop_name === ownShopName).length > 1;
+  // Defensive: tolerate null/undefined input (caller bug surfaces later as
+  // "no competitors" rather than an opaque TypeError mid-pipeline).
+  const offers = rawOffers ?? [];
 
-  const filteredOffers = rawOffers
+  // AD13 collision check on raw input (before any filtering)
+  const collisionDetected = offers.filter(o => o.shop_name === ownShopName).length > 1;
+
+  const filteredOffers = offers
     .filter(o => o.active === true)
     .filter(o => Number.isFinite(o.total_price) && o.total_price > 0)
     .filter(o => o.shop_name !== ownShopName)

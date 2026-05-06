@@ -471,8 +471,6 @@ test('ESLint no-direct-fetch: codebase scan — no direct fetch() outside shared
   // Smoke-test: grep source tree for `fetch(` outside the allowed directory
   // This test is informational — it catches accidental fetch() calls introduced
   // by future stories before the ESLint CI hook runs.
-  const { glob } = await import('node:fs/promises').then(m => m).catch(() => ({ glob: null }));
-  // Use readdir recursion as fallback if glob not available in this Node version
   async function findJsFiles (dir) {
     const { readdir } = await import('node:fs/promises');
     const { join } = await import('node:path');

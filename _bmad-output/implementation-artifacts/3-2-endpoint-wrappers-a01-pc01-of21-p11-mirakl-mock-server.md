@@ -521,7 +521,7 @@ Check DynamicPriceIdea before writing any Mirakl call from scratch — the patte
 Implemented all 5 SSoT modules following the spec and test scaffolds exactly:
 
 - `shared/mirakl/a01.js` — `getAccount` thin wrapper; no normalization needed (A01 live shape matches spec)
-- `shared/mirakl/pc01.js` — `getPlatformConfiguration` with dual-path normalization: live API nests under `features.*` (normalized to flat), mock server already flat (passed through with `_raw` attached). Uses `/api/configuration` to match the mock server fixture registration.
+- `shared/mirakl/pc01.js` — `getPlatformConfiguration` with dual-path normalization: live API nests under `features.*` (normalized to flat), mock server already flat (passed through with `_raw` attached). Calls `/api/platform/configuration` (MCP-verified PC01 path). Mock server registers the same path so wrapper and live API agree.
 - `shared/mirakl/of21.js` — `getOffers` + `getAllOffers` with offset-based pagination (confirmed MCP). `pageToken` = next integer offset or null when exhausted.
 - `shared/mirakl/p11.js` — `getProductOffersByEan` + `getProductOffersByEanBatch`; returns raw offer arrays; `product_references=EAN|<ean>` format confirmed from DynamicPriceIdea production code and MCP.
 - `shared/mirakl/self-filter.js` — `filterCompetitorOffers` implementing exact AD13+AD14 filter chain: active → positive/finite total_price → not-own-shop → sort ascending. Collision detection runs on raw input before filtering.
@@ -547,6 +547,12 @@ Key implementation decision: Comments in source files must not contain the subst
 ### Change Log
 
 - 2026-05-06: Implemented 5 SSoT modules (a01, pc01, of21, p11, self-filter). 28+17=45 tests pass. ESLint 0 errors.
+- 2026-05-06 (Step 5 code review):
+  - Fixed PC01 path: wrapper + mock server now use `/api/platform/configuration` (MCP-verified) instead of the stale `/api/configuration` placeholder. Production calls would have 404'd.
+  - Added defensive 100-EAN guard in `getProductOffersByEanBatch` (throws RangeError) to surface caller-side bugs before they become opaque 414 URI Too Long responses.
+  - Added defensive `offers.length === 0` break in `getAllOffers` to prevent infinite loop if upstream `total_count` is overestimated relative to actual page payload.
+  - Added defensive `rawOffers ?? []` null-guard in `filterCompetitorOffers`.
+  - Removed unused `glob` import in test file (ESLint warning).
 
 ---
 

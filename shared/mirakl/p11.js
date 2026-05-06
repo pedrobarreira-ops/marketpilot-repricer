@@ -36,9 +36,16 @@ export async function getProductOffersByEan (baseUrl, apiKey, { ean, channel, pr
  * @param {string} apiKey - Decrypted Mirakl shop API key
  * @param {{ eans: string[], channel: string }} opts
  * @returns {Promise<object[]>}
+ * @throws {RangeError} when more than 100 EANs are passed (Mirakl P11 limit)
  * @throws {import('./api-client.js').MiraklApiError}
  */
 export async function getProductOffersByEanBatch (baseUrl, apiKey, { eans, channel }) {
+  if (eans.length > 100) {
+    // Defensive guard: Mirakl P11 caps batch lookups at 100 EANs per call.
+    // Caller must chunk; an over-large URL would otherwise yield an opaque
+    // 414 URI Too Long instead of this explicit error.
+    throw new RangeError(`getProductOffersByEanBatch: max 100 EANs per call, got ${eans.length}`);
+  }
   const productRefs = eans.map(e => `EAN|${e}`).join(',');
   const params = {
     product_references: productRefs,
