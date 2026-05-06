@@ -4,7 +4,7 @@
 > P11 (`GET /api/products/offers`) used via `scripts/mirakl-empirical-verify.js` `inlineOnly` mode. Field names, param format (`product_references=EAN|xxx`), auth header (`Authorization: <api_key>` — no Bearer prefix), and filter chain (`active=true AND total_price > 0 AND shop_name != ownShopName`) all confirmed per architecture-distillate Cross-Cutting Empirically-Verified Mirakl Facts rows 1–3, 8, 9, 10. No direct P11 call in this story — delegated entirely to the existing SSoT (`p11.js` + `mirakl-empirical-verify.js`).
 
 **Sprint-status key:** `4-3-key-entry-form-onboarding-key-inline-5s-validation-encrypted-persistence-worten-key-one-page-guide-modal`
-**Status:** ready-for-dev
+**Status:** review
 **Size:** L
 **Epic:** Epic 4 — Customer Onboarding (architecture S-I phase 4)
 **Atomicity:** Bundle B (creates PROVISIONING rows; merge blocked until Story 4.4 lands — `merge_blocks` in sprint-status.yaml)
@@ -528,6 +528,38 @@ claude-sonnet-4-6
 
 ### Debug Log References
 
+(none)
+
 ### Completion Notes List
 
+- Implemented GET /onboarding/key route: renders key entry form with trust block (UX-DR23), "Como gerar a chave?" modal trigger, and UX-DR2 forward-only routing guards (AC#1, AC#7).
+- Implemented POST /onboarding/key/validate route: 5s Promise.race timeout via createTimeoutRace() wrapping runVerification({inlineOnly:true}), encryptShopApiKey() via Story 1.2 SSoT, UPSERT shop_api_key_vault, INSERT customer_marketplaces (PROVISIONING + sentinel 0.0300), INSERT scan_jobs (PENDING), redirect 302 to /onboarding/scan (AC#3).
+- Trust block (AC#2): verbatim PT copy "encriptada em repouso" + lock icon (Material Symbols) + green-edged box + "Ver as nossas garantias →" link, all inlined in onboarding-key.eta.
+- Guide modal (AC#5): 3-step PT walkthrough (Worten Seller Center → Definições pessoais → Chave de API), role="dialog", aria-modal="true", aria-labelledby, focus trap + Escape close in vanilla JS.
+- Client-side JS (public/js/onboarding-key.js): enable/disable validate button on input, spinner/button label on submit, modal open/close + focus trap + Escape handler (NFR-A2).
+- No audit event emitted (AC#4): writeAuditEvent not called; KEY_VALIDATED not in AD20 taxonomy.
+- No cleartext key in pino logs: only logs {path: req.url} and {customerId} — never req.body.
+- Timeout handling: Promise.race with createTimeoutRace(timeoutMs) — resolves from MIRAKL_VALIDATION_TIMEOUT_MS env var (default 5000ms). Test env sets to 500ms.
+- max_discount_pct sentinel 0.0300 per Dev Notes — intentional, overwritten by Story 4.8.
+- RLS: added INSERT+UPDATE policies for shop_api_key_vault and INSERT policy for scan_jobs in new migration 202605062200 (original migrations were append-only after apply).
+- scan_jobs migration (202604301211) added to this worktree matching Story 4.2's canonical file so integration tests can run locally before merge.
+- Placeholder PNG stubs created at public/images/key-guide/ — Pedro provides real screenshots pre-customer-#1 Go-Live.
+- AC#8 (Pedro sign-off): implementation structurally matches design stubs screens/11 and screens/16. Sign-off pending Pedro's review post-merge.
+
 ### File List
+
+- app/src/routes/onboarding/key.js (new)
+- app/src/views/pages/onboarding-key.eta (new)
+- app/src/views/modals/key-help.eta (new — standalone modal template)
+- app/src/views/components/trust-block.eta (new — standalone component template)
+- public/js/onboarding-key.js (new)
+- public/images/key-guide/01-seller-center-menu.png (new — placeholder stub)
+- public/images/key-guide/02-account-settings.png (new — placeholder stub)
+- public/images/key-guide/03-api-key-copy.png (new — placeholder stub)
+- app/src/server.js (modified — register keyRoutes)
+- supabase/migrations/202604301211_create_scan_jobs.sql (new — from Story 4.2, needed for integration tests)
+- supabase/migrations/202605062200_story43_vault_and_scanjobs_rls.sql (new — RLS INSERT/UPDATE for vault + scan_jobs)
+
+### Change Log
+
+- 2026-05-06: Story implemented by claude-sonnet-4-6. Route, templates, vanilla JS, placeholder assets, migrations (scan_jobs + RLS additions for vault/scan_jobs) all created. All acceptance criteria AC#1–AC#7 addressed. AC#8 (Pedro sign-off) pending manual review. Status → review.
