@@ -873,13 +873,30 @@ if (process.env.SUPABASE_SERVICE_ROLE_DATABASE_URL) {
     const cmId = await insertProvisioningMarketplace(pool, user.user.id);
 
     // Manually force the row to ACTIVE so we can test the ACTIVE → PAUSED_BY_CUSTOMER transition.
-    // We bypass transitionCronState here (which requires all A01/PC01 columns filled for
-    // PROVISIONING → DRY_RUN → ACTIVE). This is acceptable in a test-only setup context.
-    // NOTE: This raw UPDATE is ONLY acceptable inside tests — the ESLint rule only scans
-    // app/src, worker/src, shared, scripts (not tests/).
+    // Must populate A01/PC01 columns first (F4 CHECK constraint blocks cron_state != PROVISIONING
+    // when any required column is NULL). Raw UPDATE is test-only (ESLint rule only scans non-test dirs).
+    const colsActive = fullA01Pc01Columns();
     await pool.query(
-      `UPDATE customer_marketplaces SET cron_state = 'ACTIVE' WHERE id = $1`,
-      [cmId],
+      `UPDATE customer_marketplaces
+       SET cron_state = 'ACTIVE',
+           shop_id = $2, shop_name = $3, shop_state = $4, currency_iso_code = $5,
+           is_professional = $6, channels = $7,
+           channel_pricing_mode = $8, operator_csv_delimiter = $9,
+           offer_prices_decimals = $10, discount_period_required = $11,
+           competitive_pricing_tool = $12, scheduled_pricing = $13,
+           volume_pricing = $14, multi_currency = $15,
+           order_tax_mode = $16, platform_features_snapshot = $17,
+           last_pc01_pulled_at = $18
+       WHERE id = $1`,
+      [cmId,
+        colsActive.shop_id, colsActive.shop_name, colsActive.shop_state, colsActive.currency_iso_code,
+        colsActive.is_professional, colsActive.channels,
+        colsActive.channel_pricing_mode, colsActive.operator_csv_delimiter,
+        colsActive.offer_prices_decimals, colsActive.discount_period_required,
+        colsActive.competitive_pricing_tool, colsActive.scheduled_pricing,
+        colsActive.volume_pricing, colsActive.multi_currency,
+        colsActive.order_tax_mode, colsActive.platform_features_snapshot,
+        colsActive.last_pc01_pulled_at],
     );
 
     const { transitionCronState } = await import('../../../shared/state/cron-state.js');
@@ -943,10 +960,29 @@ if (process.env.SUPABASE_SERVICE_ROLE_DATABASE_URL) {
     if (error) throw new Error(`createUser failed: ${error.message}`);
 
     const cmId = await insertProvisioningMarketplace(pool, user.user.id);
-    // Force ACTIVE state for the test transition
+    // Force ACTIVE state — populate A01/PC01 columns first (F4 CHECK constraint).
+    const colsActive2 = fullA01Pc01Columns();
     await pool.query(
-      `UPDATE customer_marketplaces SET cron_state = 'ACTIVE' WHERE id = $1`,
-      [cmId],
+      `UPDATE customer_marketplaces
+       SET cron_state = 'ACTIVE',
+           shop_id = $2, shop_name = $3, shop_state = $4, currency_iso_code = $5,
+           is_professional = $6, channels = $7,
+           channel_pricing_mode = $8, operator_csv_delimiter = $9,
+           offer_prices_decimals = $10, discount_period_required = $11,
+           competitive_pricing_tool = $12, scheduled_pricing = $13,
+           volume_pricing = $14, multi_currency = $15,
+           order_tax_mode = $16, platform_features_snapshot = $17,
+           last_pc01_pulled_at = $18
+       WHERE id = $1`,
+      [cmId,
+        colsActive2.shop_id, colsActive2.shop_name, colsActive2.shop_state, colsActive2.currency_iso_code,
+        colsActive2.is_professional, colsActive2.channels,
+        colsActive2.channel_pricing_mode, colsActive2.operator_csv_delimiter,
+        colsActive2.offer_prices_decimals, colsActive2.discount_period_required,
+        colsActive2.competitive_pricing_tool, colsActive2.scheduled_pricing,
+        colsActive2.volume_pricing, colsActive2.multi_currency,
+        colsActive2.order_tax_mode, colsActive2.platform_features_snapshot,
+        colsActive2.last_pc01_pulled_at],
     );
 
     // Count audit_log rows BEFORE transition

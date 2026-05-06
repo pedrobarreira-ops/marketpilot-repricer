@@ -432,6 +432,35 @@ test('rls_isolation_suite', { concurrency: 1 }, async (t) => {
         return;
       }
 
+      if (table === 'shop_api_key_vault') {
+        // shop_api_key_vault ownership is indirect: customer_marketplace_id → customer_marketplaces.customer_id.
+        // The generic ownerCol=userId pattern doesn't apply — resolve the FK id first.
+        const { userAId, userBId, jwtA } = await seedTwoCustomers();
+        await tableConfig.seedHelper(getServiceRoleClient(), userAId);
+        await tableConfig.seedHelper(getServiceRoleClient(), userBId);
+        const pool = getServiceRoleClient();
+        const { rows: cmB } = await pool.query(
+          'SELECT id FROM customer_marketplaces WHERE customer_id = $1 LIMIT 1', [userBId]
+        );
+        assert.strictEqual(cmB.length, 1, 'pre-condition: customer B must have a customer_marketplace row');
+        const cmBId = cmB[0].id;
+        const { rows: vaultCheck } = await pool.query(
+          'SELECT 1 FROM shop_api_key_vault WHERE customer_marketplace_id = $1', [cmBId]
+        );
+        assert.strictEqual(vaultCheck.length, 1,
+          'pre-condition: customer B vault row must exist via service-role; if 0 rows, seedHelper failed silently'
+        );
+        const clientA = await getRlsAwareClient(jwtA);
+        try {
+          const { rows } = await clientA.query('SELECT customer_marketplace_id FROM shop_api_key_vault');
+          const bRows = rows.filter((r) => r.customer_marketplace_id === cmBId);
+          assert.strictEqual(bRows.length, 0, 'customer A must not see customer B vault row in shop_api_key_vault');
+        } finally {
+          await clientA.release();
+        }
+        return;
+      }
+
       const { userAId, userBId, jwtA } = await seedTwoCustomers();
       await tableConfig.seedHelper(getServiceRoleClient(), userAId);
       await tableConfig.seedHelper(getServiceRoleClient(), userBId);
@@ -473,6 +502,34 @@ test('rls_isolation_suite', { concurrency: 1 }, async (t) => {
 
     await t.test(`rls_isolation_${table}_customer_b_cannot_read_customer_a_rows`, async () => {
       if (isDeferred) return;
+
+      if (table === 'shop_api_key_vault') {
+        // shop_api_key_vault ownership is indirect — resolve customer_marketplace_id for each user.
+        const { userAId, userBId, jwtB } = await seedTwoCustomers();
+        await tableConfig.seedHelper(getServiceRoleClient(), userAId);
+        await tableConfig.seedHelper(getServiceRoleClient(), userBId);
+        const pool = getServiceRoleClient();
+        const { rows: cmA } = await pool.query(
+          'SELECT id FROM customer_marketplaces WHERE customer_id = $1 LIMIT 1', [userAId]
+        );
+        assert.strictEqual(cmA.length, 1, 'pre-condition: customer A must have a customer_marketplace row');
+        const cmAId = cmA[0].id;
+        const { rows: vaultCheck } = await pool.query(
+          'SELECT 1 FROM shop_api_key_vault WHERE customer_marketplace_id = $1', [cmAId]
+        );
+        assert.strictEqual(vaultCheck.length, 1,
+          'pre-condition: customer A vault row must exist via service-role; if 0 rows, seedHelper failed silently'
+        );
+        const clientB = await getRlsAwareClient(jwtB);
+        try {
+          const { rows } = await clientB.query('SELECT customer_marketplace_id FROM shop_api_key_vault');
+          const aRows = rows.filter((r) => r.customer_marketplace_id === cmAId);
+          assert.strictEqual(aRows.length, 0, 'customer B must not see customer A vault row in shop_api_key_vault');
+        } finally {
+          await clientB.release();
+        }
+        return;
+      }
 
       const { userAId, userBId, jwtB } = await seedTwoCustomers();
       await tableConfig.seedHelper(getServiceRoleClient(), userAId);
