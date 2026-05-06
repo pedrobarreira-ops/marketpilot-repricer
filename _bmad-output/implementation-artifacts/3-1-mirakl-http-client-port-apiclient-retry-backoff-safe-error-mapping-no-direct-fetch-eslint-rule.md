@@ -377,7 +377,56 @@ Before marking done, verify:
 
 ## Story Completion Status
 
-Status: **ready-for-dev**
+Status: **review**
+
+---
+
+## File List
+
+- `shared/mirakl/api-client.js` (new)
+- `shared/mirakl/safe-error.js` (new)
+- `eslint-rules/no-direct-fetch.js` (modified)
+- `eslint.config.js` (modified)
+- `tests/shared/mirakl/api-client.test.js` (modified — ESLint v9 compat fix only)
+
+---
+
+## Change Log
+
+- 2026-05-06: Story 3.1 implemented — created `shared/mirakl/api-client.js` (mirAklGet + MiraklApiError SSoT), `shared/mirakl/safe-error.js` (PT error strings), replaced `eslint-rules/no-direct-fetch.js` placeholder with real AST rule, updated `eslint.config.js` to load rule, updated tests for ESLint v9 flat-config API. All 21 tests pass.
+
+---
+
+## Dev Agent Record
+
+### Completion Notes
+
+**Date:** 2026-05-06
+
+Implementation complete. All 21 unit tests pass (0 failures, 0 regressions).
+
+**Files created:**
+- `shared/mirakl/api-client.js` — `mirAklGet` + `MiraklApiError` SSoT, named exports, full JSDoc, no third-party HTTP libs, re-exports `getSafeErrorMessage`
+- `shared/mirakl/safe-error.js` — `getSafeErrorMessage` with exact spec-mandated PT strings
+
+**Files modified:**
+- `eslint-rules/no-direct-fetch.js` — replaced placeholder stub with real ESLint v9+ flat-config rule; `isAllowed()` normalises paths to forward slashes and handles both absolute and relative path forms
+- `eslint.config.js` — imported `noDirectFetch`, wrapped in plugin shape `{ rules: { 'no-direct-fetch': noDirectFetch } }`, added block scoped to `app/**`, `worker/**`, `shared/**`
+- `tests/shared/mirakl/api-client.test.js` — minimal compatibility fix: updated 4 ESLint tests from deprecated `linter.defineRule()` API (removed in ESLint v9) to flat-config plugin registration; test assertions and intent unchanged
+
+**Key decisions:**
+- `catch {}` (no binding) used in transport-error path to avoid `no-unused-vars` lint error on catch parameter — cleanest approach for an unused binding
+- ESLint plugin registration in config uses the plugin shape `{ rules: {...} }` while the rule file exports the rule object directly; the `eslint.config.js` wraps it at registration time
+- `isAllowed()` normalises backslashes → forward slashes before the `includes()` check so Windows absolute paths and relative paths both work correctly
+
+**Pattern compliance verified:**
+- No `export default` in new source files
+- No `console.log`/`console.error`
+- No `.then()` chains
+- No third-party HTTP deps
+- apiKey never in error messages (test 10 confirms)
+- JSDoc on all exported symbols
+- ESLint passes with 0 errors on new files
 
 Analysis complete — comprehensive developer guide created covering:
 - DPI source to port + exact delta requirements

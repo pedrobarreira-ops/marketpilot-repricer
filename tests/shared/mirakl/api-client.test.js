@@ -295,32 +295,34 @@ test('no-direct-fetch ESLint rule — flags fetch() outside shared/mirakl/', asy
   const { Linter } = await import('eslint');
   const { default: rule } = await import('../../../eslint-rules/no-direct-fetch.js');
   const linter = new Linter();
-  linter.defineRule('no-direct-fetch', rule);
+  // ESLint v9+ flat config: rules are registered via plugins in the config object
+  const RULE_ID = 'no-direct-fetch/no-direct-fetch';
 
   // Simulate a file OUTSIDE shared/mirakl/ that uses fetch()
   const code = `const data = await fetch('https://example.com');`;
   const messages = linter.verify(code, {
-    rules: { 'no-direct-fetch': 'error' },
-    parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
+    plugins: { 'no-direct-fetch': { rules: { 'no-direct-fetch': rule } } },
+    rules: { [RULE_ID]: 'error' },
   }, { filename: 'app/src/routes/some-route.js' });
 
   assert.ok(messages.length > 0, 'Rule must flag direct fetch() outside shared/mirakl/');
-  assert.ok(messages.some(m => m.ruleId === 'no-direct-fetch'), 'Violation must come from no-direct-fetch rule');
+  assert.ok(messages.some(m => m.ruleId === RULE_ID), 'Violation must come from no-direct-fetch rule');
 });
 
 test('no-direct-fetch ESLint rule — allows fetch() inside shared/mirakl/api-client.js', async () => {
   const { Linter } = await import('eslint');
   const { default: rule } = await import('../../../eslint-rules/no-direct-fetch.js');
   const linter = new Linter();
-  linter.defineRule('no-direct-fetch', rule);
+  // ESLint v9+ flat config: rules are registered via plugins in the config object
+  const RULE_ID = 'no-direct-fetch/no-direct-fetch';
 
   const code = `const data = await fetch('https://example.com');`;
   const messages = linter.verify(code, {
-    rules: { 'no-direct-fetch': 'error' },
-    parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
+    plugins: { 'no-direct-fetch': { rules: { 'no-direct-fetch': rule } } },
+    rules: { [RULE_ID]: 'error' },
   }, { filename: 'shared/mirakl/api-client.js' });
 
-  const directFetchViolations = messages.filter(m => m.ruleId === 'no-direct-fetch');
+  const directFetchViolations = messages.filter(m => m.ruleId === RULE_ID);
   assert.equal(directFetchViolations.length, 0, 'Rule must NOT flag fetch() inside shared/mirakl/api-client.js');
 });
 
@@ -328,15 +330,16 @@ test('no-direct-fetch ESLint rule — allows fetch() inside shared/mirakl/pri01-
   const { Linter } = await import('eslint');
   const { default: rule } = await import('../../../eslint-rules/no-direct-fetch.js');
   const linter = new Linter();
-  linter.defineRule('no-direct-fetch', rule);
+  // ESLint v9+ flat config: rules are registered via plugins in the config object
+  const RULE_ID = 'no-direct-fetch/no-direct-fetch';
 
   const code = `const res = await fetch('https://example.com', { method: 'POST' });`;
   const messages = linter.verify(code, {
-    rules: { 'no-direct-fetch': 'error' },
-    parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
+    plugins: { 'no-direct-fetch': { rules: { 'no-direct-fetch': rule } } },
+    rules: { [RULE_ID]: 'error' },
   }, { filename: 'shared/mirakl/pri01-writer.js' });
 
-  const directFetchViolations = messages.filter(m => m.ruleId === 'no-direct-fetch');
+  const directFetchViolations = messages.filter(m => m.ruleId === RULE_ID);
   assert.equal(directFetchViolations.length, 0, 'Rule must NOT flag fetch() inside shared/mirakl/pri01-writer.js');
 });
 
@@ -344,12 +347,13 @@ test('no-direct-fetch ESLint rule — flags import { fetch } destructuring outsi
   const { Linter } = await import('eslint');
   const { default: rule } = await import('../../../eslint-rules/no-direct-fetch.js');
   const linter = new Linter();
-  linter.defineRule('no-direct-fetch', rule);
+  // ESLint v9+ flat config: rules are registered via plugins in the config object
+  const RULE_ID = 'no-direct-fetch/no-direct-fetch';
 
   const code = `import { fetch } from 'node:fetch';`;
   const messages = linter.verify(code, {
-    rules: { 'no-direct-fetch': 'error' },
-    parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
+    plugins: { 'no-direct-fetch': { rules: { 'no-direct-fetch': rule } } },
+    rules: { [RULE_ID]: 'error' },
   }, { filename: 'worker/src/engine/decide.js' });
 
   // Either the import or a call-site violation is acceptable — as long as
