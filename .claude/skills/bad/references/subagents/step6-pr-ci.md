@@ -45,19 +45,15 @@ You also have access to two BAD config values from `.claude/settings.json`:
         Only cite env var names that appear in this output. Never construct
         "X + Y" env-var pairs unless BOTH names appear in the grep output.
 
-     3. CI status (only after the PR has been pushed and CI has run):
-          gh pr checks {PR_NUMBER}
-        Use the actual check names and statuses verbatim. Do NOT claim
-        "CI skipped" or "GitHub Actions skipped: RUN_CI_LOCALLY=true" unless
-        BOTH of these are true: (a) `gh pr checks` returns zero check rows,
-        AND (b) the BAD config in `.claude/settings.json` actually has
-        `RUN_CI_LOCALLY=true`. If RUN_CI_LOCALLY is not set, GitHub Actions
-        ran — describe its actual result, do not claim it was skipped.
-
-     4. Test counts:
+     3. Test counts:
           (parse the test runner's own output — `# pass N` / `# fail N` lines from
            node:test, or jest's summary). Never aggregate across categories
            ("8 tests" lumping cases + sub-assertions).
+
+   DO NOT include CI status in the PR body. GitHub displays check results
+   in the PR UI automatically — writing CI status in the body produces a
+   stale or wrong claim (CI has not run at PR-creation time). Remove any
+   "GitHub Actions skipped" or "CI: ✅" lines that /commit-commands generates.
 
    PR BODY HALLUCINATION GUARD (post-draft check) — after /commit-commands:commit-push-pr
    drafts the body, review against the actual diff BEFORE pushing. Only cite

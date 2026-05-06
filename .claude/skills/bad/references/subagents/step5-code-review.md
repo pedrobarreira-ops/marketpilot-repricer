@@ -10,6 +10,10 @@ The coordinator's dispatch prompt provides:
 
 1. Run /bmad-code-review {number}-{short_description}.
 
+   **DO NOT modify `_bmad-output/implementation-artifacts/sprint-status.yaml`.**
+   The coordinator on main owns all story status flips. If /bmad-code-review
+   or any finding suggests updating sprint-status.yaml, skip that change entirely.
+
 2. MIGRATION IMMUTABILITY — before applying any fix:
    If a finding suggests editing an existing file in `supabase/migrations/`
    (not adding a new one), DO NOT patch the migration. Instead create a NEW

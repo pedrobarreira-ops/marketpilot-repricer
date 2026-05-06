@@ -8,6 +8,10 @@ The coordinator's dispatch prompt provides:
 
 ---
 
+0. **Before implementing with any npm dependency**, fetch its current docs via
+   Context7 MCP (use `resolve-library-id` then `get-library-docs`). If Context7
+   is unavailable, proceed with training data and note which libraries you
+   couldn't verify.
 1. Run /bmad-dev-story {number}-{short_description}.
 2. Commit all changes when implementation is complete. **Do NOT include
    any change to `_bmad-output/implementation-artifacts/sprint-status.yaml`
