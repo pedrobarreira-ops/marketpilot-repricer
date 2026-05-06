@@ -166,3 +166,12 @@ Implementation when triggered: ~4-line change in `founder-admin-only.js` — app
 - **File count / stat undercounts in PR body** [PR #68 body] — body claims "7 files changed, 781 insertions(+), 22 deletions(-)" but actual diff is 8 files / 801 additions / 29 deletions. Cosmetic; same class as PR #66 data-grounding miscount. No functional impact.
 - **AC coverage claim understates coverage** [PR #68 body] — body states "2 ACs covered" but story has 5 ACs, all covered by the 22-test suite. Cosmetic body understatement; no impact on correctness.
 - **Missing `[Skip-Live-Smoke: ...]` marker on a `shared/mirakl/` PR** [PR #68 body] — the Live Smoke Evidence guard triggers for any PR touching `shared/mirakl/`. Story spec documents no live Mirakl endpoint calls (client-only infrastructure with no credential at this stage), so a skip marker with reason `client-only infrastructure, no endpoint calls` would have been appropriate. Process note: future PRs touching `shared/mirakl/` should include this marker to prevent the guard from halting the review.
+
+---
+
+## Deferred from: PR #69 review (2026-05-06)
+
+- **PR body claims sprint-status.yaml updated** [PR body] — `_bmad-output/implementation-artifacts/sprint-status.yaml` listed under "Planning artifact updated" but is not in the PR diff; main already has story 3.2 as `done` (updated via a prior direct coordinator commit). Known BAD Step 6 hallucination pattern — cosmetic only.
+- **PR body test count understated: "46 test cases" vs actual 55** [PR body] — BAD wrote the body after Step 6 (before Step 5's additional defensive input validation tests). Not a quality issue.
+- **PR body file count wrong: "10 files changed" vs actual 9** [PR body] — off-by-one, minor cosmetic error.
+- **No live-smoke marker for a Mirakl-touching PR** [PR body] — Story 3.2 is mock-only by spec design (live credential smoke deferred to Story 3.3). Future Mirakl-touching PRs that are expected to run live should include `[Skip-Live-Smoke: <reason>]` to make the intent explicit.
