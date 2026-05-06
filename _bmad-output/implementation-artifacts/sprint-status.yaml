@@ -72,7 +72,7 @@
 # by design; pre-dates the rule).
 
 generated: 2026-05-01
-last_updated: 2026-05-04  # bmad-create-story: Story 2.2 sharded 2026-05-04 (Bob); 2-2-rls-regression-suite-ci-block → ready-for-dev; integration_test_required: true; bmad-dev-story: Story 2.2 → review 2026-05-04 (Amelia); bmad-code-review: Story 2.2 → done 2026-05-04 (PR #65 Step 7 review, 4 patches applied); bmad-retrospective: Epic 2 retro complete 2026-05-04 (Bob); epic-2: in-progress → done; epic-2-retrospective: optional → done; doc at epic-2-retro-2026-05-04.md
+last_updated: 2026-05-06  # bmad-create-story: Story 9.1 sharded 2026-05-06 (BAD Step 1); 9-1-audit-log-partitioned-base-table-priority-derivation-trigger-initial-partition-monthly-partition-cron → ready-for-dev; integration_test_required: true (trigger + RLS)
 project: marketpilot-repricer  # updated by bmad-create-story: Story 1.1 sharded 2026-05-01; Story 1.2 sharded 2026-05-01; Story 1.3 sharded 2026-05-02; Story 1.4 sharded 2026-05-02; Story 1.5 sharded 2026-05-03; Story 1.5 → review 2026-05-03; Story 1.5 → done 2026-05-03 (post-review); Story 2.1 sharded 2026-05-03 (Bob) → ready-for-dev
 project_key: NOKEY
 tracking_system: file-system
@@ -104,7 +104,7 @@ development_status:
   # Numerical Epic 9 slot retains 9.2-9.6 only (post-Epic 8).
   # =========================================================================
   9-0-writeauditevent-ssot-module-audit-log-event-types-lookup-table-26-row-ad20-taxonomy-seed: done  # CALENDAR-EARLY; ships eslint-rules/no-raw-INSERT-audit-log.js; bmad-create-story: Story 9.0 sharded 2026-05-04 (Bob)
-  9-1-audit-log-partitioned-base-table-priority-derivation-trigger-initial-partition-monthly-partition-cron: backlog  # CALENDAR-EARLY; depends on 9.0 + 2.1 (RLS clients)
+  9-1-audit-log-partitioned-base-table-priority-derivation-trigger-initial-partition-monthly-partition-cron: atdd-done  # CALENDAR-EARLY; depends on 9.0 + 2.1 (RLS clients); bmad-create-story: Story 9.1 sharded 2026-05-06 (BAD Step 1)
 
   # =========================================================================
   # EPIC 3 -- Mirakl Integration Foundation  (architecture S-I phase 3)
@@ -374,3 +374,4 @@ merge_blocks:
 integration_test_required:
   2-1-rls-aware-app-db-client-service-role-worker-db-client-transaction-helper: true   # pg Pool + RLS + auth contract surface
   2-2-rls-regression-suite-ci-block: true   # live RLS verification against Supabase
+  9-1-audit-log-partitioned-base-table-priority-derivation-trigger-initial-partition-monthly-partition-cron: true   # audit_log trigger + RLS + compound index existence
