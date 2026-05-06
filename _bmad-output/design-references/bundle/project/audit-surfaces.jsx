@@ -180,7 +180,7 @@ function DailySummary({ data, onShowFirehose }) {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         fontSize: 12, fontWeight: 600, color: 'var(--mp-ink-2)',
       }}>
-        <span>Mostrar todos os ajustes (firehose · agregado por ciclo)</span>
+        <span>Mostrar todos os ajustes (agregado por ciclo)</span>
         <Icon name="arrow_forward" style={{ fontSize: 16, color: 'var(--mp-ink-3)' }} />
       </button>
     </section>
@@ -646,7 +646,7 @@ function FirehoseView({ cycles }) {
             color: 'var(--mp-primary)', letterSpacing: '0.06em',
             textTransform: 'uppercase',
           }}>
-            Firehose <span style={{ color: 'var(--mp-ink-3)', fontWeight: 500 }}>· agregado por ciclo</span>
+            Histórico completo <span style={{ color: 'var(--mp-ink-3)', fontWeight: 500 }}>· agregado por ciclo</span>
           </h3>
           <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--mp-ink-3)' }}>
             Verificação de confiança. Não é para uso diário.

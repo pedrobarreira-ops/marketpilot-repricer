@@ -19,7 +19,7 @@ function GoLiveModalContent({ checked }) {
           Até <strong className="tabular" style={{ color: 'var(--mp-primary)', fontWeight: 700 }}>6.161 produtos</strong>{' '}
           poderão ter preços ajustados, dentro da margem de{' '}
           <strong style={{ color: 'var(--mp-primary)', fontWeight: 700 }}>1,5%</strong> que configuraste.
-          Os preços são otimizados a cada <strong>15 minutos</strong>, sempre dentro da tua tolerância — nunca abaixo do floor, nunca acima do ceiling.
+          Os preços são optimizados a cada <strong>15 minutos</strong>, sempre dentro da tua tolerância — nunca abaixo do floor, nunca acima do ceiling.
         </p>
 
         <p style={{
@@ -320,7 +320,7 @@ function ScreenScanReady() {
               color: 'var(--mp-ink-2)', letterSpacing: '-0.02em',
             }}>1.847</p>
             <p style={{ margin: 0, fontSize: 13, color: 'var(--mp-ink-2)' }}>
-              sem competidores <span style={{ color: 'var(--mp-ink-3)' }}>(Tier 3 — vamos monitorizar)</span>
+              sem competidores <span style={{ color: 'var(--mp-ink-3)' }}>(a monitorizar)</span>
             </p>
             <span />
           </div>

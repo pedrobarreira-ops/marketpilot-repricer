@@ -637,7 +637,7 @@ A análise do catálogo concluiu
          28.842  prontos para repricing
          ────────  com competidores ativos
 
-         1.847   sem competidores (Tier 3 — vamos monitorizar)
+         1.847   sem competidores (a monitorizar)
          490     sem EAN no Worten — ignorados
                  (porquê? ▸)
 
@@ -699,7 +699,7 @@ Título:        Pronto para ir live?
 
 Corpo:         Até **{N} produtos** poderão ter preços ajustados,
                dentro da margem de **{X}%** que configuraste. Os preços
-               são otimizados a cada 15 minutos, sempre dentro da tua
+               são optimizados a cada 15 minutos, sempre dentro da tua
                tolerância — nunca abaixo do floor, nunca acima do ceiling.
 
                Tu confirmas. Nós executamos. Tu podes parar a qualquer
