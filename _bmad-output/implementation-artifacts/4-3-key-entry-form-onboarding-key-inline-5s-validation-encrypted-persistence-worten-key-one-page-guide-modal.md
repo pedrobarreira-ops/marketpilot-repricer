@@ -549,9 +549,7 @@ claude-sonnet-4-6
 ### File List
 
 - app/src/routes/onboarding/key.js (new)
-- app/src/views/pages/onboarding-key.eta (new)
-- app/src/views/modals/key-help.eta (new — standalone modal template)
-- app/src/views/components/trust-block.eta (new — standalone component template)
+- app/src/views/pages/onboarding-key.eta (new — page inlines its own trust block + guide modal markup)
 - public/js/onboarding-key.js (new)
 - public/images/key-guide/01-seller-center-menu.png (new — placeholder stub)
 - public/images/key-guide/02-account-settings.png (new — placeholder stub)
@@ -560,6 +558,20 @@ claude-sonnet-4-6
 - supabase/migrations/202604301211_create_scan_jobs.sql (new — from Story 4.2, needed for integration tests)
 - supabase/migrations/202605062200_story43_vault_and_scanjobs_rls.sql (new — RLS INSERT/UPDATE for vault + scan_jobs)
 
+> Code review (BAD Step 5) deleted `app/src/views/modals/key-help.eta` and `app/src/views/components/trust-block.eta`: both were created per the original File-Touch list but the page template inlines the same markup directly, so they were dead code. If a future story needs to reuse the trust block on another page (`/settings/key` is the obvious candidate), extract it back out then.
+
 ### Change Log
 
 - 2026-05-06: Story implemented by claude-sonnet-4-6. Route, templates, vanilla JS, placeholder assets, migrations (scan_jobs + RLS additions for vault/scan_jobs) all created. All acceptance criteria AC#1–AC#7 addressed. AC#8 (Pedro sign-off) pending manual review. Status → review.
+- 2026-05-06: Code review (BAD Step 5) — patches applied for transport-error retry CTA (AC#3), POST forward-only guard (AC#7), trim of pasted shop_api_key, and removal of dead-code partial templates that the page already inlines. Migration filename collision with story-4.2's worktree flagged as decision_needed (no auto-patch — append-only rule). Two project-wide concerns deferred (CSRF stance, rate-limit stance) and one architectural follow-up deferred (plumb AbortSignal through mirAklGet/runVerification so timeout cancels the underlying fetch).
+
+### Review Findings
+
+- [ ] [Review][Decision] Migration filename collision with story-4.2 worktree — `supabase/migrations/202604301211_create_scan_jobs.sql` exists with diverging contents in both story-4.2 and story-4.3 worktrees (story-4.2 has table+select_own only; story-4.3 has table+select_own+insert_own). Whichever PR merges second will hit a conflict. Per BAD review instructions migrations are not silently patched; Pedro to decide whether to (a) align this branch's 202604301211 verbatim with 4.2's and move scan_jobs_insert_own into the new 202605062200 file, or (b) coordinate file ownership at merge time.
+- [x] [Review][Patch] Transport errors don't render retry CTA — fixed by checking `verificationResult.success === false` together with `lastResult.status === 0` and routing to the retryError slot. [app/src/routes/onboarding/key.js]
+- [x] [Review][Patch] POST /onboarding/key/validate had no UX-DR2 forward-only guard — added the same cron_state check from the GET handler before any DB writes; non-PROVISIONING states now redirect to /. [app/src/routes/onboarding/key.js]
+- [x] [Review][Patch] Pasted shop_api_key not trimmed — leading/trailing whitespace from clipboard paste passed through to Mirakl as-is causing confusing 401s. Now trimmed before validation, encryption, and persistence. [app/src/routes/onboarding/key.js]
+- [x] [Review][Patch] Dead-code partials — `app/src/views/components/trust-block.eta` and `app/src/views/modals/key-help.eta` were created per File-Touch list but the page inlines its own copies. Deleted the unused partials; page is the single source for now. (Refactor to includes can come with the first reuse.) [app/src/views/components/trust-block.eta, app/src/views/modals/key-help.eta]
+- [x] [Review][Defer] Underlying fetch is not aborted on timeout — `Promise.race` rejects the awaited promise but `mirAklGet`'s fetch + 5-retry exponential backoff (≤30s) keeps running. Plumbing AbortSignal through `runVerification` and `mirAklGet` is a non-trivial SSoT change; deferred to a follow-up touching shared/mirakl/api-client.js + scripts/mirakl-empirical-verify.js. [shared/mirakl/api-client.js]
+- [x] [Review][Defer] No CSRF token middleware — same-site=lax cookie blocks cross-site CSRF on this route, but project has no global CSRF stance. Deferred — project-wide architectural decision, not 4.3-scoped. [app/src/server.js]
+- [x] [Review][Defer] No rate-limit on key validation — endpoint hits Mirakl on every call. Deferred — project-wide concern (no @fastify/rate-limit registered anywhere yet). [app/src/server.js]

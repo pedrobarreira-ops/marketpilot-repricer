@@ -208,6 +208,14 @@ Implementation when triggered: ~4-line change in `founder-admin-only.js` — app
 
 ---
 
+## Deferred from: code review of story-4.3 (2026-05-06)
+
+- **5s timeout does not abort the underlying Mirakl fetch** [app/src/routes/onboarding/key.js:163-177, shared/mirakl/api-client.js:84-136, scripts/mirakl-empirical-verify.js:88-150] — The route uses `Promise.race(runVerification(), timeoutPromise)`. When the timeout wins, the awaited promise rejects but the underlying `fetch()` inside `mirAklGet` (and its 5-retry exponential-backoff schedule, up to ~30s) keeps running. The user's response is sent in time but a server-side connection slot stays in use. Fix: plumb an `AbortSignal` from the route through `runVerification(..., { signal })` into `mirAklGet(..., { signal })` and pass `{ signal }` to `fetch()`. Touches Story 3.1 and Story 3.3 SSoT modules; non-trivial; deferred to a hardening follow-up.
+- **No CSRF token middleware on POST /onboarding/key/validate** [app/src/server.js, app/src/routes/onboarding/key.js] — Same-site=Lax cookie blocks cross-site CSRF on this route, but the project still has no global CSRF stance. Already tracked under "Pre-customer-#1 operational gates" earlier in this file (CSRF protection not registered) — re-affirmed as still outstanding from Story 4.3 review.
+- **No rate-limit on /onboarding/key/validate** [app/src/server.js] — Endpoint hits a third-party API (Mirakl) every call. `@fastify/rate-limit` is not registered anywhere in the app. Not a 4.3-scoped issue but worth tagging the validation endpoint as a candidate for the first rate-limit roll-out (alongside /signup, /login, /forgot-password).
+
+---
+
 ## Deferred from: PR #74 review (2026-05-07)
 
 - **PR body "8 files changed" off-by-one** [PR body] — diff shows 7 changed files; body claims 8. Cosmetic BAD Step 6 body-generation error. No functional impact.

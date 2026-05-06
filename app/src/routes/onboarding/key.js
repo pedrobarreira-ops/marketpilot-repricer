@@ -141,6 +141,23 @@ export async function keyRoutes (fastify, _opts) {
       });
     }
 
+    // AC#7 — UX-DR2 forward-only guard on POST as well as GET. Without this,
+    // a customer in DRY_RUN/ACTIVE/PAUSED_* could re-submit /validate from
+    // outside the onboarding flow and silently overwrite their vault key
+    // (UPSERT) and create a duplicate scan_jobs row on an already-active
+    // marketplace. Key rotation is owned by /settings/key (Story 5.2), not
+    // this onboarding route.
+    {
+      const customerIdForGuard = req.user.id;
+      const guardResult = await req.db.query(
+        `SELECT cron_state FROM customer_marketplaces WHERE customer_id = $1 LIMIT 1`,
+        [customerIdForGuard]
+      );
+      if (guardResult.rows.length > 0 && guardResult.rows[0].cron_state !== 'PROVISIONING') {
+        return reply.redirect('/', 302);
+      }
+    }
+
     // WORTEN_TEST_EAN is required for P11 inline validation
     const referenceEan = process.env.WORTEN_TEST_EAN;
     if (!referenceEan || referenceEan.trim().length === 0) {
@@ -153,6 +170,18 @@ export async function keyRoutes (fastify, _opts) {
 
     const baseUrl = (process.env.WORTEN_INSTANCE_URL ?? 'https://marketplace.worten.pt').replace(/\/+$/, '');
     const timeoutMs = Number(process.env.MIRAKL_VALIDATION_TIMEOUT_MS) || DEFAULT_VALIDATION_TIMEOUT_MS;
+
+    // Trim leading/trailing whitespace pasted from clipboard. The schema
+    // enforces minLength: 1 / maxLength: 512 against the raw body, but a
+    // copy-paste with a trailing newline would otherwise reach Mirakl as-is
+    // and surface as a confusing 401 "chave inválida".
+    const submittedKey = req.body.shop_api_key.trim();
+    if (submittedKey.length === 0) {
+      return renderKeyForm(reply, {
+        error: 'A chave Worten é inválida. Verifica a chave e tenta novamente.',
+        status: 400,
+      });
+    }
 
     // Log without the key — never log request.body for this route (AC#3 constraint)
     req.log.info({ path: req.url }, 'key-validate-start');
@@ -167,7 +196,7 @@ export async function keyRoutes (fastify, _opts) {
       verificationResult = await Promise.race([
         runVerification({
           baseUrl,
-          apiKey: req.body.shop_api_key,
+          apiKey: submittedKey,
           referenceEan: referenceEan.trim(),
           inlineOnly: true,
           dryRun: true,
@@ -179,7 +208,12 @@ export async function keyRoutes (fastify, _opts) {
       cancelTimeout();
       req.log.warn({ errName: err.name, errCode: err.code }, 'key-validate: verification error');
 
-      // Timeout path (AbortError) or transport-level error (no HTTP status)
+      // Timeout path (AbortError) or transport-level error (no HTTP status).
+      // NOTE: runVerification swallows transport errors internally (its
+      // runCall helper catches and records status=0/ok=false); only the
+      // race-against-timeout path actually throws here. Transport errors
+      // therefore manifest below via verificationResult.success === false
+      // with P11 status === 0 — handled in that block.
       const isTimeout = err.name === 'AbortError' || err.code === 'ABORT_ERR' ||
                         err.name === 'TimeoutError';
       const isTransport = !err.status && !isTimeout;
@@ -201,9 +235,21 @@ export async function keyRoutes (fastify, _opts) {
     // ── P11 succeeded — check required assertion passed ───────────────────────
     if (!verificationResult.success) {
       // verificationResult.success is false when a required assertion failed.
-      // Extract the P11 HTTP status to map to the right error message.
+      // Extract the P11 HTTP status to differentiate transport (status === 0)
+      // from API errors (401/403/4xx/5xx). Transport errors render the retry
+      // CTA per AC#3; HTTP errors render the inline error slot.
       const p11Result = verificationResult.results?.find(r => r.call === 'P11');
-      const syntheticErr = { status: p11Result?.status ?? 0 };
+      const p11Status = p11Result?.status ?? 0;
+
+      if (p11Status === 0) {
+        // Transport-level failure swallowed by runVerification — show retry CTA
+        return renderKeyForm(reply, {
+          retryError: 'Não conseguimos contactar o Worten. Verifica a tua ligação e tenta novamente.',
+          status: 200,
+        });
+      }
+
+      const syntheticErr = { status: p11Status };
       return renderKeyForm(reply, {
         error: getSafeErrorMessage(syntheticErr),
         status: 200,
@@ -223,7 +269,7 @@ export async function keyRoutes (fastify, _opts) {
     }
 
     const { ciphertext, nonce, authTag, masterKeyVersion } = encryptShopApiKey(
-      req.body.shop_api_key,
+      submittedKey,
       masterKey
     );
 
