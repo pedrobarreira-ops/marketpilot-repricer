@@ -167,13 +167,16 @@ const CUSTOMER_SCOPED_TABLES = [
     table: 'skus',
     ownerCol: 'customer_marketplace_id',
     // SELECT: customer A queries skus joined to customer B's marketplace — must return 0 rows.
-    selectQuery: (_ownerId, otherId) => ({
+    // ownerId = userBId (the target whose rows we're trying to access), otherId = userAId (the attacker).
+    // WHERE cm.customer_id = ownerId (= userBId) so the query targets B's rows; RLS on skus
+    // (customer_marketplace_id IN subquery for auth.uid()=A) must filter them all out.
+    selectQuery: (ownerId, _otherId) => ({
       text: `SELECT s.customer_marketplace_id
              FROM skus s
              JOIN customer_marketplaces cm ON cm.id = s.customer_marketplace_id
              WHERE cm.customer_id = $1
              LIMIT 1`,
-      values: [otherId],
+      values: [ownerId],
     }),
     insertQuery: (_ownerId, otherId) => ({
       text: `INSERT INTO skus (customer_marketplace_id, ean, shop_sku)
@@ -195,13 +198,13 @@ const CUSTOMER_SCOPED_TABLES = [
   {
     table: 'sku_channels',
     ownerCol: 'customer_marketplace_id',
-    selectQuery: (_ownerId, otherId) => ({
+    selectQuery: (ownerId, _otherId) => ({
       text: `SELECT sc.customer_marketplace_id
              FROM sku_channels sc
              JOIN customer_marketplaces cm ON cm.id = sc.customer_marketplace_id
              WHERE cm.customer_id = $1
              LIMIT 1`,
-      values: [otherId],
+      values: [ownerId],
     }),
     insertQuery: (_ownerId, otherId) => ({
       text: `INSERT INTO sku_channels (customer_marketplace_id, sku_id, channel_code,
@@ -224,13 +227,13 @@ const CUSTOMER_SCOPED_TABLES = [
   {
     table: 'baseline_snapshots',
     ownerCol: 'customer_marketplace_id',
-    selectQuery: (_ownerId, otherId) => ({
+    selectQuery: (ownerId, _otherId) => ({
       text: `SELECT bs.customer_marketplace_id
              FROM baseline_snapshots bs
              JOIN customer_marketplaces cm ON cm.id = bs.customer_marketplace_id
              WHERE cm.customer_id = $1
              LIMIT 1`,
-      values: [otherId],
+      values: [ownerId],
     }),
     insertQuery: (_ownerId, otherId) => ({
       text: `INSERT INTO baseline_snapshots (customer_marketplace_id, sku_channel_id, list_price_cents, current_price_cents)
@@ -254,13 +257,13 @@ const CUSTOMER_SCOPED_TABLES = [
     ownerCol: 'customer_marketplace_id',
     // scan_jobs: customer can only SELECT — worker writes via service-role (no modify policy).
     // INSERT/UPDATE/DELETE queries return null to skip those sub-tests (serviceRoleOnly=true).
-    selectQuery: (_ownerId, otherId) => ({
+    selectQuery: (ownerId, _otherId) => ({
       text: `SELECT sj.customer_marketplace_id
              FROM scan_jobs sj
              JOIN customer_marketplaces cm ON cm.id = sj.customer_marketplace_id
              WHERE cm.customer_id = $1
              LIMIT 1`,
-      values: [otherId],
+      values: [ownerId],
     }),
     insertQuery: () => null, // service-role only — no customer INSERT policy
     updateQuery: () => null, // service-role only — no customer UPDATE policy

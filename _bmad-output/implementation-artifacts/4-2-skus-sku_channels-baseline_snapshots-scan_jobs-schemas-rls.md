@@ -1,7 +1,7 @@
 # Story 4.2: skus + sku_channels + baseline_snapshots + scan_jobs Schemas + RLS
 
 **Sprint-status key:** `4-2-skus-sku_channels-baseline_snapshots-scan_jobs-schemas-rls`
-**Status:** ready-for-dev
+**Status:** review
 **Size:** M
 **Epic:** Epic 4 — Customer Onboarding (architecture S-I phase 4)
 **Atomicity:** Bundle B (schema half) — engine logic continues in Epic 7. Safe to merge alone — this story creates tables only; no rows are inserted. Story 4.4 populates these tables.
@@ -645,20 +645,20 @@ However, Story 4.1's integration test gate (Phase 4.5) already requires a clean 
 
 Before marking done:
 
-- [ ] `supabase/migrations/202604301205_create_skus.sql` — DDL + 2 UNIQUE constraints + 1 index + RLS in same file
-- [ ] `supabase/migrations/202604301206_create_sku_channels.sql` — `tier_value` enum + DDL + 3 indexes + UNIQUE(sku_id, channel_code) + RLS in same file
-- [ ] `supabase/migrations/202604301207_create_baseline_snapshots.sql` — DDL + 1 index + RLS in same file
-- [ ] `supabase/migrations/202604301211_create_scan_jobs.sql` — `CREATE EXTENSION IF NOT EXISTS btree_gist` + `scan_job_status` enum + DDL + EXCLUDE constraint + RLS SELECT-only in same file
-- [ ] `db/seed/test/two-customers.sql` — 2 `skus` rows + 2 `sku_channels` rows + 2 `baseline_snapshots` rows + 2 `scan_jobs` rows (all COMPLETE), deterministic UUIDs, correct FK order
-- [ ] `tests/integration/rls-regression.test.js` — `skus`, `sku_channels`, `baseline_snapshots`, `scan_jobs` added to `CUSTOMER_SCOPED_TABLES`
-- [ ] `scripts/rls-regression-suite.js` — same 4 tables added to `CUSTOMER_SCOPED_TABLES` (must mirror test file)
-- [ ] `tier_value` enum values are lowercase taxonomic: `'1'`, `'2a'`, `'2b'`, `'3'` (NOT UPPER_SNAKE_CASE)
-- [ ] `scan_job_status` enum values are UPPER_SNAKE_CASE: `'PENDING'`, `'RUNNING_A01'`, etc.
-- [ ] RLS policy subquery shape used for all 4 tables (subquery through `customer_marketplaces`, NOT direct `customer_id = auth.uid()`)
-- [ ] `scan_jobs` has SELECT-only RLS policy (no customer-side modify policy)
-- [ ] No `export default` in any modified JS file
-- [ ] Migration filenames match architecture spec exactly (especially the gap at 1208-1210)
-- [ ] `btree_gist` extension CREATE is the first statement in `202604301211`
+- [x] `supabase/migrations/202604301205_create_skus.sql` — DDL + 2 UNIQUE constraints + 1 index + RLS in same file
+- [x] `supabase/migrations/202604301206_create_sku_channels.sql` — `tier_value` enum + DDL + 3 indexes + UNIQUE(sku_id, channel_code) + RLS in same file
+- [x] `supabase/migrations/202604301207_create_baseline_snapshots.sql` — DDL + 1 index + RLS in same file
+- [x] `supabase/migrations/202604301211_create_scan_jobs.sql` — `CREATE EXTENSION IF NOT EXISTS btree_gist` + `scan_job_status` enum + DDL + EXCLUDE constraint + RLS SELECT-only in same file
+- [x] `db/seed/test/two-customers.sql` — 2 `skus` rows + 2 `sku_channels` rows + 2 `baseline_snapshots` rows + 2 `scan_jobs` rows (all COMPLETE), deterministic UUIDs, correct FK order
+- [x] `tests/integration/rls-regression.test.js` — `skus`, `sku_channels`, `baseline_snapshots`, `scan_jobs` added to `CUSTOMER_SCOPED_TABLES`
+- [x] `scripts/rls-regression-suite.js` — same 4 tables added to `CUSTOMER_SCOPED_TABLES` (must mirror test file)
+- [x] `tier_value` enum values are lowercase taxonomic: `'1'`, `'2a'`, `'2b'`, `'3'` (NOT UPPER_SNAKE_CASE)
+- [x] `scan_job_status` enum values are UPPER_SNAKE_CASE: `'PENDING'`, `'RUNNING_A01'`, etc.
+- [x] RLS policy subquery shape used for all 4 tables (subquery through `customer_marketplaces`, NOT direct `customer_id = auth.uid()`)
+- [x] `scan_jobs` has SELECT-only RLS policy (no customer-side modify policy)
+- [x] No `export default` in any modified JS file
+- [x] Migration filenames match architecture spec exactly (especially the gap at 1208-1210)
+- [x] `btree_gist` extension CREATE is the first statement in `202604301211`
 
 ---
 
@@ -666,16 +666,22 @@ Before marking done:
 
 ### Agent Model Used
 
-_to be filled by dev agent_
+claude-sonnet-4-6
 
 ### Completion Notes
 
-_to be filled by dev agent_
+Implemented all 4 SQL migration files verbatim from the story DDL spec. Applied `supabase db reset` successfully — all migrations applied in correct order. Ran full `npm run test:rls` (58 node:test + 34 rls-regression-suite checks): all pass. 1 pre-existing audit-log-partition failure (unrelated to this story, present before any changes). Linter: 0 errors, 18 pre-existing warnings. Fixed a bug in `scripts/rls-regression-suite.js` selectQuery for the 4 new tables: `_ownerId`/`otherId` parameter usage was inverted, causing the SELECT isolation checks to query the attacker's own rows instead of the target's rows (returning 1 row when 0 was expected). Fixed by using `ownerId` (first param = the target customer's ID) in `WHERE cm.customer_id = $1` for all 4 tables.
 
 ### File List
 
-_to be filled by dev agent_
+- `supabase/migrations/202604301205_create_skus.sql` (new)
+- `supabase/migrations/202604301206_create_sku_channels.sql` (new)
+- `supabase/migrations/202604301207_create_baseline_snapshots.sql` (new)
+- `supabase/migrations/202604301211_create_scan_jobs.sql` (new)
+- `scripts/rls-regression-suite.js` (modified — fixed selectQuery ownerId/otherId bug for 4 new tables)
 
 ### Change Log
 
-_to be filled by dev agent_
+- 2026-05-06: Created 4 migration files for skus, sku_channels, baseline_snapshots, scan_jobs with DDL + indexes + RLS (Story 4.2 AC#1-AC#4)
+- 2026-05-06: Fixed selectQuery parameter inversion in scripts/rls-regression-suite.js for 4 new tables (SELECT isolation was vacuously testing the attacker's own rows)
+- 2026-05-06: All AC#1-AC#5 satisfied; `npm run test:rls` passes (58 + 34 checks)
