@@ -1278,10 +1278,10 @@ test('story_4_2_scan_jobs_table_exists_with_rls_select_only_policy', { concurren
     `SELECT policyname, cmd FROM pg_policies WHERE tablename = 'scan_jobs' AND schemaname = 'public'`
   );
   // scan_jobs must have exactly 1 RLS policy (SELECT-only — no modify policy per AC#4).
-  const selectPolicies = policies.filter((p) => p.cmd === 'SELECT' || p.cmd === 'r' || p.policyname.includes('select'));
+  // pg_policies.cmd values are uppercase strings: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE' | 'ALL'.
+  // (Short single-char codes 'r','a','w','d','*' come from pg_policy.polcmd, not from this view.)
   const modifyPolicies = policies.filter((p) =>
-    ['INSERT', 'UPDATE', 'DELETE', 'ALL'].includes(p.cmd) ||
-    ['a', 'w', 'd', '*'].includes(p.cmd)
+    ['INSERT', 'UPDATE', 'DELETE', 'ALL'].includes(p.cmd)
   );
   assert.ok(
     policies.find((p) => p.policyname === 'scan_jobs_select_own'),
@@ -1306,6 +1306,243 @@ test('story_4_2_scan_jobs_table_exists_with_rls_select_only_policy', { concurren
     'CLASSIFYING_TIERS', 'SNAPSHOTTING_BASELINE', 'COMPLETE', 'FAILED',
   ];
   assert.deepStrictEqual(labels, expected, 'scan_job_status enum must have exactly 9 UPPER_SNAKE_CASE values in order');
+});
+
+// ---------------------------------------------------------------------------
+// Story 4.2 / AC#1 — UNIQUE constraints on skus
+//
+// Two separate UNIQUE constraints (NOT a composite — see Critical Constraint #10):
+//   - UNIQUE (customer_marketplace_id, ean)
+//   - UNIQUE (customer_marketplace_id, shop_sku)
+//
+// Locked-in via pg_constraint introspection rather than a behavioural INSERT
+// test: an introspection assertion fails immediately with a clear "constraint
+// missing" message; a behavioural test would only catch removal indirectly
+// (via downstream INSERTs succeeding when they shouldn't).
+// ---------------------------------------------------------------------------
+test('story_4_2_skus_has_two_unique_constraints', { concurrency: 1 }, async (t) => {
+  t.after(async () => { await closeServiceRolePool(); });
+
+  const pool = getServiceRoleClient();
+  const exists = await tableExists(pool, 'skus');
+  if (!exists) return;
+
+  // Use string_agg(... ORDER BY column-name) so the per-constraint column set is
+  // a single deterministic comma-joined string, dodging pg-driver array parsing
+  // quirks (text[] columns deserialize as the raw `'{a,b}'` literal, not a JS
+  // array). Sorting by attname rather than conkey index is fine here — the
+  // story spec doesn't pin column order in UNIQUE constraints, only the set.
+  const { rows: uniques } = await pool.query(
+    `SELECT
+       conname,
+       string_agg(att.attname, ',' ORDER BY att.attname) AS cols
+     FROM pg_constraint c
+     JOIN pg_class rel ON rel.oid = c.conrelid
+     JOIN pg_namespace n ON n.oid = rel.relnamespace
+     JOIN unnest(c.conkey) AS conkey(attnum) ON true
+     JOIN pg_attribute att ON att.attrelid = c.conrelid AND att.attnum = conkey.attnum
+     WHERE rel.relname = 'skus' AND n.nspname = 'public' AND c.contype = 'u'
+     GROUP BY conname`
+  );
+  const colSets = new Set(uniques.map((u) => u.cols));
+  assert.ok(
+    colSets.has('customer_marketplace_id,ean'),
+    `skus must have UNIQUE (customer_marketplace_id, ean); got ${JSON.stringify(uniques)}`
+  );
+  assert.ok(
+    colSets.has('customer_marketplace_id,shop_sku'),
+    `skus must have UNIQUE (customer_marketplace_id, shop_sku); got ${JSON.stringify(uniques)}`
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Story 4.2 / AC#2 — UNIQUE constraint + indexes on sku_channels
+//
+// UNIQUE (sku_id, channel_code) per AC#2.
+// Three indexes per AC#2: idx_sku_channels_dispatch (partial, AD17 hot path),
+//   idx_sku_channels_tier (KPI), idx_sku_channels_pending_import_id (resolution).
+// Locking these in via pg_index introspection prevents silent regressions that
+// would cripple production performance (the dispatcher would table-scan).
+// ---------------------------------------------------------------------------
+test('story_4_2_sku_channels_has_unique_and_required_indexes', { concurrency: 1 }, async (t) => {
+  t.after(async () => { await closeServiceRolePool(); });
+
+  const pool = getServiceRoleClient();
+  const exists = await tableExists(pool, 'sku_channels');
+  if (!exists) return;
+
+  // UNIQUE (sku_id, channel_code) — string_agg over attname avoids text[]
+  // deserialization quirks (see skus_has_two_unique_constraints rationale).
+  const { rows: uniques } = await pool.query(
+    `SELECT
+       string_agg(att.attname, ',' ORDER BY att.attname) AS cols
+     FROM pg_constraint c
+     JOIN pg_class rel ON rel.oid = c.conrelid
+     JOIN pg_namespace n ON n.oid = rel.relnamespace
+     JOIN unnest(c.conkey) AS conkey(attnum) ON true
+     JOIN pg_attribute att ON att.attrelid = c.conrelid AND att.attnum = conkey.attnum
+     WHERE rel.relname = 'sku_channels' AND n.nspname = 'public' AND c.contype = 'u'
+     GROUP BY c.conname`
+  );
+  const colSets = new Set(uniques.map((u) => u.cols));
+  assert.ok(
+    colSets.has('channel_code,sku_id'),
+    `sku_channels must have UNIQUE (sku_id, channel_code); got ${JSON.stringify(uniques)}`
+  );
+
+  // Required indexes (by name).
+  const { rows: indexes } = await pool.query(
+    `SELECT indexname FROM pg_indexes WHERE tablename = 'sku_channels' AND schemaname = 'public'`
+  );
+  const indexNames = new Set(indexes.map((i) => i.indexname));
+  for (const required of [
+    'idx_sku_channels_dispatch',
+    'idx_sku_channels_tier',
+    'idx_sku_channels_pending_import_id',
+  ]) {
+    assert.ok(
+      indexNames.has(required),
+      `sku_channels must have index ${required}; existing indexes: ${[...indexNames].join(', ')}`
+    );
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Story 4.2 / AC#2 / Critical Constraint #8 — pri01_consecutive_failures column
+//
+// Story 6.3 escalation depends on this column being present on sku_channels
+// from the beginning (column shipped inline, NOT via a follow-up migration).
+// Pin it down explicitly so any future drift fails loudly.
+// ---------------------------------------------------------------------------
+test('story_4_2_sku_channels_has_pri01_consecutive_failures_column', { concurrency: 1 }, async (t) => {
+  t.after(async () => { await closeServiceRolePool(); });
+
+  const pool = getServiceRoleClient();
+  const exists = await tableExists(pool, 'sku_channels');
+  if (!exists) return;
+
+  const { rows } = await pool.query(
+    `SELECT data_type, is_nullable, column_default
+     FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'sku_channels'
+       AND column_name = 'pri01_consecutive_failures'`
+  );
+  assert.strictEqual(rows.length, 1, 'sku_channels.pri01_consecutive_failures column must exist');
+  assert.strictEqual(rows[0].data_type, 'smallint', 'pri01_consecutive_failures must be smallint');
+  assert.strictEqual(rows[0].is_nullable, 'NO', 'pri01_consecutive_failures must be NOT NULL');
+  assert.match(
+    rows[0].column_default ?? '',
+    /^0\b/,
+    `pri01_consecutive_failures must default to 0; got "${rows[0].column_default}"`
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Story 4.2 / AC#3 — index on baseline_snapshots(sku_channel_id)
+// ---------------------------------------------------------------------------
+test('story_4_2_baseline_snapshots_has_sku_channel_id_index', { concurrency: 1 }, async (t) => {
+  t.after(async () => { await closeServiceRolePool(); });
+
+  const pool = getServiceRoleClient();
+  const exists = await tableExists(pool, 'baseline_snapshots');
+  if (!exists) return;
+
+  const { rows: indexes } = await pool.query(
+    `SELECT indexname FROM pg_indexes WHERE tablename = 'baseline_snapshots' AND schemaname = 'public'`
+  );
+  const indexNames = new Set(indexes.map((i) => i.indexname));
+  assert.ok(
+    indexNames.has('idx_baseline_snapshots_sku_channel_id'),
+    `baseline_snapshots must have idx_baseline_snapshots_sku_channel_id; existing indexes: ${[...indexNames].join(', ')}`
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Story 4.2 / AC#4 — EXCLUDE constraint on scan_jobs
+//
+// Critical safety constraint: prevents more than one active (non-terminal) scan
+// job per marketplace. Without this, a UI bug or worker race could spawn
+// concurrent scans that race on writes to skus / sku_channels / baseline_snapshots.
+//
+// Two-part assertion:
+//   1. Constraint exists in pg_constraint with type 'x' (EXCLUDE).
+//   2. Behavioural verification — INSERT a second non-terminal row for the
+//      same marketplace and assert SQLSTATE 23P01 (exclusion_violation).
+//      This catches the case where the constraint exists but its predicate
+//      was authored incorrectly (e.g., swapped IN/NOT IN).
+// ---------------------------------------------------------------------------
+test('story_4_2_scan_jobs_exclude_constraint_blocks_concurrent_active_scans', { concurrency: 1 }, async (t) => {
+  t.after(async () => {
+    await closeServiceRolePool();
+    await endResetAuthPool();
+  });
+
+  const pool = getServiceRoleClient();
+  const exists = await tableExists(pool, 'scan_jobs');
+  if (!exists) return;
+
+  // Part 1: introspection — the constraint must be declared.
+  const { rows: constraints } = await pool.query(
+    `SELECT conname FROM pg_constraint c
+     JOIN pg_class rel ON rel.oid = c.conrelid
+     JOIN pg_namespace n ON n.oid = rel.relnamespace
+     WHERE rel.relname = 'scan_jobs' AND n.nspname = 'public' AND c.contype = 'x'`
+  );
+  assert.ok(
+    constraints.find((c) => c.conname === 'scan_job_unique_per_marketplace'),
+    `scan_jobs must have EXCLUDE constraint scan_job_unique_per_marketplace; got: ${JSON.stringify(constraints)}`
+  );
+
+  // Part 2: behavioural — a second non-terminal scan for the same marketplace must error.
+  // Set up a customer_marketplaces row via service-role (we need a real FK target).
+  await resetAuthAndCustomers();
+  const { userAId } = await seedTwoCustomers();
+  const { rows: cmRows } = await pool.query(
+    `INSERT INTO customer_marketplaces
+       (customer_id, operator, marketplace_instance_url, max_discount_pct)
+     VALUES ($1, 'WORTEN', 'https://exclude-test.worten.pt', 0.015)
+     RETURNING id`,
+    [userAId],
+  );
+  const cmId = cmRows[0].id;
+
+  // First PENDING scan must succeed.
+  await pool.query(
+    `INSERT INTO scan_jobs (customer_marketplace_id, status) VALUES ($1, 'PENDING')`,
+    [cmId],
+  );
+
+  // Second non-terminal scan must trip 23P01 exclusion_violation.
+  let err;
+  try {
+    await pool.query(
+      `INSERT INTO scan_jobs (customer_marketplace_id, status) VALUES ($1, 'RUNNING_A01')`,
+      [cmId],
+    );
+  } catch (caught) {
+    err = caught;
+  }
+  assert.ok(err, 'second non-terminal scan_jobs row for the same marketplace must be rejected');
+  assert.strictEqual(
+    err.code,
+    '23P01',
+    `expected SQLSTATE 23P01 (exclusion_violation); got ${err.code} ${err.message}`
+  );
+
+  // After flipping the first row to a terminal state, a fresh scan must succeed
+  // (proves the predicate `status NOT IN ('COMPLETE','FAILED')` is correct, not
+  // a blanket per-marketplace uniqueness that would never let scans re-run).
+  await pool.query(
+    `UPDATE scan_jobs SET status = 'COMPLETE' WHERE customer_marketplace_id = $1`,
+    [cmId],
+  );
+  await pool.query(
+    `INSERT INTO scan_jobs (customer_marketplace_id, status) VALUES ($1, 'PENDING')`,
+    [cmId],
+  );
+
+  await resetAuthAndCustomers();
 });
 
 // ---------------------------------------------------------------------------
