@@ -957,7 +957,7 @@ Every UX requirement above traces to PRD FR/NFR. Compact mapping for downstream 
 | OQ-4 | Anomaly review modal: should customer be able to set a per-SKU absolute cap as part of accept ("accept and never reprice this SKU again at MVP")? | No — per-SKU exclude is Epic 2 per Brief §14. Accept just unfreezes; per-SKU ignore remains pause-whole-tool. | Pedro |
 | OQ-5 | Audit log Atenção feed: when items are zero, show empty-state confirmation copy (UX8) or hide the feed section entirely? | Skeleton uses confirmation copy ("Nada que precise da tua atenção"). Hiding it makes new customers think the feature is missing. | Pedro |
 | OQ-6 | Trust-block "Ver as nossas garantias" link target: modal (cheaper) or `/security` page (richer)? | Modal at MVP, `/security` standalone page in Epic 2 if procurement-conscious customers ask. | Pedro |
-| OQ-7 | Mobile pause button: persistent bottom action bar (UX26) — does this conflict with mobile browser chrome / iOS Safari bottom address bar? | Bottom action bar should sit above safe-area inset; verify in Pass 2 visual review. | Claude Design |
+| OQ-7 | Mobile pause button: persistent bottom action bar (UX26) — does this conflict with mobile browser chrome / iOS Safari bottom address bar? | Resolved 2026-05-06 — bottom bar designed with safe-area clearance (bottom padding above iOS chrome). Verified in Phase E artboards 21 + 21b. | Claude Design |
 
 ## §13 PRD amendments needed
 

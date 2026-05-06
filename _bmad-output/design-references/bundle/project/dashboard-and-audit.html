@@ -116,6 +116,7 @@
 <script type="text/babel" src="modal-shared.jsx"></script>
 <script type="text/babel" src="phase-c.jsx"></script>
 <script type="text/babel" src="phase-d.jsx"></script>
+<script type="text/babel" src="phase-e-mobile.jsx"></script>
 
 <script type="text/babel" data-presets="react">
 // useState is already exposed on window by dashboard-shared.jsx
@@ -398,6 +399,8 @@ const ARTBOARDS = [
   { id: 'admin-status',     label: '13 · /admin/status · Founder Status Page',              screen: ScreenAdminStatus,    height: 1080, scroll: true },
   { id: 'key-revoked',      label: '14 · /key-revoked · Worten key revocation interception', screen: ScreenKeyRevoked,    height: 900,  scroll: true },
   { id: 'payment-failed',   label: '15 · /payment-failed · first-login billing interception', screen: ScreenPaymentFailed, height: 900,  scroll: true },
+  { id: 'mobile-alert',     label: '21 · Mobile · Alerta crítico (/?alert=X)',                screen: ScreenMobileAlertFramed,  height: 900, scroll: true },
+  { id: 'mobile-detail',    label: '21b · Mobile · Detalhe Atenção (anomaly-review)',         screen: ScreenMobileDetailFramed, height: 900, scroll: true },
 ];
 
 function ChannelToggleStub() { return null; }
@@ -457,6 +460,10 @@ function App() {
 
       <DCSection id="interception" title="Interceptions · key revoked + payment failed (first login)">
         {ARTBOARDS.slice(14, 16).map(renderArtboard)}
+      </DCSection>
+
+      <DCSection id="mobile" title="Mobile · 22:47 Tuesday flow (crítico-only)">
+        {ARTBOARDS.slice(16, 18).map(renderArtboard)}
       </DCSection>
     </DesignCanvas>
   );
