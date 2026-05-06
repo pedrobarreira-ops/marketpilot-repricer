@@ -120,8 +120,8 @@ development_status:
   # =========================================================================
   epic-4: in-progress
   4-1-customer-marketplaces-schema-with-f4-provisioning-cron-state-machine-transitions-matrix: done  # ATOMICITY BUNDLE B (1/2); ESLint: no-raw-cron-state-update ships here; RLS regression debt from Story 2.2 — Bob's shard MUST extend db/seed/test/two-customers.sql + tests/integration/rls-regression.test.js CUSTOMER_SCOPED_TABLES registry + replace rls_isolation_shop_api_key_vault_deferred_awaiting_epic4 with row-level test (Epic 2 retro 2026-05-04 Item 6)
-  4-2-skus-sku-channels-baseline-snapshots-scan-jobs-schemas-rls: review
-  4-3-key-entry-form-onboarding-key-inline-5s-validation-encrypted-persistence-worten-key-one-page-guide-modal: review
+  4-2-skus-sku-channels-baseline-snapshots-scan-jobs-schemas-rls: done
+  4-3-key-entry-form-onboarding-key-inline-5s-validation-encrypted-persistence-worten-key-one-page-guide-modal: done
   4-4-async-catalog-scan-orchestration-a01-pc01-of21-p11-tier-classify-baseline-atomicity-sibling-of-story-4-1: backlog  # ATOMICITY BUNDLE B (2/2)
   4-5-scan-progress-page-onboarding-scan-closeable-reconnectable-status-polling: backlog
   4-6-scan-failed-email-scan-failed-interception: backlog
