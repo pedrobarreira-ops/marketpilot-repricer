@@ -124,6 +124,8 @@ export async function createMiraklMockServer () {
   const injections = new Map();
   // Per-path one-shot capture callbacks: { '/api/account': fn }
   const captures = new Map();
+  // Per-path delay overrides in ms: { '/api/products/offers': 6000 }
+  const delayMap = new Map();
 
   /**
    * Middleware: resolve injected errors or fire capture callbacks before route handlers.
@@ -171,7 +173,12 @@ export async function createMiraklMockServer () {
   });
 
   // ── P11: GET /api/products/offers ─────────────────────────────────────────
-  fastify.get('/api/products/offers', (req, reply) => {
+  fastify.get('/api/products/offers', async (req, reply) => {
+    // Check delay injection before middleware (delay path swallows the reply itself)
+    const delayMs = delayMap.get('/api/products/offers');
+    if (delayMs != null) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
     if (handleMiddleware('/api/products/offers', req.query, reply)) return;
     const channel = req.query.pricing_channel_code ?? req.query.channel_codes ?? 'WRT_PT_ONLINE';
     if (channel.includes('WRT_ES_ONLINE')) {
@@ -209,6 +216,23 @@ export async function createMiraklMockServer () {
      */
     captureNextRequest (path, callback) {
       captures.set(path, callback);
+    },
+
+    /**
+     * Inject a response delay (in ms) for the given path. Stacks with other
+     * injections; set to 0 or call clearDelay to remove.
+     * @param {{ path: string, ms: number }} opts
+     */
+    injectDelay ({ path, ms }) {
+      delayMap.set(path, ms);
+    },
+
+    /**
+     * Remove any injected delay for the given path.
+     * @param {string} path
+     */
+    clearDelay (path) {
+      delayMap.delete(path);
     },
 
     /** Stop the Fastify server. */

@@ -56,9 +56,12 @@ else
   #   trigger patterns (e.g., fake JWT in Bearer-token test).
   # - tests/shared/logger.test.js: redaction tests intentionally feed
   #   synthetic shop_api_key / Authorization values to verify pino redacts them.
+  # - tests/integration/key-entry.test.js: ATDD integration tests construct
+  #   form payloads with shop_api_key field to exercise the key validation route.
+  #   Values are synthetic test UUIDs (not real Mirakl keys).
   # General principle: any test file proving a scanner/redactor works must be
   # exempt — the test by definition needs to construct the trigger.
-  diff_content="$(git diff --cached --no-color -U0 -- ':!*.env.example' ':!*.md' ':!tests/scripts/*' ':!tests/shared/logger.test.js' || true)"
+  diff_content="$(git diff --cached --no-color -U0 -- ':!*.env.example' ':!*.md' ':!tests/scripts/*' ':!tests/shared/logger.test.js' ':!tests/integration/key-entry.test.js' || true)"
 fi
 
 # Empty diff (e.g., commit --allow-empty) — pass.

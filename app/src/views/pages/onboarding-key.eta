@@ -1,0 +1,176 @@
+<% layout('/layouts/default', { ...it, title: 'Ligar ao Worten' }) %>
+<section class="mp-onboarding-card">
+  <span class="mp-onboarding-badge">Passo 1 de 4</span>
+  <h1>A tua chave Worten</h1>
+  <p class="mp-onboarding-subtitle">
+    Cola a tua chave de API do Worten Seller Center para ligar o MarketPilot à tua loja.
+  </p>
+
+  <% if (it.error) { %>
+    <p class="mp-inline-error" role="alert" aria-live="polite"><%= it.error %></p>
+  <% } %>
+
+  <% if (it.retryError) { %>
+    <p class="mp-inline-retry" role="alert" aria-live="polite"><%= it.retryError %></p>
+    <button type="button" class="mp-btn mp-btn-secondary" onclick="document.querySelector('#key-form').requestSubmit()">
+      Tentar novamente
+    </button>
+  <% } %>
+
+  <form method="POST" action="/onboarding/key/validate" novalidate id="key-form">
+    <div class="mp-field">
+      <label for="shop_api_key">Chave de API Worten</label>
+      <input
+        type="password"
+        id="shop_api_key"
+        name="shop_api_key"
+        required
+        maxlength="512"
+        autocomplete="off"
+        spellcheck="false"
+        class="mp-input mp-input-mono"
+        placeholder="Cole aqui a tua chave de API"
+      />
+    </div>
+
+    <div class="mp-form-actions">
+      <button
+        type="submit"
+        id="validate-btn"
+        class="mp-btn mp-btn-primary"
+        disabled
+        aria-label="Validar chave de API Worten"
+      >
+        Validar chave
+      </button>
+    </div>
+  </form>
+
+  <p class="mp-guide-link">
+    <a href="#" id="open-key-help" aria-haspopup="dialog">
+      Como gerar a chave?
+    </a>
+  </p>
+
+  <!-- Trust block — UX-DR23 / §5.1 verbatim PT copy -->
+  <div
+    class="mp-trust-block"
+    style="
+      background: var(--mp-win-soft, oklch(95% 0.04 155));
+      border: 1px solid color-mix(in oklch, var(--mp-win, oklch(58% 0.14 155)) 25%, transparent);
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      margin-top: 24px;
+    "
+  >
+    <span
+      class="material-symbols-outlined lock_icon icon"
+      aria-hidden="true"
+      style="color: var(--mp-win, oklch(58% 0.14 155)); font-size: 22px; line-height: 1; flex: 0 0 24px; font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;"
+    >lock</span>
+    <p style="margin: 0; font-size: 14px; font-weight: 500; line-height: 1.55; color: var(--mp-ink, #0a1230);">
+      A tua chave fica <strong>encriptada em repouso</strong>. Apenas o motor de repricing a usa para falar com o Worten — nem o nosso fundador a vê em texto puro.
+      <br />
+      <a href="/security" class="mp-trust-link" style="font-weight: 600;">Ver as nossas garantias →</a>
+    </p>
+  </div>
+
+</section>
+
+<!-- "Como gerar a chave?" guide modal — FR10 / AC#5 -->
+<div
+  id="key-help-modal"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="key-help-modal-title"
+  aria-hidden="true"
+  class="mp-modal"
+  tabindex="-1"
+  style="display:none; position:fixed; inset:0; z-index:1000; overflow-y:auto;"
+>
+  <div id="key-help-modal-backdrop" style="position:fixed; inset:0; background:rgba(0,0,0,0.5);"></div>
+  <div class="mp-modal-dialog" style="position:relative; z-index:1001; max-width:700px; margin:48px auto; background:#fff; border-radius:16px; padding:40px; box-shadow:0 8px 40px rgba(0,0,0,0.18);">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:24px;">
+      <h2 id="key-help-modal-title" style="margin:0; font-size:22px; font-weight:800;">
+        Como gerar a tua chave Worten
+      </h2>
+      <button
+        type="button"
+        id="key-help-modal-close"
+        class="mp-modal-close"
+        aria-label="Fechar guia"
+        style="background:none; border:none; cursor:pointer; font-size:16px; font-weight:600; padding:4px 12px;"
+      >Fechar</button>
+    </div>
+
+    <p style="color:#4a5366; margin:0 0 32px; font-size:15px;">
+      2 minutos. 3 passos. Tudo dentro do teu Worten Seller Center.
+    </p>
+
+    <!-- Step 1 -->
+    <section style="display:flex; gap:20px; margin-bottom:32px; padding-bottom:32px; border-bottom:1px solid #eef1f6;">
+      <div style="flex:0 0 36px; width:36px; height:36px; border-radius:50%; background:#1a2233; color:#fff; font-weight:700; font-size:16px; display:grid; place-items:center;" aria-hidden="true">1</div>
+      <div style="flex:1;">
+        <h3 style="margin:0 0 6px; font-size:17px; font-weight:700;">Abre o Worten Seller Center</h3>
+        <p style="margin:0 0 8px; font-size:12px; color:#8590a3;">URL: <code>marketplace.worten.pt</code></p>
+        <p style="margin:0; font-size:14px;">
+          Vai a <code>marketplace.worten.pt</code> num separador novo e inicia sessão com as credenciais que usas habitualmente para gerir a tua loja.
+        </p>
+        <img src="/public/images/key-guide/01-seller-center-menu.png" alt="Ecrã do Worten Seller Center" style="margin-top:12px; max-width:100%; border:1px solid #e2e6ee; border-radius:8px;" />
+      </div>
+    </section>
+
+    <!-- Step 2 -->
+    <section style="display:flex; gap:20px; margin-bottom:32px; padding-bottom:32px; border-bottom:1px solid #eef1f6;">
+      <div style="flex:0 0 36px; width:36px; height:36px; border-radius:50%; background:#1a2233; color:#fff; font-weight:700; font-size:16px; display:grid; place-items:center;" aria-hidden="true">2</div>
+      <div style="flex:1;">
+        <h3 style="margin:0 0 6px; font-size:17px; font-weight:700;">Abre as Definições pessoais</h3>
+        <p style="margin:0 0 8px; font-size:12px; color:#8590a3;">Caminho: avatar (canto superior direito) → <strong>Definições pessoais</strong></p>
+        <p style="margin:0; font-size:14px;">
+          No canto superior direito do Seller Center, clica no avatar. No menu que aparece, clica em <strong>Definições pessoais</strong>.
+        </p>
+        <img src="/public/images/key-guide/02-account-settings.png" alt="Menu do avatar do Worten Seller Center com a opção Definições pessoais destacada" style="margin-top:12px; max-width:100%; border:1px solid #e2e6ee; border-radius:8px;" />
+      </div>
+    </section>
+
+    <!-- Step 3 -->
+    <section style="display:flex; gap:20px; margin-bottom:32px;">
+      <div style="flex:0 0 36px; width:36px; height:36px; border-radius:50%; background:#1a2233; color:#fff; font-weight:700; font-size:16px; display:grid; place-items:center;" aria-hidden="true">3</div>
+      <div style="flex:1;">
+        <h3 style="margin:0 0 6px; font-size:17px; font-weight:700;">Abre o separador Chave de API e copia</h3>
+        <p style="margin:0 0 8px; font-size:12px; color:#8590a3;">Separador: <strong>Chave de API</strong> · Botão: <strong>Ações → Gerar nova chave de API</strong></p>
+        <p style="margin:0 0 10px; font-size:14px;">
+          Dentro de <strong>Definições pessoais</strong>, o primeiro separador é <strong>Chave de API</strong>.
+          Se já tens uma chave gerada, clica em <strong>Copiar chave API</strong> e cola-a no MarketPilot.
+        </p>
+        <p style="margin:0 0 10px; font-size:14px;">
+          Se ainda não tens chave, abre o menu <strong>Ações</strong> (canto superior direito do cartão)
+          e escolhe <strong>Gerar nova chave de API</strong>. A chave aparece logo abaixo, pronta para copiar.
+        </p>
+        <div style="padding:10px 14px; background:#fbf0dd; border-left:3px solid #c47a1c; border-radius:4px; font-size:12px; margin-bottom:12px;">
+          <strong>Atenção:</strong> gerar uma nova chave invalida a anterior. Se já tens uma chave em uso noutro sistema, gerar uma nova vai parti-lo. Confirma antes de regenerar.
+        </div>
+        <img src="/public/images/key-guide/03-api-key-copy.png" alt="Separador Chave de API dentro de Definições pessoais" style="max-width:100%; border:1px solid #e2e6ee; border-radius:8px;" />
+      </div>
+    </section>
+
+    <!-- Trust echo inside modal -->
+    <div style="margin-top:8px; padding:18px 20px; background:#e8f5ee; border:1px solid #2d8b5f; border-radius:12px; display:flex; gap:14px; align-items:flex-start;">
+      <span class="material-symbols-outlined lock_icon icon" aria-hidden="true" style="color:#2d8b5f; font-size:22px; line-height:1; font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24;">lock</span>
+      <p style="margin:0; font-size:13px; line-height:1.55;">
+        A tua chave fica <strong>encriptada em repouso</strong>. Apenas o motor de repricing a usa para falar com o Worten — nem o nosso fundador a vê em texto puro.
+      </p>
+    </div>
+
+    <div style="margin-top:32px; text-align:right;">
+      <button type="button" id="key-help-modal-close-footer" class="mp-btn mp-btn-secondary" style="padding:10px 24px; font-weight:600; cursor:pointer;">
+        Fechar
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="/public/js/onboarding-key.js" defer></script>
