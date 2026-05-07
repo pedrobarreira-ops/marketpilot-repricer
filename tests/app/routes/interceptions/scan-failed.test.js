@@ -32,7 +32,7 @@ import {
   resetAuthAndCustomers,
   endResetAuthPool,
   getResetAuthPool,
-} from '../../integration/_helpers/reset-auth-tables.js';
+} from '../../../integration/_helpers/reset-auth-tables.js';
 
 const BASE = process.env.APP_BASE_URL ?? 'http://localhost:3000';
 
