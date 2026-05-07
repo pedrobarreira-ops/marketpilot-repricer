@@ -1,0 +1,100 @@
+/* components.css — shared component styles for MarketPilot app UI
+ * Tokens are defined in tokens.css (OKLCH design system).
+ * Add component-scoped CSS here; never create additional CSS files.
+ *
+ * Story 4.9 token aliases: tokens.css (Story 1.4 placeholder) does not yet
+ * define the OKLCH semantic palette referenced by the UX skeleton (Epic 8
+ * lands the full system). Until then, declare aliases here so component
+ * styles remain self-contained. When the Epic 8 token set lands in
+ * tokens.css, these can be deleted.
+ */
+
+:root {
+  /* Surface + line + ink tokens (Story 4.9 minimal palette) */
+  --mp-surface: #ffffff;
+  --mp-line: oklch(88% 0.01 255);
+  --mp-ink-3: oklch(48% 0.02 255);
+
+  /* Info (blue) — used by the dry-run banner per UX skeleton §9.5 */
+  --mp-info: oklch(58% 0.14 255);
+  --mp-info-soft: oklch(96% 0.025 255);
+}
+
+/* ── Banner: shared component (Story 4.9 — dry-run banner per §9.5) ─────────── */
+
+.mp-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-left: 4px solid transparent;
+  border-radius: 8px;
+  margin-block: 16px;
+}
+
+.mp-banner-info {
+  background: var(--mp-info-soft);
+  border-left-color: var(--mp-info);
+  color: var(--mp-color-fg, #0f1f3a);
+}
+
+.mp-banner-info .material-symbols-outlined {
+  color: var(--mp-info);
+  font-size: 22px;
+  line-height: 1;
+  flex: 0 0 24px;
+}
+
+.mp-banner-text {
+  margin: 0;
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.mp-banner-cta {
+  background: var(--mp-info);
+  color: #ffffff;
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mp-banner-cta:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Dashboard: dry-run minimal (Story 4.9) ─────────────────────────────────── */
+
+/* 3-column KPI card grid — KPI data ships in Epic 8 Story 8.2 */
+.mp-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-block: 24px;
+}
+
+/* KPI placeholder card — dashed border, muted text (Story 4.9) */
+.mp-kpi-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 16px;
+  background: var(--mp-surface);
+  border: 2px dashed var(--mp-line);
+  border-radius: 8px;
+  color: var(--mp-ink-3);
+  font-style: italic;
+  text-align: center;
+}
+
+/* Audit log link row */
+.mp-dashboard-audit-link {
+  margin-block-start: 16px;
+}

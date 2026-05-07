@@ -1,0 +1,33 @@
+<% layout('/layouts/default', { ...it, title: 'Dashboard' }) %>
+
+<!-- Dry-run banner — UX skeleton §9.5 verbatim copy -->
+<div class="mp-banner mp-banner-info">
+  <span class="material-symbols-outlined">science</span>
+  <p class="mp-banner-text">
+    <strong>MODO SIMULAÇÃO</strong> · O que vês são decisões que o motor TOMARIA,
+    não acções no Worten. Quando estiveres confortável, vai live.
+  </p>
+  <!-- Placeholder — Go-Live action ships in Epic 8 Story 8.6 -->
+  <button class="mp-banner-cta" disabled>Ir live →</button>
+</div>
+
+<!-- 3 KPI card placeholders — KPI data ships in Epic 8 Story 8.2 -->
+<section class="mp-kpi-grid">
+  <div class="mp-kpi-placeholder">
+    <span class="material-symbols-outlined">pending</span>
+    3 status cards arriving in Epic 8
+  </div>
+  <div class="mp-kpi-placeholder">
+    <span class="material-symbols-outlined">pending</span>
+    3 status cards arriving in Epic 8
+  </div>
+  <div class="mp-kpi-placeholder">
+    <span class="material-symbols-outlined">pending</span>
+    3 status cards arriving in Epic 8
+  </div>
+</section>
+
+<!-- Audit log link — cycles will populate audit log once Epic 5+ engine ships -->
+<p class="mp-dashboard-audit-link">
+  <a href="/audit">Ver registo de auditoria →</a>
+</p>
