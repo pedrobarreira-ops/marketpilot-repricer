@@ -654,8 +654,11 @@ The user's response to this prompt isn't gated by anything — `/bad-review` exi
 - Mirakl: `marketplace.worten.pt`. Verify via Mirakl MCP server (per CLAUDE.md).
   Optional local probe: `scripts/mirakl-empirical-verify.js` (TBD — to be created at Story 3.x).
 - pg Pool MUST include `ssl: { rejectUnauthorized: false }` (Supabase certs don't pass strict).
-  Connection URL: direct `db.PROJECT_REF.supabase.co:5432` ONLY — session pooler returns
-  "tenant not found".
+  Connection URL: prefer Session Pooler `postgresql://postgres.PROJECT_REF:[PASSWORD]@aws-0-REGION.pooler.supabase.com:5432/postgres`
+  (IPv4, works from Docker/Coolify). Direct `db.PROJECT_REF.supabase.co:5432` is IPv6-only on
+  newer Supabase projects and fails with ENOTFOUND inside containers. The "tenant not found"
+  error with session pooler was caused by using username `postgres` instead of
+  `postgres.PROJECT_REF` — confirmed fixed 2026-05-07.
 - Current epic: track via `_bmad-output/implementation-artifacts/sprint-status.yaml`
 - Authoritative planning: `_bmad-output/planning-artifacts/architecture-distillate/_index.md`
   (NOT `epics-distillate.md` — that's a single-file legacy reference; our distillate is split).
