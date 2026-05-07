@@ -27,7 +27,7 @@ import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { spawn } from 'node:child_process';
 import { createClient } from '@supabase/supabase-js';
-import { getServiceRoleClient, closeServiceRolePool } from '../../../shared/db/service-role-client.js';
+import { getServiceRoleClient, closeServiceRolePool } from '../../../../shared/db/service-role-client.js';
 import {
   resetAuthAndCustomers,
   endResetAuthPool,
