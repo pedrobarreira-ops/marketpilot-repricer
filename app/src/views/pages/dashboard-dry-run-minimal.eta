@@ -1,4 +1,4 @@
-<% layout('/layouts/default', { ...it, title: 'Dashboard · MarketPilot' }) %>
+<% layout('/layouts/default', { ...it, title: 'Dashboard' }) %>
 
 <!-- Dry-run banner — UX skeleton §9.5 verbatim copy -->
 <div class="mp-banner mp-banner-info">

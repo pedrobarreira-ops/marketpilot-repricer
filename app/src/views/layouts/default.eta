@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title><%= it.title %> — <%= it.appName %></title>
     <link rel="stylesheet" href="/public/css/tokens.css" />
+    <link rel="stylesheet" href="/public/css/components.css" />
   </head>
   <body class="mp-body">
     <header class="mp-header" role="banner">
