@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Análise do catálogo falhou — MarketPilot</title>
+  <style>
+    /* Inline styles for email client compatibility */
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+      background-color: #f5f7fa;
+      color: #0a1230;
+      margin: 0;
+      padding: 0;
+    }
+    .wrapper {
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 0 16px;
+    }
+    .card {
+      background: #ffffff;
+      border: 1px solid #e1e5ec;
+      border-radius: 16px;
+      padding: 40px 36px;
+    }
+    .brand {
+      font-size: 18px;
+      font-weight: 800;
+      color: #00113a;
+      margin-bottom: 28px;
+      letter-spacing: -0.01em;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 800;
+      color: #00113a;
+      margin: 0 0 8px;
+      letter-spacing: -0.02em;
+    }
+    .subtitle {
+      font-size: 14px;
+      color: #6b7896;
+      margin: 0 0 28px;
+      line-height: 1.5;
+    }
+    .reason-box {
+      background: #f5f7fa;
+      border: 1px solid #edf0f5;
+      border-radius: 10px;
+      padding: 18px 20px;
+      margin-bottom: 28px;
+    }
+    .reason-label {
+      font-size: 10px;
+      font-weight: 700;
+      color: #3a4560;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 6px;
+    }
+    .reason-text {
+      font-size: 14px;
+      color: #0a1230;
+      line-height: 1.55;
+      margin: 0;
+    }
+    .cta-btn {
+      display: inline-block;
+      background: #00113a;
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+      padding: 12px 28px;
+      border-radius: 8px;
+      margin-bottom: 28px;
+      letter-spacing: 0.01em;
+    }
+    .help-text {
+      font-size: 13px;
+      color: #6b7896;
+      line-height: 1.55;
+      margin: 0 0 28px;
+    }
+    .footer {
+      margin-top: 24px;
+      border-top: 1px solid #edf0f5;
+      padding-top: 20px;
+      font-size: 11px;
+      color: #6b7896;
+      text-align: center;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="card">
+      <div class="brand">MarketPilot</div>
+
+      <h1>A análise do catálogo não completou</h1>
+      <p class="subtitle">
+        Olá<% if (it.customerName) { %> <%= it.customerName %><% } %>, encontrámos um problema durante a análise do teu catálogo Worten.
+      </p>
+
+      <div class="reason-box">
+        <p class="reason-label">Motivo</p>
+        <p class="reason-text"><%= it.failureReason %></p>
+      </div>
+
+      <p class="help-text">
+        Para retomar o processo, valida novamente a tua chave de API Worten.
+        O MarketPilot irá reiniciar a análise automaticamente após a validação.
+      </p>
+
+      <a href="<%= it.keyUrl %>" class="cta-btn">
+        Tentar novamente →
+      </a>
+
+      <p class="help-text">
+        Se o problema persistir, contacta-nos em
+        <a href="mailto:suporte@marketpilot.pt" style="color: #00113a; font-weight: 600;">suporte@marketpilot.pt</a>.
+      </p>
+    </div>
+
+    <div class="footer">
+      <p style="margin: 0;">© <%= new Date().getFullYear() %> MarketPilot · Repricing automatizado para o Worten</p>
+      <p style="margin: 4px 0 0;">
+        Este email foi enviado porque a tua conta MarketPilot requer atenção.
+      </p>
+    </div>
+  </div>
+</body>
+</html>
