@@ -264,3 +264,11 @@ Implementation when triggered: ~4-line change in `founder-admin-only.js` — app
 
 - **PR body "8 files changed" off-by-one** [PR body] — diff shows 7 changed files; body headline claims 8. Recurring BAD Step 6 body-generation error (7th occurrence across PRs). No functional impact; cosmetic only.
 - **PR body `APP_BASE_URL` env var claim is spurious** [PR body] — `APP_BASE_URL` not referenced in `scan.js`, `scan-progress.js`, or `server.js`. Carried from a template env-vars section. Same pattern as PR #74 deferred item (`APP_BASE_URL` and `WORKER_BASE_URL`). Cosmetic body overstatement; no functional impact.
+
+---
+
+## Deferred from: PR #75 review (2026-05-07)
+
+- **AC1/AC3 worker email-path tests are keyword-grep only** [tests/app/routes/interceptions/scan-failed.test.js] — "email sent on FAILED" and "no email on COMPLETE" are asserted via source line-window heuristics, not by executing the worker against a real scan row. A refactor (helper extraction, conditional inversion) defeats both. Acceptable for MVP; add behavioral coverage in a `.additional.test.js` supplement before Epic 7.
+- **`cron_state = PROVISIONING` interception guard untested** [tests/integration/scan-failed.test.js] — no test seeds `cron_state = ACTIVE` (or non-PROVISIONING) + stale FAILED row to confirm middleware does NOT intercept post-onboarding users. Medium risk if a future state transition leaves a stale FAILED row. Defer to Epic 8 when more interception states are wired into the middleware.
+- **Resend error-catch path not verified with injected throw** [tests/shared/resend/client.test.js] — `doesNotReject` assertion passes even if the catch block is absent (silent short-circuit on bad key validation). Add a stub that throws and assert the catch actually runs. Low risk given best-effort email design; defer to next Resend extension story (12.2).
