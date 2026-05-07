@@ -73,3 +73,62 @@ export async function getProductOffersByEanBatch (baseUrl, apiKey, { eans, chann
   const res = await mirAklGet(baseUrl, '/api/products/offers', params, apiKey);
   return (res.products ?? []).flatMap(p => p.offers ?? []);
 }
+
+/**
+ * P11 — batch EAN lookup with per-EAN grouping (up to 100 EANs per call).
+ *
+ * Same wire call as `getProductOffersByEanBatch`, but preserves the
+ * `products[].offers[]` grouping so callers can map offers back to the EAN
+ * they were quoted for. Story 4.4's onboarding-scan needs per-EAN tier
+ * classification — flattening into a single offer list (as the original
+ * batch wrapper does) loses the EAN→offers association required for
+ * correct per-EAN classification.
+ *
+ * EAN extraction precedence (per P11 schema): the `product_references` array
+ * on each `products[]` entry. We pick the entry whose `reference_type === 'EAN'`
+ * and use its `reference` value as the map key. Products without an EAN
+ * `product_references` entry are skipped (defensive: shouldn't happen for an
+ * EAN-keyed query, but the schema permits the field).
+ *
+ * @param {string} baseUrl - Marketplace base URL, e.g. 'https://worten.mirakl.net'
+ * @param {string} apiKey - Decrypted Mirakl shop API key
+ * @param {{ eans: string[], channel: string }} opts
+ * @returns {Promise<Map<string, object[]>>} Map: ean → raw offers array (filter via self-filter.js)
+ * @throws {RangeError} when more than 100 EANs are passed (Mirakl P11 limit)
+ * @throws {import('./api-client.js').MiraklApiError}
+ */
+export async function getProductOffersByEanBatchGrouped (baseUrl, apiKey, { eans, channel }) {
+  if (!Array.isArray(eans)) {
+    throw new TypeError(`getProductOffersByEanBatchGrouped: eans must be an array, got ${typeof eans}`);
+  }
+  if (eans.length === 0) {
+    return new Map();
+  }
+  if (eans.length > 100) {
+    throw new RangeError(`getProductOffersByEanBatchGrouped: max 100 EANs per call, got ${eans.length}`);
+  }
+
+  const productRefs = eans.map(e => `EAN|${e}`).join(',');
+  const params = {
+    product_references: productRefs,
+    channel_codes: channel,
+    pricing_channel_code: channel,
+  };
+  const res = await mirAklGet(baseUrl, '/api/products/offers', params, apiKey);
+
+  const grouped = new Map();
+  // Pre-seed with empty offer arrays for every requested EAN so callers can
+  // distinguish "no competitors" from "EAN absent in response" via Map.has().
+  for (const ean of eans) {
+    grouped.set(ean, []);
+  }
+
+  for (const product of (res.products ?? [])) {
+    const eanRef = product.product_references?.find(r => r.reference_type === 'EAN');
+    const ean = eanRef?.reference;
+    if (typeof ean !== 'string' || ean.length === 0) continue;
+    grouped.set(ean, product.offers ?? []);
+  }
+
+  return grouped;
+}
