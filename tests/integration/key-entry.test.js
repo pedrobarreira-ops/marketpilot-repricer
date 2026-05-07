@@ -140,10 +140,15 @@ test('key-entry integration', async (t) => {
   // env to allow overriding in tests. We pass the mock server URL so no live
   // Worten calls are made. MIRAKL_VALIDATION_TIMEOUT_MS is set short (500ms)
   // for the timeout test so we don't actually wait 5 full seconds.
+  // WORTEN_TEST_EAN is required by the route (route returns 500 if missing) —
+  // we set it here explicitly rather than relying on .env.test so the test is
+  // robust against contributor env drift. Any 13-digit EAN works because the
+  // mock server returns FIXTURE_P11_PT for any product_references value.
   const app = spawn('node', ['app/src/server.js'], {
     env: {
       ...process.env,
       WORTEN_INSTANCE_URL: mockBaseUrl,
+      WORTEN_TEST_EAN: process.env.WORTEN_TEST_EAN ?? '8809606851663',
       MIRAKL_VALIDATION_TIMEOUT_MS: '500',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -460,11 +465,16 @@ test('key-entry integration', async (t) => {
   await t.test('no_audit_event_emitted_on_key_validated', async () => {
     await resetAuthAndCustomers();
 
-    // Count audit_log rows before
+    // Sign up + log in BEFORE counting audit_log so any signup-emitted events
+    // (none today, but defensive against Story 9.x adding CUSTOMER_SIGNED_UP
+    // later) don't pollute the delta we're asserting on. The contract under
+    // test is "POST /onboarding/key/validate emits zero audit events" — we
+    // measure the delta straddling exactly that POST.
+    const { cookie } = await signupAndLogin();
+
     const beforeResult = await pool.query('SELECT COUNT(*)::int AS n FROM audit_log');
     const beforeCount = beforeResult.rows[0].n;
 
-    const { cookie } = await signupAndLogin();
     const syntheticKey = `test-key-audit-${randomUUID()}`;
 
     const res = await postForm('/onboarding/key/validate', { shop_api_key: syntheticKey }, {
