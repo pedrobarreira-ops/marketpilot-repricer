@@ -128,7 +128,7 @@ development_status:
   4-6-scan-failed-email-scan-failed-interception: done
   4-7-scan-ready-interstitial-onboarding-scan-ready-ux-dr33-34: done  # sharded 2026-05-07 (BAD Step 1); Pattern A UI — scan-ready.js route + onboarding-scan-ready.eta + <details> disclosure; 4 count queries (skus, sku_channels, scan_jobs); UX-DR33-34 verbatim copy; CRITICAL: skus_total semantics gap flagged in Dev Notes — verify against Story 4.4 impl before coding noEanCount
   4-8-margin-question-onboarding-margin-smart-default-mapping-5-warning: done  # bmad-create-story: Story 4.8 sharded 2026-05-07 (BAD Step 1)  # atdd-done 2026-05-07 (BAD Step 2)  → review 2026-05-07 (BAD Step 3) → done 2026-05-07 (BAD Step 7; PR #78)
-  4-9-dashboard-root-in-dry-run-minimal-landing-only: atdd-done  # bmad-create-story: Story 4.9 sharded 2026-05-07 (BAD Step 1)  # atdd-done 2026-05-07 (BAD Step 2)
+  4-9-dashboard-root-in-dry-run-minimal-landing-only: review  # bmad-create-story: Story 4.9 sharded 2026-05-07 (BAD Step 1)  # atdd-done 2026-05-07 (BAD Step 2)
   epic-4-retrospective: optional
 
   # =========================================================================
