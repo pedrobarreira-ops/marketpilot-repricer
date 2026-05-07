@@ -188,7 +188,7 @@ test('audit_log table exists and is partitioned by range on created_at', async (
   if (await skipIfNo91(t)) return;
   const db = getServiceRoleClient();
   const { rows } = await db.query(`
-    SELECT pt.partattrs, c.relname, p.partstrat
+    SELECT p.partattrs, c.relname, p.partstrat
     FROM pg_class c
     JOIN pg_partitioned_table p ON p.partrelid = c.oid
     WHERE c.relname = 'audit_log'
