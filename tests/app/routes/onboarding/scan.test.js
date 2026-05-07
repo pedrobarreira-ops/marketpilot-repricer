@@ -43,6 +43,13 @@ function makeDb (rowSets) {
       callIndex += 1;
       return { rows };
     },
+    // releaseRlsClient onResponse hook calls client.release() on every
+    // response. Without this stub, the hook's try/catch swallows a
+    // "release is not a function" TypeError and logs a warning. Mirroring
+    // the production rls-aware-client contract keeps the mock honest.
+    async release () {
+      // no-op: tests don't use a real pg pool
+    },
   };
 }
 

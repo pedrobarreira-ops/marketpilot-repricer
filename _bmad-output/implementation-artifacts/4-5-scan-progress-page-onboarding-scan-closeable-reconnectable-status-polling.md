@@ -541,3 +541,15 @@ claude-sonnet-4-6
 | Date | Change |
 |---|---|
 | 2026-05-07 | Story 4.5 implemented: scan progress page, /status endpoint, vanilla JS poller, server.js updated |
+| 2026-05-07 | Code review (Step 5): 5 patches applied (rate-limit keyGenerator, /status 404 handling, auth-skip pattern, var typo, mock release()), 2 deferred, 4 dismissed |
+
+### Review Findings
+
+- [x] [Review][Patch] Rate-limit `/status` keyed by IP, not by customer (AC#3 deviation) [app/src/routes/onboarding/scan.js:132-134] — applied: added `keyGenerator: (req) => req.user?.id ?? req.ip`
+- [x] [Review][Patch] /status 404 corrupts DOM in poller (no res.ok check) [public/js/scan-progress.js:151-168] — applied: skip JSON parse + DOM update on non-2xx response
+- [x] [Review][Patch] Auth/RLS skip `if (!req.user)` documented for defense-in-depth [app/src/routes/onboarding/scan.js:50-60] — applied as comment-only patch: rls-context.js line 37 already fail-loud asserts on missing access_token, so a partial bypass cannot reach the DB; documented in scan.js
+- [x] [Review][Patch] Variable name typo `sktsTotalEl` → `skusTotalEl` [public/js/scan-progress.js:47] — applied
+- [x] [Review][Patch] Test mock `db` lacks `.release()` method — completes the contract [tests/app/routes/onboarding/scan.test.js:38-47] — applied: added async no-op `release()` to makeDb
+- [x] [Review][Defer] PHASE_MAP duplicated across server (scan.js) and client (scan-progress.js) — drift risk [app/src/routes/onboarding/scan.js:25-35 + public/js/scan-progress.js:30-40] — deferred, mirror is documented and server side is regression-tested; pragmatic for MVP
+- [x] [Review][Defer] Inline `style="..."` on trust block bypasses tokens.css [app/src/views/pages/onboarding-scan.eta:113-128] — deferred, Epic 8 owns the visual layer; consistent with rest of codebase
+

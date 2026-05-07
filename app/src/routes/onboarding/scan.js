@@ -46,7 +46,12 @@ const PHASE_MAP = {
  */
 export async function scanRoutes (fastify, _opts) {
   // Auth guard: skip if req.user is already set (e.g. by test harness).
-  // In production, req.user is never pre-populated, so authMiddleware always runs.
+  // In production, req.user is never pre-populated by upstream code, so
+  // authMiddleware always runs. Defense in depth: if a future middleware
+  // ever pre-populates req.user without the production shape, rls-context.js
+  // line 37 fails loud ("rls-context requires auth.js as a prior preHandler
+  // hook") because req.user.access_token is missing — so a partial bypass
+  // here cannot silently reach the DB layer.
   fastify.addHook('preHandler', async (req, reply) => {
     if (!req.user) {
       await authMiddleware(req, reply);
@@ -130,7 +135,18 @@ export async function scanRoutes (fastify, _opts) {
   // ---------------------------------------------------------------------------
 
   fastify.get('/onboarding/scan/status', {
-    config: { rateLimit: { max: 5, timeWindow: '1 second' } },
+    config: {
+      rateLimit: {
+        max: 5,
+        timeWindow: '1 second',
+        // AC#3: rate-limit "5 req/sec per customer". Default keyGenerator
+        // uses request.ip which collapses customers behind shared NAT (corp
+        // proxy, mobile carrier) into one budget. Key by req.user.id so the
+        // budget is truly per-customer; auth middleware has already populated
+        // req.user before this route runs (preHandler order).
+        keyGenerator: (req) => req.user?.id ?? req.ip,
+      },
+    },
   }, async (req, reply) => {
     const customerId = req.user.id;
 

@@ -44,7 +44,7 @@
   var phaseMessageEl = document.querySelector('#scan-phase-message');
   var shimmerBarEl = document.querySelector('#scan-shimmer-bar');
   var skusProcessedEl = document.querySelector('#scan-skus-processed');
-  var sktsTotalEl = document.querySelector('#scan-skus-total');
+  var skusTotalEl = document.querySelector('#scan-skus-total');
   var phaseListEl = document.querySelector('#scan-phase-list');
 
   // ── Timer handle ─────────────────────────────────────────────────────────────
@@ -132,8 +132,8 @@
     if (skusProcessedEl) {
       skusProcessedEl.textContent = String(processed);
     }
-    if (sktsTotalEl) {
-      sktsTotalEl.textContent = total ? String(total) : '—';
+    if (skusTotalEl) {
+      skusTotalEl.textContent = total ? String(total) : '—';
     }
 
     // Update checklist phase classes
@@ -149,8 +149,18 @@
    */
   function poll () {
     fetch('/onboarding/scan/status')
-      .then(function (res) { return res.json(); })
+      .then(function (res) {
+        // Non-2xx (e.g. 404 when no scan_jobs row, 429 when rate-limited,
+        // 5xx on transient server error). Don't parse the JSON — its shape
+        // is `{ error: "…" }` which has no `status` field, would fall
+        // through to updateProgress() with all undefined fields and corrupt
+        // the DOM (phase_message → '', shimmer → 0%, all phases reset).
+        // Silent retry next tick matches AC#2's network-error policy.
+        if (!res.ok) return null;
+        return res.json();
+      })
       .then(function (data) {
+        if (!data) return; // non-2xx response — skip this tick
         if (data.status === 'COMPLETE') {
           clearInterval(pollTimer);
           window.location.href = '/onboarding/scan-ready';
