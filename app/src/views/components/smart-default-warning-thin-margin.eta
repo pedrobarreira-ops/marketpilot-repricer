@@ -1,0 +1,27 @@
+<!-- smart-default-warning-thin-margin.eta -->
+<!-- Story 4.8 AC#2 — Thin-margin warning callout (§9.10 verbatim copy). -->
+<!-- Hidden by default; revealed by JS (onboarding-margin.js) when under_5 radio selected. -->
+<!-- Copy is verbatim from UX skeleton §9.10 — do NOT paraphrase or translate. -->
+<div class="mp-thin-margin-callout mp-callout-warning" id="thin-margin-callout" role="alert" aria-live="polite" style="display:none;">
+  <div class="mp-callout-warning-inner">
+    <span class="mp-callout-icon" aria-hidden="true">ℹ️</span>
+    <div class="mp-callout-body">
+      <strong class="mp-callout-title">Margem abaixo de 5%</strong>
+      <p>Para catálogos com margens mais apertadas, recomendamos:</p>
+      <ul class="mp-callout-list">
+        <li>Manter modo simulação por mais tempo (7+ dias) antes de ir live</li>
+        <li>O nosso default mais conservador para ti: max_discount_pct = 0.5%</li>
+        <li>
+          Numa próxima versão, vamos suportar carregamento de custos por
+          SKU para um controlo ainda mais fino. Para já, o motor protege
+          a margem com o tier system + circuit breaker (≤15% por SKU).
+        </li>
+      </ul>
+      <button
+        type="button"
+        id="acknowledge-btn"
+        class="mp-btn mp-btn-warning-ack"
+      >Compreendo e continuo</button>
+    </div>
+  </div>
+</div>

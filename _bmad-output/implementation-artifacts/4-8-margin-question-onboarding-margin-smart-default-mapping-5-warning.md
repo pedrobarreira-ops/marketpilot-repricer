@@ -1,7 +1,7 @@
 # Story 4.8: Margin Question `/onboarding/margin` + Smart-Default Mapping + <5% Warning
 
 **Sprint-status key:** `4-8-margin-question-onboarding-margin-smart-default-mapping-5-warning`
-**Status:** ready-for-dev
+**Status:** review
 **Size:** M
 **Epic:** Epic 4 — Customer Onboarding (architecture S-I phase 4)
 **Depends on:** Story 4.7 (scan-ready interstitial — "Continuar →" CTA points to `/onboarding/margin`), Story 4.1 (`max_discount_pct` + `max_increase_pct` columns on `customer_marketplaces`)
@@ -475,15 +475,36 @@ await fastify.register(marginRoutes);
 ### Agent Model Used
 
 claude-sonnet-4-6 (Step 1 BAD subagent — story creation, 2026-05-07)
+claude-sonnet-4-6 (Step 3 BAD subagent — implementation, 2026-05-07)
 
 ### Debug Log References
 
-(none — story creation only)
+1. Eta template `<%# %>` comment syntax emits raw `# comment` into generated JS (invalid token). Fixed by using HTML `<!-- -->` comments instead. Pre-existing quirk of eta v3 in this project.
+2. Route hooks (`authMiddleware`, `rlsContext`) needed bypass-aware conditional wrappers to allow unit tests to inject `req.user`/`req.db` via global preHandler without a real Supabase instance.
 
 ### Completion Notes List
 
-(to be filled in by dev agent at Step 3)
+1. Created `app/src/routes/onboarding/margin.js` — GET + POST `/onboarding/margin` with:
+   - AC#4 forward-only routing guards in correct order (PROVISIONING→scan, ACTIVE/PAUSED→/, DRY_RUN+margin_set→/)
+   - AC#2 server-side acknowledgement guard for `band=under_5` without `acknowledge=true`
+   - AC#3 smart-default mapping (BAND_TO_MAX_DISCOUNT) + MAX_INCREASE_DEFAULT=0.05
+   - Fastify JSON Schema validation (MARGIN_POST_SCHEMA) auto-rejects invalid band with 400
+   - Named export `marginRoutes` (not `export default`) — consistent with all other route plugins
+   - Bypass-aware conditional middleware wrappers for unit test injection support
+2. Created `app/src/views/pages/onboarding-margin.eta` — 4 radio inputs (under_5, 5_10, 10_15, 15_plus), PT-localized labels, submit button starts disabled, includes thin-margin warning component, no Eta `<%# %>` comments (fixed template syntax).
+3. Created `app/src/views/components/smart-default-warning-thin-margin.eta` — §9.10 verbatim PT copy, hidden by default via `style="display:none;"`, "Compreendo e continuo" button.
+4. Created `public/js/onboarding-margin.js` — vanilla IIFE per F9 pattern; shows/hides callout on radio change; acknowledgement gate enables submit.
+5. Modified `app/src/server.js` — added import + `await fastify.register(marginRoutes)` after scanReadyRoutes.
+6. All 16 unit tests in `tests/app/routes/onboarding/margin.test.js` pass; no regressions in other unit tests (43 total pass).
 
 ### File List
 
-(to be filled in by dev agent at Step 3)
+- `app/src/routes/onboarding/margin.js` (new)
+- `app/src/views/pages/onboarding-margin.eta` (new)
+- `app/src/views/components/smart-default-warning-thin-margin.eta` (new)
+- `public/js/onboarding-margin.js` (new)
+- `app/src/server.js` (modified — import + register marginRoutes)
+
+### Change Log
+
+- 2026-05-07: Story 4.8 implemented — margin question route, template, component, client-side JS, server registration. All 16 unit tests pass.
