@@ -121,20 +121,10 @@ test('scan-progress-page', async (t) => {
   // -------------------------------------------------------------------------
 
   await t.test('renders_scan_page_for_in_flight_scan', async () => {
-    // TODO (ATDD Step 2 — to be filled during story implementation):
-    // Given: PROVISIONING customer_marketplaces row + in-flight scan_jobs row
+    // Given: PROVISIONING customer_marketplaces row + in-flight scan_jobs row (RUNNING_OF21)
     // When:  GET /onboarding/scan
-    // Then:
-    //   • HTTP 200
-    //   • HTML contains all 5 phase checklist labels (UX-DR6):
-    //       "A configurar integração com Worten"
-    //       "A obter catálogo"
-    //       "A classificar tiers iniciais"
-    //       "A snapshotar baselines"
-    //       "Pronto"
-    //   • phase step 2 carries mp-phase--active (RUNNING_OF21 → activePhase 2)
-    //   • shimmer bar element present (#scan-shimmer-bar)
-    //   • <script src="/public/js/scan-progress.js" defer></script> in HTML
+    // Then:  200 HTML with 5 UX-DR6 phase labels, phase 2 active, shimmer bar,
+    //        script tag, and phase_message rendered into the live region.
     const db = makeDb([
       [IN_FLIGHT_CM_ROW],   // query 1: customer_marketplaces
       [IN_FLIGHT_SCAN_ROW], // query 2: scan_jobs
@@ -144,12 +134,43 @@ test('scan-progress-page', async (t) => {
       const res = await app.inject({ method: 'GET', url: '/onboarding/scan' });
       assert.equal(res.statusCode, 200, 'expected 200 for in-flight scan');
       assert.ok(res.headers['content-type'].includes('text/html'), 'expected HTML response');
+      // 5 UX-DR6 phase labels (AC#1)
       assert.ok(res.body.includes('A configurar integração com Worten'), 'phase 1 label missing');
       assert.ok(res.body.includes('A obter catálogo'), 'phase 2 label missing');
       assert.ok(res.body.includes('A classificar tiers iniciais'), 'phase 3 label missing');
       assert.ok(res.body.includes('A snapshotar baselines'), 'phase 4 label missing');
       assert.ok(res.body.includes('Pronto'), 'phase 5 label missing');
-      assert.ok(res.body.includes('scan-progress.js'), 'scan-progress.js script tag missing');
+      // RUNNING_OF21 → activePhase 2: phase 2 carries mp-phase--active, phase 1 done, phases 3+ pending.
+      // The eta template emits class= and data-phase= on separate lines (see template), so use /s flag.
+      assert.match(
+        res.body,
+        /class="[^"]*mp-phase--active[^"]*"\s+data-phase="2"/s,
+        'phase 2 should have mp-phase--active class for RUNNING_OF21',
+      );
+      assert.match(
+        res.body,
+        /class="[^"]*mp-phase--done[^"]*"\s+data-phase="1"/s,
+        'phase 1 should have mp-phase--done class when activePhase=2',
+      );
+      assert.match(
+        res.body,
+        /class="[^"]*mp-phase--pending[^"]*"\s+data-phase="3"/s,
+        'phase 3 should have mp-phase--pending class when activePhase=2',
+      );
+      // DOM hooks the JS poller relies on (AC#2)
+      assert.ok(res.body.includes('id="scan-shimmer-bar"'), 'shimmer bar element missing');
+      assert.ok(res.body.includes('id="scan-phase-message"'), 'phase message element missing');
+      assert.ok(res.body.includes('id="scan-phase-list"'), 'phase list element missing');
+      assert.ok(res.body.includes('id="scan-skus-processed"'), 'skus-processed element missing');
+      assert.ok(res.body.includes('id="scan-skus-total"'), 'skus-total element missing');
+      // phase_message from DB rendered into the page (AC#1)
+      assert.ok(res.body.includes(IN_FLIGHT_SCAN_ROW.phase_message), 'phase_message missing from page');
+      // Script tag with defer (F9 pattern)
+      assert.match(
+        res.body,
+        /<script[^>]*src="\/public\/js\/scan-progress\.js"[^>]*defer/,
+        'scan-progress.js script tag (with defer) missing',
+      );
     } finally {
       await app.close();
     }
@@ -160,7 +181,6 @@ test('scan-progress-page', async (t) => {
   // -------------------------------------------------------------------------
 
   await t.test('redirects_to_key_if_no_cm_row', async () => {
-    // TODO (ATDD Step 2):
     // Given: no customer_marketplaces row for this customer
     // When:  GET /onboarding/scan
     // Then:  302 → /onboarding/key
@@ -182,7 +202,6 @@ test('scan-progress-page', async (t) => {
   // -------------------------------------------------------------------------
 
   await t.test('redirects_to_key_if_no_scan_job', async () => {
-    // TODO (ATDD Step 2):
     // Given: PROVISIONING customer_marketplaces row but no scan_jobs row
     // When:  GET /onboarding/scan
     // Then:  302 → /onboarding/key (key never fully validated / scan not started)
@@ -205,7 +224,6 @@ test('scan-progress-page', async (t) => {
   // -------------------------------------------------------------------------
 
   await t.test('redirects_to_scan_ready_if_complete', async () => {
-    // TODO (ATDD Step 2):
     // Given: PROVISIONING + scan_jobs.status = 'COMPLETE'
     // When:  GET /onboarding/scan
     // Then:  302 → /onboarding/scan-ready
@@ -228,7 +246,6 @@ test('scan-progress-page', async (t) => {
   // -------------------------------------------------------------------------
 
   await t.test('redirects_to_scan_failed_if_failed', async () => {
-    // TODO (ATDD Step 2):
     // Given: PROVISIONING + scan_jobs.status = 'FAILED'
     // When:  GET /onboarding/scan
     // Then:  302 → /scan-failed
@@ -251,7 +268,6 @@ test('scan-progress-page', async (t) => {
   // -------------------------------------------------------------------------
 
   await t.test('redirects_to_root_if_not_provisioning', async () => {
-    // TODO (ATDD Step 2):
     // Given: customer_marketplaces.cron_state = 'DRY_RUN' (past PROVISIONING)
     // When:  GET /onboarding/scan
     // Then:  302 → / (UX-DR2 forward-only guard)
@@ -273,7 +289,6 @@ test('scan-progress-page', async (t) => {
   // -------------------------------------------------------------------------
 
   await t.test('status_endpoint_returns_correct_shape', async () => {
-    // TODO (ATDD Step 2):
     // Given: authenticated customer with in-flight scan
     // When:  GET /onboarding/scan/status
     // Then:  200 JSON with all 6 required fields:
@@ -296,6 +311,10 @@ test('scan-progress-page', async (t) => {
       assert.ok('completed_at' in body, 'completed_at field missing');
       assert.equal(body.status, IN_FLIGHT_SCAN_ROW.status, 'status value mismatch');
       assert.equal(body.phase_message, IN_FLIGHT_SCAN_ROW.phase_message, 'phase_message value mismatch');
+      assert.equal(body.skus_total, IN_FLIGHT_SCAN_ROW.skus_total, 'skus_total value mismatch');
+      assert.equal(body.skus_processed, IN_FLIGHT_SCAN_ROW.skus_processed, 'skus_processed value mismatch');
+      assert.equal(body.started_at, IN_FLIGHT_SCAN_ROW.started_at, 'started_at value mismatch');
+      assert.equal(body.completed_at, IN_FLIGHT_SCAN_ROW.completed_at, 'completed_at value mismatch');
     } finally {
       await app.close();
     }
@@ -306,7 +325,6 @@ test('scan-progress-page', async (t) => {
   // -------------------------------------------------------------------------
 
   await t.test('status_endpoint_404_when_no_scan', async () => {
-    // TODO (ATDD Step 2):
     // Given: authenticated customer with no scan_jobs row (PROVISIONING but scan not started)
     // When:  GET /onboarding/scan/status
     // Then:  404 JSON { "error": "Nenhuma análise encontrada." }
@@ -331,7 +349,6 @@ test('scan-progress-page', async (t) => {
   // -------------------------------------------------------------------------
 
   await t.test('status_endpoint_rate_limit_enforced', async () => {
-    // TODO (ATDD Step 2):
     // Given: same authenticated customer fires 6 requests within 1 second
     // When:  GET /onboarding/scan/status × 6 (Promise.all)
     // Then:  at least one response is 429
@@ -368,7 +385,6 @@ test('scan-progress-page', async (t) => {
   // -------------------------------------------------------------------------
 
   await t.test('status_endpoint_rls_isolation', async () => {
-    // TODO (ATDD Step 2):
     // Given: Customer A has an in-flight scan_jobs row
     //        Customer B sends GET /onboarding/scan/status with their own session
     // Then:  Customer B receives 404 (their scan_jobs query returns empty — RLS enforces isolation)
@@ -391,6 +407,87 @@ test('scan-progress-page', async (t) => {
       assert.equal(res.statusCode, 404, 'Customer B should receive 404, not Customer A\'s scan data');
       const body = JSON.parse(res.body);
       assert.ok('error' in body, 'error field missing from 404 response');
+    } finally {
+      await app.close();
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // 11. phase_map_coverage — every status maps to the correct phase number
+  //     (regression guard against PHASE_MAP drift between server + client).
+  //     AC#1 specifies the exact mapping; the page renders mp-phase--active
+  //     on data-phase="N" where N is PHASE_MAP[status].
+  // -------------------------------------------------------------------------
+
+  await t.test('renders_correct_active_phase_for_each_status', async () => {
+    const cases = [
+      { status: 'PENDING', expectedPhase: 1 },
+      { status: 'RUNNING_A01', expectedPhase: 1 },
+      { status: 'RUNNING_PC01', expectedPhase: 1 },
+      { status: 'RUNNING_OF21', expectedPhase: 2 },
+      { status: 'RUNNING_P11', expectedPhase: 3 },
+      { status: 'CLASSIFYING_TIERS', expectedPhase: 3 },
+      { status: 'SNAPSHOTTING_BASELINE', expectedPhase: 4 },
+    ];
+    for (const { status, expectedPhase } of cases) {
+      const db = makeDb([
+        [IN_FLIGHT_CM_ROW],
+        [{ ...IN_FLIGHT_SCAN_ROW, status }],
+      ]);
+      const app = await buildApp({ db });
+      try {
+        const res = await app.inject({ method: 'GET', url: '/onboarding/scan' });
+        assert.equal(res.statusCode, 200, `expected 200 for status=${status}`);
+        const activeRe = new RegExp(
+          `class="[^"]*mp-phase--active[^"]*"\\s+data-phase="${expectedPhase}"`,
+          's',
+        );
+        assert.match(
+          res.body,
+          activeRe,
+          `status=${status} should mark phase ${expectedPhase} as active`,
+        );
+      } finally {
+        await app.close();
+      }
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // 12. indeterminate_shimmer_when_skus_total_null — the worker doesn't know
+  //     the SKU total before OF21 finishes. The page must render the
+  //     indeterminate shimmer state without throwing on null arithmetic.
+  // -------------------------------------------------------------------------
+
+  await t.test('renders_indeterminate_shimmer_when_skus_total_null', async () => {
+    const db = makeDb([
+      [IN_FLIGHT_CM_ROW],
+      [{
+        ...IN_FLIGHT_SCAN_ROW,
+        status: 'RUNNING_A01',
+        phase_message: 'A configurar integração com Worten',
+        skus_total: null,
+        skus_processed: 0,
+      }],
+    ]);
+    const app = await buildApp({ db });
+    try {
+      const res = await app.inject({ method: 'GET', url: '/onboarding/scan' });
+      assert.equal(res.statusCode, 200, 'expected 200 with skus_total=null');
+      assert.ok(
+        res.body.includes('mp-shimmer--indeterminate'),
+        'expected indeterminate shimmer wrapper class when skus_total is null',
+      );
+      assert.ok(
+        !res.body.includes('mp-shimmer--determinate'),
+        'should not have determinate shimmer class when skus_total is null',
+      );
+      // Phase 1 active (RUNNING_A01)
+      assert.match(
+        res.body,
+        /class="[^"]*mp-phase--active[^"]*"\s+data-phase="1"/s,
+        'phase 1 should be active for RUNNING_A01',
+      );
     } finally {
       await app.close();
     }
