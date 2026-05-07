@@ -1,0 +1,29 @@
+<% layout('/layouts/default', { ...it, title: 'Análise falhou' }) %>
+<section class="mp-onboarding-card">
+  <span class="mp-onboarding-badge">Integração Worten</span>
+  <h1>A análise do catálogo falhou</h1>
+  <p class="mp-onboarding-subtitle">
+    Encontrámos um problema durante a análise do teu catálogo. Valida novamente a tua chave de API para retomar.
+  </p>
+
+  <div class="mp-error-detail" role="region" aria-label="Motivo do erro">
+    <p class="mp-error-detail__label">Motivo</p>
+    <p class="mp-error-detail__text"><%= it.failureReason %></p>
+  </div>
+
+  <div class="mp-form-actions">
+    <a
+      href="<%= it.keyUrl %>"
+      class="mp-btn mp-btn-primary"
+      role="button"
+      aria-label="Tentar novamente — voltar à entrada de chave de API"
+    >
+      Tentar novamente →
+    </a>
+  </div>
+
+  <p class="mp-guide-link">
+    Se o problema persistir, contacta-nos em
+    <a href="mailto:suporte@marketpilot.pt">suporte@marketpilot.pt</a>.
+  </p>
+</section>

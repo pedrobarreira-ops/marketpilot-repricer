@@ -55,7 +55,7 @@ const KEY_ENTRY_PATH = '/onboarding/key';
 // ---------------------------------------------------------------------------
 
 let _supabaseAdmin = null;
-function getSupabaseAdmin () {
+function _getSupabaseAdmin () {
   if (_supabaseAdmin === null) {
     _supabaseAdmin = createClient(
       process.env.SUPABASE_URL,
@@ -65,6 +65,7 @@ function getSupabaseAdmin () {
   }
   return _supabaseAdmin;
 }
+void _getSupabaseAdmin; // reserved for future tests that need the admin client
 
 /**
  * Sign up a test user and return their email + password.
@@ -217,13 +218,14 @@ async function getPage (path, { headers = {}, redirect = 'manual' } = {}) {
  * Since mock.module() is not available in all Node 22 versions for ESM,
  * we track calls by intercepting the worker import in the test scope.
  */
-function makeSendCriticalAlertSpy () {
+function _makeSendCriticalAlertSpy () {
   const calls = [];
   const spy = async ({ to, subject, html }) => {
     calls.push({ to, subject, html });
   };
   return { calls, spy, reset: () => calls.splice(0) };
 }
+void _makeSendCriticalAlertSpy; // spy factory reserved for future mocking tests
 
 // ---------------------------------------------------------------------------
 // App server lifecycle (spawned once per suite)

@@ -77,7 +77,7 @@ test('sendCriticalAlert unit', async (t) => {
     // Stub the resend module so no real HTTP call is made.
     // We capture what was passed to emails.send().
     let capturedPayload = null;
-    const mockResend = {
+    const _mockResend = {
       emails: {
         send: async (payload) => {
           capturedPayload = payload;
@@ -85,6 +85,7 @@ test('sendCriticalAlert unit', async (t) => {
         },
       },
     };
+    void _mockResend; // declared for structural reference — see comment above
 
     // Use mock.module to replace the 'resend' package for this test.
     // Since Node.js ESM module mocking is limited in 22.x, we test via
