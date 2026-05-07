@@ -20,10 +20,10 @@
 //   - WORTEN_TEST_EAN must be set; missing → PT-localized 500 message
 //   - Route exports named function (export async function keyRoutes) — Fastify plugin shape
 
-import { encryptShopApiKey } from '../../../shared/crypto/envelope.js';
-import { loadMasterKey } from '../../../shared/crypto/master-key-loader.js';
-import { getSafeErrorMessage } from '../../../shared/mirakl/safe-error.js';
-import { runVerification } from '../../../scripts/mirakl-empirical-verify.js';
+import { encryptShopApiKey } from '../../../../shared/crypto/envelope.js';
+import { loadMasterKey } from '../../../../shared/crypto/master-key-loader.js';
+import { getSafeErrorMessage } from '../../../../shared/mirakl/safe-error.js';
+import { runVerification } from '../../../../scripts/mirakl-empirical-verify.js';
 import { authMiddleware } from '../../middleware/auth.js';
 import { rlsContext, releaseRlsClient } from '../../middleware/rls-context.js';
 
