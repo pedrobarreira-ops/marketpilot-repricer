@@ -234,7 +234,7 @@ async function pollScanUntilTerminal (customerMarketplaceId, timeoutMs = 60_000)
   while (Date.now() < deadline) {
     const { rows } = await db.query(
       `SELECT * FROM scan_jobs WHERE customer_marketplace_id = $1
-       ORDER BY created_at DESC LIMIT 1`,
+       ORDER BY started_at DESC LIMIT 1`,
       [customerMarketplaceId],
     );
     if (rows.length > 0 && (rows[0].status === 'COMPLETE' || rows[0].status === 'FAILED')) {
@@ -503,7 +503,7 @@ test('onboarding-scan integration', async (t) => {
 
     while (Date.now() < deadline) {
       const { rows } = await db.query(
-        'SELECT status FROM scan_jobs WHERE customer_marketplace_id = $1 ORDER BY created_at DESC LIMIT 1',
+        'SELECT status FROM scan_jobs WHERE customer_marketplace_id = $1 ORDER BY started_at DESC LIMIT 1',
         [customerMarketplaceId],
       );
       if (rows.length > 0 && rows[0].status !== lastStatus) {
@@ -976,7 +976,7 @@ test('onboarding-scan integration', async (t) => {
 
     const { rows: completeRows } = await db.query(
       `SELECT status, phase_message FROM scan_jobs WHERE customer_marketplace_id = $1
-       ORDER BY created_at DESC LIMIT 1`,
+       ORDER BY started_at DESC LIMIT 1`,
       [customerMarketplaceId],
     );
     assert.equal(completeRows[0].status, 'COMPLETE');
@@ -1009,7 +1009,7 @@ test('onboarding-scan integration', async (t) => {
 
     const db = getServiceRoleClient();
     const { rows } = await db.query(
-      'SELECT status FROM scan_jobs WHERE customer_marketplace_id = $1 ORDER BY created_at DESC LIMIT 1',
+      'SELECT status FROM scan_jobs WHERE customer_marketplace_id = $1 ORDER BY started_at DESC LIMIT 1',
       [customerMarketplaceId],
     );
     assert.equal(rows[0].status, 'COMPLETE', 'Scan must COMPLETE within timeout');

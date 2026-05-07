@@ -22,7 +22,7 @@ import { decryptShopApiKey } from '../../../shared/crypto/envelope.js';
 import { getAccount } from '../../../shared/mirakl/a01.js';
 import { getPlatformConfiguration } from '../../../shared/mirakl/pc01.js';
 import { getOffers } from '../../../shared/mirakl/of21.js';
-import { getProductOffersByEanBatch } from '../../../shared/mirakl/p11.js';
+import { getProductOffersByEanBatchGrouped } from '../../../shared/mirakl/p11.js';
 import { filterCompetitorOffers } from '../../../shared/mirakl/self-filter.js';
 import { getSafeErrorMessage } from '../../../shared/mirakl/safe-error.js';
 import { transitionCronState } from '../../../shared/state/cron-state.js';
@@ -488,55 +488,71 @@ async function runScan (db, scanJob, cm) {
     const batchEans = allEans.slice(i, i + P11_BATCH_SIZE);
 
     for (const channelCode of channelCodes) {
-      // getProductOffersByEanBatch returns flat offers across all products in batch
-      const rawOffers = await getProductOffersByEanBatch(baseUrl, apiKey, {
+      // getProductOffersByEanBatchGrouped preserves per-EAN groupings so each
+      // sku_channel can be classified against ITS OWN competitor set rather than
+      // the batch-wide union. Critical for tier-classification correctness:
+      // EAN A's price compared against EAN A's competitors, not B+C+D's.
+      const groupedOffers = await getProductOffersByEanBatchGrouped(baseUrl, apiKey, {
         eans: batchEans,
         channel: channelCode,
       });
 
-      // Apply self-filter to the batch
-      const { filteredOffers: batchFiltered, collisionDetected } = filterCompetitorOffers(
-        rawOffers,
-        shopName
-      );
+      let batchCollisionTotal = 0;
 
-      if (collisionDetected) {
-        logger.warn(
-          { scan_job_id: scanJobId, channel: channelCode, batch_start: i },
-          'onboarding-scan: shop-name collision detected in P11 batch'
+      for (const ean of batchEans) {
+        const rawOffers = groupedOffers.get(ean) ?? [];
+
+        const { filteredOffers, collisionDetected } = filterCompetitorOffers(
+          rawOffers,
+          shopName
         );
-        // Emit Atenção audit event for collision — use pool query method directly
-        // (non-transactional since we're not inside a tx here)
-        try {
-          await writeAuditEvent({
-            tx: { query: (...args) => db.query(...args) },
-            customerMarketplaceId,
-            eventType: 'shop-name-collision-detected',
-            skuId: null,
-            skuChannelId: null,
-            payload: {
-              channel: channelCode,
-              batchStart: i,
-              batchSize: batchEans.length,
-              matchingOfferCount: rawOffers.filter(o => o.shop_name === shopName).length,
-            },
-          });
-        } catch (auditErr) {
+
+        if (collisionDetected) {
+          batchCollisionTotal++;
           logger.warn(
-            { scan_job_id: scanJobId, err: auditErr },
-            'onboarding-scan: failed to write collision audit event — continuing'
+            { scan_job_id: scanJobId, channel: channelCode, ean },
+            'onboarding-scan: shop-name collision detected for EAN'
           );
+          // Emit Atenção audit event for collision — use pool query method directly
+          // (non-transactional since we're not inside a tx here).
+          try {
+            await writeAuditEvent({
+              tx: { query: (...args) => db.query(...args) },
+              customerMarketplaceId,
+              eventType: 'shop-name-collision-detected',
+              skuId: null,
+              skuChannelId: null,
+              payload: {
+                ean,
+                channel: channelCode,
+                matchingOfferCount: rawOffers.filter(o => o.shop_name === shopName).length,
+              },
+            });
+          } catch (auditErr) {
+            logger.warn(
+              { scan_job_id: scanJobId, err: auditErr },
+              'onboarding-scan: failed to write collision audit event — continuing'
+            );
+          }
         }
+
+        // Store top-2 competitors per (EAN, channel) — preserves per-EAN context
+        // for accurate tier classification in Phase 6.
+        const key = `${ean}:${channelCode}`;
+        competitorMap.set(key, filteredOffers.slice(0, 2));
       }
 
-      // Store competitors for each EAN in this batch+channel
-      // The flat response from getProductOffersByEanBatch doesn't preserve per-EAN grouping.
-      // Strategy: use the full batchFiltered set for all EANs in this batch.
-      // This is conservative (each EAN sees all competitors from the batch) but safe:
-      // over-classifying as Tier-1 or Tier-2a is preferable to under-classifying as Tier-3.
-      for (const ean of batchEans) {
-        const key = `${ean}:${channelCode}`;
-        competitorMap.set(key, batchFiltered.slice(0, 2)); // top-2 per spec
+      if (batchCollisionTotal > 0) {
+        logger.warn(
+          {
+            scan_job_id: scanJobId,
+            channel: channelCode,
+            batch_start: i,
+            batch_size: batchEans.length,
+            collision_count: batchCollisionTotal,
+          },
+          'onboarding-scan: P11 batch had shop-name collisions'
+        );
       }
     }
   }
