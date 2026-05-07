@@ -288,7 +288,7 @@ test('key-entry integration', async (t) => {
     // Customer marketplace row must be in PROVISIONING
     const cmResult = await pool.query(`
       SELECT cron_state, operator, marketplace_instance_url,
-             a01_shop_id, pc01_channel_pricing_mode
+             shop_id, channel_pricing_mode
       FROM customer_marketplaces
       WHERE customer_id = $1
     `, [customerId]);
@@ -297,8 +297,8 @@ test('key-entry integration', async (t) => {
     assert.equal(cmResult.rows[0].operator, 'WORTEN', 'operator must be WORTEN');
     assert.equal(cmResult.rows[0].marketplace_instance_url, 'https://marketplace.worten.pt');
     // A01/PC01 columns must be NULL in PROVISIONING (F4 CHECK constraint)
-    assert.equal(cmResult.rows[0].a01_shop_id, null, 'A01 columns must be NULL in PROVISIONING');
-    assert.equal(cmResult.rows[0].pc01_channel_pricing_mode, null, 'PC01 columns must be NULL in PROVISIONING');
+    assert.equal(cmResult.rows[0].shop_id, null, 'A01 columns must be NULL in PROVISIONING');
+    assert.equal(cmResult.rows[0].channel_pricing_mode, null, 'PC01 columns must be NULL in PROVISIONING');
   });
 
   await t.test('valid_key_redirects_to_onboarding_scan', async () => {
@@ -373,7 +373,7 @@ test('key-entry integration', async (t) => {
 
     // No vault row must have been created
     const vaultResult = await pool.query(`
-      SELECT sav.id
+      SELECT sav.customer_marketplace_id
       FROM shop_api_key_vault sav
       JOIN customer_marketplaces cm ON cm.id = sav.customer_marketplace_id
       WHERE cm.customer_id = $1
@@ -419,7 +419,7 @@ test('key-entry integration', async (t) => {
 
     // No vault row must have been created
     const vaultResult = await pool.query(`
-      SELECT sav.id
+      SELECT sav.customer_marketplace_id
       FROM shop_api_key_vault sav
       JOIN customer_marketplaces cm ON cm.id = sav.customer_marketplace_id
       WHERE cm.customer_id = $1
@@ -613,7 +613,7 @@ test('key-entry integration', async (t) => {
 
     // E2E: zero vault rows
     const vaultResult = await pool.query(`
-      SELECT sav.id
+      SELECT sav.customer_marketplace_id
       FROM shop_api_key_vault sav
       JOIN customer_marketplaces cm ON cm.id = sav.customer_marketplace_id
       WHERE cm.customer_id = $1
@@ -660,7 +660,7 @@ test('key-entry integration', async (t) => {
 
     // E2E: zero vault rows
     const vaultResult = await pool.query(`
-      SELECT sav.id
+      SELECT sav.customer_marketplace_id
       FROM shop_api_key_vault sav
       JOIN customer_marketplaces cm ON cm.id = sav.customer_marketplace_id
       WHERE cm.customer_id = $1
