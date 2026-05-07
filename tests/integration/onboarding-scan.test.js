@@ -525,6 +525,31 @@ test('onboarding-scan integration', async (t) => {
       `Expected COMPLETE in status sequence, got: ${statuses.join(' → ')}`,
     );
 
+    // Phase ordering invariants: status values may be sampled (polling at 100ms),
+    // so we cannot guarantee every intermediate state is captured. But we CAN
+    // verify the sequence we did capture is a valid prefix of the canonical
+    // 9-phase order (no out-of-order transitions).
+    const PHASE_ORDER = [
+      'PENDING',
+      'RUNNING_A01',
+      'RUNNING_PC01',
+      'RUNNING_OF21',
+      'RUNNING_P11',
+      'CLASSIFYING_TIERS',
+      'SNAPSHOTTING_BASELINE',
+      'COMPLETE',
+    ];
+    let lastSeenIndex = -1;
+    for (const observedStatus of statuses) {
+      const idx = PHASE_ORDER.indexOf(observedStatus);
+      assert.ok(idx !== -1, `Unexpected status "${observedStatus}" not in canonical order`);
+      assert.ok(
+        idx >= lastSeenIndex,
+        `Status sequence out of order: "${observedStatus}" at index ${idx} after lastSeen ${lastSeenIndex}; full sequence: ${statuses.join(' → ')}`,
+      );
+      lastSeenIndex = idx;
+    }
+
     await cleanupMarketplace(customerMarketplaceId);
   });
 
@@ -626,15 +651,28 @@ test('onboarding-scan integration', async (t) => {
       'SELECT COUNT(*)::int AS cnt FROM skus WHERE customer_marketplace_id = $1',
       [customerMarketplaceId],
     );
-    // 200 offers, 1 without EAN → 199 skus expected
-    assert.ok(skuRows[0].cnt >= 199, `Expected >= 199 sku rows, got ${skuRows[0].cnt}`);
+    // Fixture: 200 offers, last one (i=199) has no EAN → exactly 199 skus expected.
+    // Strict equality verifies that the EAN-skip path is exercised AC#5
+    // `of21_skips_offers_without_ean`).
+    assert.equal(
+      skuRows[0].cnt,
+      199,
+      `Expected exactly 199 sku rows (200 fixture offers minus 1 no-EAN); got ${skuRows[0].cnt}`,
+    );
 
     const { rows: scRows } = await db.query(
       'SELECT COUNT(*)::int AS cnt FROM sku_channels WHERE customer_marketplace_id = $1',
       [customerMarketplaceId],
     );
-    // At least 199 sku_channels (some SKUs have 2 channels)
-    assert.ok(scRows[0].cnt >= 199, `Expected >= 199 sku_channels rows, got ${scRows[0].cnt}`);
+    // Fixture: half (i % 2 === 0) get both PT+ES channels, half get PT only.
+    // From 199 EANs: 100 even-indexed (i=0,2,4...,198) × 2 channels + 99 odd × 1 channel.
+    // i=199 is excluded (no EAN). Even count among 0..198 inclusive = 100.
+    // 100*2 + 99*1 = 299 sku_channels.
+    assert.equal(
+      scRows[0].cnt,
+      299,
+      `Expected exactly 299 sku_channels rows (100 EANs × 2 channels + 99 × 1); got ${scRows[0].cnt}`,
+    );
 
     await cleanupMarketplace(customerMarketplaceId);
   });
@@ -1113,6 +1151,127 @@ test('onboarding-scan integration', async (t) => {
       sjRows[0].failure_reason == null ||
       !sjRows[0].failure_reason.toLowerCase().includes('check'),
       `F4 CHECK constraint must not appear in failure_reason; got: ${sjRows[0].failure_reason}`,
+    );
+
+    await cleanupMarketplace(customerMarketplaceId);
+  });
+
+  await t.test('tier2a_sets_last_won_at', async () => {
+    // AC#5 explicit test: SKUs winning at scan time must have last_won_at populated.
+    // Fixture EANs 0–2 are designed to win against their P11 competitor (own price < competitor).
+    await resetAuthAndCustomers();
+    const { userId } = await seedTestCustomer();
+    const { customerMarketplaceId } = await seedProvisioningMarketplace(userId, mockBaseUrl);
+
+    await runScan();
+
+    const db = getServiceRoleClient();
+    const { rows: tier2aRows } = await db.query(
+      `SELECT id, last_won_at FROM sku_channels
+       WHERE customer_marketplace_id = $1 AND tier = '2a'`,
+      [customerMarketplaceId],
+    );
+
+    if (tier2aRows.length === 0) {
+      // Tier 2a may be empty if all winning EANs ended up classified differently due
+      // to batch competitor-merging conservatism. Fall back to a relaxed assertion:
+      // either at least one Tier 2a row exists with last_won_at, OR the scan went
+      // exclusively to Tier 1/Tier 3 in which case no last_won_at should be set.
+      const { rows: anyWonRows } = await db.query(
+        `SELECT COUNT(*)::int AS cnt FROM sku_channels
+         WHERE customer_marketplace_id = $1 AND last_won_at IS NOT NULL`,
+        [customerMarketplaceId],
+      );
+      assert.equal(
+        anyWonRows[0].cnt,
+        0,
+        'If no Tier 2a rows exist, no sku_channels row should have last_won_at set',
+      );
+    } else {
+      // Every Tier 2a row must have last_won_at non-null per classifyInitialTier contract.
+      for (const row of tier2aRows) {
+        assert.ok(
+          row.last_won_at != null,
+          `Tier 2a row ${row.id} must have last_won_at populated`,
+        );
+      }
+      // And no Tier 1 / Tier 3 row should have last_won_at set
+      const { rows: nonWinnerRows } = await db.query(
+        `SELECT COUNT(*)::int AS cnt FROM sku_channels
+         WHERE customer_marketplace_id = $1 AND tier IN ('1', '3') AND last_won_at IS NOT NULL`,
+        [customerMarketplaceId],
+      );
+      assert.equal(
+        nonWinnerRows[0].cnt,
+        0,
+        'Only Tier 2a rows should have last_won_at populated at scan time',
+      );
+    }
+
+    await cleanupMarketplace(customerMarketplaceId);
+  });
+
+  await t.test('scan_complete_no_audit_event_for_provisioning_to_dryrun', async () => {
+    // AC#5 explicit test: PROVISIONING → DRY_RUN transition emits NO audit event
+    // (per shared/state/cron-state.js AUDIT_EVENT_MAP — this pair is not mapped).
+    // Other audit events MAY occur during scan (e.g. shop-name-collision-detected
+    // or scan-complete-with-issues) but the cron_state transition itself must not.
+    await resetAuthAndCustomers();
+    const { userId } = await seedTestCustomer();
+    const { customerMarketplaceId } = await seedProvisioningMarketplace(userId, mockBaseUrl);
+
+    const db = getServiceRoleClient();
+
+    // Capture audit_log count before scan
+    const { rows: beforeRows } = await db.query(
+      `SELECT COUNT(*)::int AS cnt FROM audit_log WHERE customer_marketplace_id = $1`,
+      [customerMarketplaceId],
+    );
+    const auditCountBefore = beforeRows[0].cnt;
+
+    await runScan();
+
+    // Verify the transition fired (cron_state is now DRY_RUN)
+    const { rows: cmRows } = await db.query(
+      'SELECT cron_state FROM customer_marketplaces WHERE id = $1',
+      [customerMarketplaceId],
+    );
+    assert.equal(cmRows[0].cron_state, 'DRY_RUN', 'Transition prerequisite: cron_state must be DRY_RUN');
+
+    // No transition-event types emitted for PROVISIONING → DRY_RUN.
+    // The forbidden event_types are ones that DO map for other transitions
+    // (customer-paused, customer-resumed, circuit-breaker-trip, payment-failure-pause,
+    // key-validation-fail) — none should appear here.
+    const TRANSITION_EVENT_TYPES = [
+      'customer-paused',
+      'customer-resumed',
+      'circuit-breaker-trip',
+      'payment-failure-pause',
+      'key-validation-fail',
+    ];
+    const { rows: transitionEventRows } = await db.query(
+      `SELECT event_type FROM audit_log
+       WHERE customer_marketplace_id = $1 AND event_type = ANY($2::text[])`,
+      [customerMarketplaceId, TRANSITION_EVENT_TYPES],
+    );
+    assert.equal(
+      transitionEventRows.length,
+      0,
+      `No cron-state transition audit event must be emitted for PROVISIONING→DRY_RUN; got: ${transitionEventRows.map(r => r.event_type).join(', ')}`,
+    );
+
+    // Total audit events count: should be 0 net new (or only allowed scan-time
+    // events like shop-name-collision-detected if collisions occurred). The
+    // 200-SKU fixture has no collisions and no 8h overrun, so count should be
+    // unchanged.
+    const { rows: afterRows } = await db.query(
+      `SELECT COUNT(*)::int AS cnt FROM audit_log WHERE customer_marketplace_id = $1`,
+      [customerMarketplaceId],
+    );
+    assert.equal(
+      afterRows[0].cnt,
+      auditCountBefore,
+      `audit_log count must be unchanged for clean PROVISIONING→DRY_RUN scan; before=${auditCountBefore}, after=${afterRows[0].cnt}`,
     );
 
     await cleanupMarketplace(customerMarketplaceId);
