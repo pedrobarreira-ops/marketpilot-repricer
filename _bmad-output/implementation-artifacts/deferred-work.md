@@ -205,3 +205,12 @@ Implementation when triggered: ~4-line change in `founder-admin-only.js` — app
 
 - **PR body claims sprint-status.yaml as a changed file** [PR body] — `sprint-status.yaml` is listed in the PR body's file list and contributes to the "9 files changed" count, but the file does not appear in `gh pr diff 72 --name-only` (which shows 8 files). The sprint-status update was applied to main directly via BAD coordinator flip pattern. Cosmetic body overstatement. No functional impact.
 - **No behavioral test for `scan_jobs` EXCLUDE constraint enforcement** [supabase/migrations/202604301211_create_scan_jobs.sql] — the `scan_job_unique_per_marketplace` EXCLUDE constraint is in the DDL and enforced by Postgres, but no test asserts that a second PENDING insert for the same marketplace is rejected with a conflict error. Acceptable for MVP; add in Epic 4 retro or an `.additional.test.js` supplement targeting the constraint.
+
+---
+
+## Deferred from: PR #74 review (2026-05-07)
+
+- **PR body "8 files changed" off-by-one** [PR body] — diff shows 7 changed files; body claims 8. Cosmetic BAD Step 6 body-generation error. No functional impact.
+- **`APP_BASE_URL` and `WORKER_BASE_URL` listed in PR body env vars but not used by new code** [PR body] — these appear to be carried over from a template env-vars section. Neither variable is referenced in `onboarding-scan.js`, `tier-classify.js`, `p11.js`, or `worker/src/index.js`. Cosmetic overstatement; no functional impact.
+- **Live-smoke skip marker absent from PR body** [PR body] — `shared/mirakl/p11.js` is in the diff; the live-smoke guard requires either a `## Live Smoke Evidence` section or a `[Skip-Live-Smoke: <reason>]` marker. Neither is present. Retroactive skip reason: "same endpoint/params as existing `getProductOffersByEanBatch`, verified in Epic 3 live smoke 2026-05-06."
+- **Integration test run not documented in PR body** [PR body / tests/integration/onboarding-scan.test.js] — story is flagged `integration_test_required: true`; PR body only documents lint + RLS CI. 21 integration tests require local Supabase and are not run in GitHub Actions. Deferred obligation: Pedro must run `npm run test:integration` against local Supabase before Story 4.5 or Epic 5 begins.
