@@ -149,3 +149,21 @@
 .mp-auth-link a {
   color: var(--mp-color-primary);
 }
+
+.mp-inline-error {
+  color: var(--mp-color-danger);
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin: 0 0 var(--mp-spacing-md);
+}
+
+.mp-inline-retry {
+  color: var(--mp-color-danger);
+  font-size: 0.875rem;
+  margin: 0 0 var(--mp-spacing-sm);
+}
+
+.mp-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

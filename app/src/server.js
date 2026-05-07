@@ -20,6 +20,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const fastify = Fastify({
   logger: getFastifyLoggerOptions(),
   requestIdLogLabel: FASTIFY_REQUEST_ID_LOG_LABEL,
+  routerOptions: { ignoreTrailingSlash: true },
 });
 
 try {
