@@ -20,7 +20,7 @@ _Last updated: 2026-05-07T00:00:00Z_
 | 4.1 | 4 | customer_marketplaces schema + F4 PROVISIONING + cron state machine transitions matrix | done | #13 | #71 | merged | 2.1, 9.0, 9.1 | ✅ Yes (done) |
 | 4.2 | 4 | skus, sku_channels, baseline_snapshots, scan_jobs schemas + RLS | done | #14 | #72 | merged | 4.1 | ✅ Yes (done) |
 | 4.3 | 4 | Key entry form /onboarding/key + inline 5s validation + encrypted persistence [MERGE_BLOCK until 4.4] | review | #15 | #73 | open | 4.1, 1.2, 3.1 | ✅ Yes (in review — MERGE_BLOCK until 4.4 done) |
-| 4.4 | 4 | Async catalog scan orchestration A01 PC01 OF21 P11 tier-classify baseline (atomicity sibling 4.1) | backlog | #16 | — | — | 4.3, 3.2, 4.2 | ❌ No (4.3 not merged) |
+| 4.4 | 4 | Async catalog scan orchestration A01 PC01 OF21 P11 tier-classify baseline (atomicity sibling 4.1) | backlog | #16 | — | — | 4.1, 3.2, 4.2 | ✅ Yes |
 | 4.5 | 4 | Scan progress page /onboarding/scan — closeable + reconnectable + status polling | backlog | #17 | — | — | 4.4 | ❌ No (4.4 not done) |
 | 4.6 | 4 | Scan-failed email + /scan-failed interception | backlog | #18 | — | — | 4.4 | ❌ No (4.4 not done) |
 | 4.7 | 4 | Scan-ready interstitial /onboarding/scan-ready (UX-DR33-34) | backlog | #21 | — | — | 4.4 | ❌ No (4.4 not done) |
@@ -79,7 +79,7 @@ _Last updated: 2026-05-07T00:00:00Z_
 - **4.1** depends on: 2.1, 9.0, 9.1 (epic-ordering: epic 3 must be complete)
 - **4.2** depends on: 4.1
 - **4.3** depends on: 4.1, 1.2, 3.1 [MERGE_BLOCK: until 4.4 done — Bundle B]
-- **4.4** depends on: 4.3, 3.2, 4.2 (atomicity sibling of 4.1 — Bundle B)
+- **4.4** depends on: 4.1, 3.2, 4.2 (atomicity sibling of 4.1 — Bundle B; 4.3 removed: vault schema ships with 4.1, not 4.3)
 - **4.5** depends on: 4.4
 - **4.6** depends on: 4.4
 - **4.7** depends on: 4.4
