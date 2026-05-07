@@ -1,0 +1,131 @@
+<% layout('/layouts/default', { ...it, title: 'A analisar o teu catálogo' }) %>
+<section class="mp-onboarding-card">
+  <span class="mp-onboarding-badge">Passo 2 de 4</span>
+  <h1>A analisar o teu catálogo</h1>
+  <p class="mp-onboarding-subtitle">
+    O MarketPilot está a analisar o teu catálogo no Worten. Podes fechar este separador — a análise continua em segundo plano.
+  </p>
+
+  <!-- 5-phase progress checklist (UX-DR6 + AD16 Pass-2 UX delta) -->
+  <!-- Server-rendered with CSS classes: mp-phase--done, mp-phase--active, mp-phase--pending -->
+  <!-- JS polling (scan-progress.js) updates classes dynamically after first render -->
+  <ol id="scan-phase-list" class="mp-scan-phase-list" aria-label="Fases da análise">
+    <li
+      class="mp-scan-phase<%= it.activePhase > 1 ? ' mp-phase--done' : (it.activePhase === 1 ? ' mp-phase--active' : ' mp-phase--pending') %>"
+      data-phase="1"
+    >
+      <span class="mp-phase-indicator" aria-hidden="true">
+        <% if (it.activePhase > 1) { %>&#10003;<% } else if (it.activePhase === 1) { %>&#9679;<% } else { %>&ndash;<% } %>
+      </span>
+      <span class="mp-phase-label">A configurar integração com Worten</span>
+    </li>
+    <li
+      class="mp-scan-phase<%= it.activePhase > 2 ? ' mp-phase--done' : (it.activePhase === 2 ? ' mp-phase--active' : ' mp-phase--pending') %>"
+      data-phase="2"
+    >
+      <span class="mp-phase-indicator" aria-hidden="true">
+        <% if (it.activePhase > 2) { %>&#10003;<% } else if (it.activePhase === 2) { %>&#9679;<% } else { %>&ndash;<% } %>
+      </span>
+      <span class="mp-phase-label">A obter catálogo</span>
+    </li>
+    <li
+      class="mp-scan-phase<%= it.activePhase > 3 ? ' mp-phase--done' : (it.activePhase === 3 ? ' mp-phase--active' : ' mp-phase--pending') %>"
+      data-phase="3"
+    >
+      <span class="mp-phase-indicator" aria-hidden="true">
+        <% if (it.activePhase > 3) { %>&#10003;<% } else if (it.activePhase === 3) { %>&#9679;<% } else { %>&ndash;<% } %>
+      </span>
+      <span class="mp-phase-label">A classificar tiers iniciais</span>
+    </li>
+    <li
+      class="mp-scan-phase<%= it.activePhase > 4 ? ' mp-phase--done' : (it.activePhase === 4 ? ' mp-phase--active' : ' mp-phase--pending') %>"
+      data-phase="4"
+    >
+      <span class="mp-phase-indicator" aria-hidden="true">
+        <% if (it.activePhase > 4) { %>&#10003;<% } else if (it.activePhase === 4) { %>&#9679;<% } else { %>&ndash;<% } %>
+      </span>
+      <span class="mp-phase-label">A snapshotar baselines</span>
+    </li>
+    <li
+      class="mp-scan-phase<%= it.activePhase >= 5 ? ' mp-phase--active' : ' mp-phase--pending' %>"
+      data-phase="5"
+    >
+      <span class="mp-phase-indicator" aria-hidden="true">
+        <% if (it.activePhase >= 5) { %>&#9679;<% } else { %>&ndash;<% } %>
+      </span>
+      <span class="mp-phase-label">Pronto</span>
+    </li>
+  </ol>
+
+  <!-- Current phase message (live-updated by scan-progress.js) -->
+  <p id="scan-phase-message" class="mp-scan-phase-message" aria-live="polite" aria-atomic="true">
+    <%= it.phaseMessage %>
+  </p>
+
+  <!-- Shimmer progress bar (AC#1, AC#2) -->
+  <div
+    class="mp-shimmer-wrapper<%= it.skusTotal ? ' mp-shimmer--determinate' : ' mp-shimmer--indeterminate' %>"
+    aria-label="Progresso da análise"
+    role="status"
+  >
+    <% if (it.skusTotal) { %>
+      <div class="mp-shimmer-track">
+        <div
+          id="scan-shimmer-bar"
+          class="mp-shimmer-bar"
+          role="progressbar"
+          aria-valuenow="<%= Math.min(100, Math.round((it.skusProcessed / it.skusTotal) * 100)) %>"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          style="width: <%= Math.min(100, Math.round((it.skusProcessed / it.skusTotal) * 100)) %>%;"
+        ></div>
+      </div>
+      <p class="mp-shimmer-label">
+        <span id="scan-skus-processed"><%= it.skusProcessed %></span>
+        de
+        <span id="scan-skus-total"><%= it.skusTotal %></span>
+        SKUs processados
+      </p>
+    <% } else { %>
+      <div class="mp-shimmer-track">
+        <div
+          id="scan-shimmer-bar"
+          class="mp-shimmer-bar mp-shimmer-bar--indeterminate"
+          role="progressbar"
+          aria-label="Aguarda…"
+          aria-valuenow="0"
+          aria-valuemin="0"
+          aria-valuemax="100"
+          style="width: 0%;"
+        ></div>
+      </div>
+      <p class="mp-shimmer-label">
+        <span id="scan-skus-processed">0</span>
+        de
+        <span id="scan-skus-total">—</span>
+        SKUs processados
+      </p>
+    <% } %>
+  </div>
+
+  <!-- Info block — reassurance that the tab can be closed -->
+  <div
+    class="mp-trust-block"
+    style="
+      background: var(--mp-surface, #f7f9fc);
+      border: 1px solid var(--mp-muted, #c0c6d4);
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      margin-top: 24px;
+    "
+  >
+    <p style="margin: 0; font-size: 14px; line-height: 1.55; color: var(--mp-ink, #0a1230);">
+      A análise corre em segundo plano. <strong>Podes fechar este separador</strong> e regressar mais tarde — quando terminares, redireccionamos-te automaticamente.
+    </p>
+  </div>
+</section>
+
+<script src="/public/js/scan-progress.js" defer></script>
