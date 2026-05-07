@@ -353,20 +353,33 @@ Pattern A contract: implement to match the stub within Pedro's sign-off toleranc
 
 ### Agent Model Used
 
-(to be filled by dev agent)
+claude-sonnet-4-6 (Step 3 BAD subagent, 2026-05-07)
 
 ### Debug Log References
 
-(none)
+(none — clean implementation, no runtime errors encountered)
 
 ### Completion Notes List
 
-(to be filled by dev agent)
+1. **skus_total semantics verified:** Confirmed Story 4.4's `onboarding-scan.js` sets `skus_total` = unique EAN-bearing SKUs only (incremented inside `if (!eanToSkuData.has(ean))`), and `skus_processed` = total OF21 offers including EAN-less ones. Therefore `noEanCount = skus_processed - skus_total` (no new migration needed — both columns exist in scan_jobs).
+
+2. **DB client pattern:** Used `req.db` (not `req.dbClient` as mentioned in spec) — `req.db` is the correct name established by rls-context.js middleware in Story 2.1. The story spec had a minor inconsistency.
+
+3. **"porquê?" disclosure:** Implemented with native `<details>`/`<summary>` — zero JavaScript required, natively keyboard-accessible (NFR-A2). Script file `onboarding-scan-ready.js` exists per F9 pattern but is effectively a comment block.
+
+4. **UX-DR34 copy:** Verbatim Portuguese text implemented as specified — not paraphrased.
+
+5. **DRY_RUN revisit guard:** Left pragmatic for MVP — DRY_RUN customers can revisit the page (counts remain valid). Phase 2 comment added to tighten in Story 4.8/4.9.
+
+6. **Unit tests:** All 20 AC#5 unit tests pass (node --test).
 
 ### File List
 
-(to be filled by dev agent)
+- `app/src/routes/onboarding/scan-ready.js` (new)
+- `app/src/views/pages/onboarding-scan-ready.eta` (new)
+- `public/js/onboarding-scan-ready.js` (new)
+- `app/src/server.js` (modified — registered scanReadyRoutes)
 
 ### Change Log
 
-(to be filled by dev agent)
+- 2026-05-07: Story 4.7 implemented by BAD Step 3 subagent. All AC#1-AC#5 covered. AC#6 (Pedro sign-off) deferred to PR review per convention.

@@ -14,6 +14,7 @@ import { publicRoutes } from './routes/_public/index.js';
 import { keyRoutes } from './routes/onboarding/key.js';
 import { scanRoutes } from './routes/onboarding/scan.js';
 import FastifyRateLimit from '@fastify/rate-limit';
+import { scanReadyRoutes } from './routes/onboarding/scan-ready.js';
 
 getEnv();
 
@@ -67,6 +68,7 @@ try {
   await fastify.register(publicRoutes);
   await fastify.register(keyRoutes);
   await fastify.register(scanRoutes);
+  await fastify.register(scanReadyRoutes);
 
   fastify.get('/', async (_request, _reply) => {
     return 'Hello MarketPilot';
