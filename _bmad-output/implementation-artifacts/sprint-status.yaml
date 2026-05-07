@@ -1,5 +1,6 @@
 # generated: 2026-05-01
-# last_updated: 2026-05-04  # bmad-retrospective: Epic 2 retro complete (epic-2: in-progress → done; epic-2-retrospective: optional → done); doc saved at epic-2-retro-2026-05-04.md; 6 sequenced action items + 1 watch-deferred (Items 1-2 P0 blocking Epic 3: distillate directory-tree fix + Cloud migrations push + MCP verify; Items 3-5 strongly-recommended pre-Epic-3: BAD Phase 4 worktree-cleanup investigation + Step 6 PR-body data-grounding + sprint-status main-only flips Option B; Item 6 calendar-ahead forward-debt note for Story 4.1; Item 7 deferred filename-convention watch); 5 decisions recorded (Q1-Q5); 1st confirmed slipped Epic-1-retro item (distillate db/migrations→supabase/migrations); systemic prediction confirmed empirically: Library Empirical Contract #12 (RLS JWT set_config pattern) surfaced through Phase 4.5 gate exactly as Epic 1 retro predicted; bmad-create-story: Story 9.0 sharded 2026-05-04 (Bob); 9-0-writeauditevent-ssot → ready-for-dev
+# last_updated: 2026-05-07  # bmad-create-story: Story 4.6 sharded 2026-05-07 (Bob); 4-6-scan-failed-email-scan-failed-interception → ready-for-dev
+# prev_updated: 2026-05-04  # bmad-retrospective: Epic 2 retro complete (epic-2: in-progress → done; epic-2-retrospective: optional → done); doc saved at epic-2-retro-2026-05-04.md; 6 sequenced action items + 1 watch-deferred (Items 1-2 P0 blocking Epic 3: distillate directory-tree fix + Cloud migrations push + MCP verify; Items 3-5 strongly-recommended pre-Epic-3: BAD Phase 4 worktree-cleanup investigation + Step 6 PR-body data-grounding + sprint-status main-only flips Option B; Item 6 calendar-ahead forward-debt note for Story 4.1; Item 7 deferred filename-convention watch); 5 decisions recorded (Q1-Q5); 1st confirmed slipped Epic-1-retro item (distillate db/migrations→supabase/migrations); systemic prediction confirmed empirically: Library Empirical Contract #12 (RLS JWT set_config pattern) surfaced through Phase 4.5 gate exactly as Epic 1 retro predicted; bmad-create-story: Story 9.0 sharded 2026-05-04 (Bob); 9-0-writeauditevent-ssot → ready-for-dev
 # project: marketpilot-repricer
 # project_key: NOKEY
 # tracking_system: file-system
@@ -72,7 +73,7 @@
 # by design; pre-dates the rule).
 
 generated: 2026-05-01
-last_updated: 2026-05-07  # Phase 0 reconciliation 2026-05-07 (pass 2): Story 4.3 value corrected done → review (PR #73 OPEN — push-race fix; GitHub truth wins); epic-4 stays in-progress; dependency-graph.md current; Story 4.4 sharded 2026-05-07 (Bob) → ready-for-dev
+last_updated: 2026-05-07  # Phase 0 reconciliation 2026-05-07 (pass 2): Story 4.3 value corrected done → review (PR #73 OPEN — push-race fix; GitHub truth wins); epic-4 stays in-progress; dependency-graph.md current; Story 4.4 sharded 2026-05-07 (Bob) → ready-for-dev; Story 4.5 sharded 2026-05-07 (BAD Step 1) → ready-for-dev
 project: marketpilot-repricer  # updated by bmad-create-story: Story 1.1 sharded 2026-05-01; Story 1.2 sharded 2026-05-01; Story 1.3 sharded 2026-05-02; Story 1.4 sharded 2026-05-02; Story 1.5 sharded 2026-05-03; Story 1.5 → review 2026-05-03; Story 1.5 → done 2026-05-03 (post-review); Story 2.1 sharded 2026-05-03 (Bob) → ready-for-dev
 project_key: NOKEY
 tracking_system: file-system
@@ -123,9 +124,9 @@ development_status:
   4-2-skus-sku-channels-baseline-snapshots-scan-jobs-schemas-rls: done
   4-3-key-entry-form-onboarding-key-inline-5s-validation-encrypted-persistence-worten-key-one-page-guide-modal: done  # PR #73 merged 2026-05-07; import path fix applied post-review (commit 8eccdf6)
   4-4-async-catalog-scan-orchestration-a01-pc01-of21-p11-tier-classify-baseline-atomicity-sibling-of-story-4-1: done  # ATOMICITY BUNDLE B (2/2) — sharded 2026-05-07 (Bob); MCP-verified A01/PC01/OF21/P11 endpoints; PC01 nested field path confirmed; P11 products[].offers[] structure confirmed
-  4-5-scan-progress-page-onboarding-scan-closeable-reconnectable-status-polling: backlog
-  4-6-scan-failed-email-scan-failed-interception: backlog
-  4-7-scan-ready-interstitial-onboarding-scan-ready-ux-dr33-34: backlog
+  4-5-scan-progress-page-onboarding-scan-closeable-reconnectable-status-polling: atdd-done  # sharded 2026-05-07 (BAD Step 1); Pattern B UI — scan.js route + onboarding-scan.eta + scan-progress.js IIFE; rate-limited /status endpoint; UX-DR2 guards; 10 unit test stubs
+  4-6-scan-failed-email-scan-failed-interception: atdd-done
+  4-7-scan-ready-interstitial-onboarding-scan-ready-ux-dr33-34: atdd-done  # sharded 2026-05-07 (BAD Step 1); Pattern A UI — scan-ready.js route + onboarding-scan-ready.eta + <details> disclosure; 4 count queries (skus, sku_channels, scan_jobs); UX-DR33-34 verbatim copy; CRITICAL: skus_total semantics gap flagged in Dev Notes — verify against Story 4.4 impl before coding noEanCount
   4-8-margin-question-onboarding-margin-smart-default-mapping-5-warning: backlog
   4-9-dashboard-root-in-dry-run-minimal-landing-only: backlog
   epic-4-retrospective: optional
