@@ -306,35 +306,21 @@ test('scan-failed interception', async (t) => {
 
     // Import onboarding-scan and verify it references sendCriticalAlert
     // (structural check — full call capture verified in integration test)
-    let workerModule = null;
-    try {
-      workerModule = await import('../../../../worker/src/jobs/onboarding-scan.js');
-    } catch {
-      // Pre-dev: module not yet implemented
-    }
-
-    if (workerModule !== null) {
-      assert.ok(
-        typeof workerModule.processNextPendingScan === 'function',
-        'processNextPendingScan must be a named export from onboarding-scan.js',
-      );
-    }
+    const workerModule = await import('../../../../worker/src/jobs/onboarding-scan.js');
+    assert.ok(
+      typeof workerModule.processNextPendingScan === 'function',
+      'processNextPendingScan must be a named export from onboarding-scan.js',
+    );
 
     // Verify source: onboarding-scan.js must import sendCriticalAlert from
     // shared/resend/client.js (grep assertion — static code analysis)
     const { readFile } = await import('node:fs/promises');
-    let scanWorkerSrc = '';
-    try {
-      scanWorkerSrc = await readFile('worker/src/jobs/onboarding-scan.js', 'utf8');
-    } catch { /* not yet implemented */ }
-
-    if (scanWorkerSrc.length > 0) {
-      assert.ok(
-        scanWorkerSrc.includes('sendCriticalAlert') &&
-        scanWorkerSrc.includes('shared/resend/client'),
-        'onboarding-scan.js must import sendCriticalAlert from shared/resend/client.js',
-      );
-    }
+    const scanWorkerSrc = await readFile('worker/src/jobs/onboarding-scan.js', 'utf8');
+    assert.ok(
+      scanWorkerSrc.includes('sendCriticalAlert') &&
+      scanWorkerSrc.includes('shared/resend/client'),
+      'onboarding-scan.js must import sendCriticalAlert from shared/resend/client.js',
+    );
 
     await cleanupMarketplace(cmId);
   });
@@ -345,25 +331,29 @@ test('scan-failed interception', async (t) => {
     //
     // Static assertion: grep onboarding-scan.js for the exact subject string.
 
-    const { readFile } = await import('node:fs/promises');
-    let scanWorkerSrc = '';
-    try {
-      scanWorkerSrc = await readFile('worker/src/jobs/onboarding-scan.js', 'utf8');
-    } catch { /* not yet implemented */ }
+    // Self-check: the test constant must match the verbatim spec subject.
+    assert.equal(
+      EMAIL_SUBJECT_PT,
+      'A análise do teu catálogo MarketPilot não conseguiu completar',
+      'Email subject constant must match spec verbatim (self-check)',
+    );
 
-    if (scanWorkerSrc.length > 0) {
-      assert.ok(
-        scanWorkerSrc.includes(EMAIL_SUBJECT_PT),
-        `onboarding-scan.js must include the verbatim PT email subject: "${EMAIL_SUBJECT_PT}"`,
-      );
-    } else {
-      // Pre-dev: assert the constant is correct as specified
-      assert.equal(
-        EMAIL_SUBJECT_PT,
-        'A análise do teu catálogo MarketPilot não conseguiu completar',
-        'Email subject constant must match spec verbatim (self-check)',
-      );
-    }
+    // Production code must include the verbatim PT email subject string —
+    // either inline in worker/src/jobs/onboarding-scan.js or in a helper it
+    // imports (worker/src/email/scan-failed-email.js per dev notes).
+    const { readFile } = await import('node:fs/promises');
+    const scanWorkerSrc = await readFile('worker/src/jobs/onboarding-scan.js', 'utf8');
+    let emailHelperSrc = '';
+    try {
+      emailHelperSrc = await readFile('worker/src/email/scan-failed-email.js', 'utf8');
+    } catch { /* helper may live elsewhere — fall through */ }
+
+    const subjectFoundInWorker = scanWorkerSrc.includes(EMAIL_SUBJECT_PT);
+    const subjectFoundInHelper = emailHelperSrc.includes(EMAIL_SUBJECT_PT);
+    assert.ok(
+      subjectFoundInWorker || subjectFoundInHelper,
+      `Verbatim PT email subject must appear in onboarding-scan.js or its email helper: "${EMAIL_SUBJECT_PT}"`,
+    );
   });
 
   await t.test('scan_failure_email_html_rendered_from_eta_template', async () => {
@@ -373,38 +363,25 @@ test('scan-failed interception', async (t) => {
     // - Does NOT contain cleartext API key binding
 
     const { readFile } = await import('node:fs/promises');
-    let templateSrc = '';
-    try {
-      templateSrc = await readFile('app/src/views/emails/scan-failed.eta', 'utf8');
-    } catch { /* not yet implemented */ }
+    const templateSrc = await readFile('app/src/views/emails/scan-failed.eta', 'utf8');
 
-    if (templateSrc.length > 0) {
-      // Template must reference failureReason (eta template variable)
+    // Template must reference failureReason (eta template variable)
+    assert.ok(
+      templateSrc.includes('failureReason') || templateSrc.includes('failure_reason'),
+      'scan-failed.eta must render failure_reason content',
+    );
+    // Template must contain /onboarding/key link
+    assert.ok(
+      templateSrc.includes('/onboarding/key') || templateSrc.includes('keyUrl'),
+      'scan-failed.eta must include /onboarding/key link (or keyUrl binding)',
+    );
+    // Template must NOT include cleartext key bindings (PII constraint)
+    const forbiddenPatterns = ['apikey', 'api_key', 'shopKey', 'shopApiKey', 'shop_api_key'];
+    for (const pattern of forbiddenPatterns) {
       assert.ok(
-        templateSrc.includes('failureReason') || templateSrc.includes('failure_reason'),
-        'scan-failed.eta must render failure_reason content',
+        !templateSrc.toLowerCase().includes(pattern.toLowerCase()),
+        `scan-failed.eta must NOT contain "${pattern}" (cleartext key binding forbidden)`,
       );
-      // Template must contain /onboarding/key link
-      assert.ok(
-        templateSrc.includes('/onboarding/key') || templateSrc.includes('keyUrl'),
-        'scan-failed.eta must include /onboarding/key link (or keyUrl binding)',
-      );
-      // Template must NOT reference shop_api_key or cleartext key
-      assert.ok(
-        !templateSrc.includes('shop_api_key') && !templateSrc.includes('apiKey'),
-        'scan-failed.eta must NOT reference cleartext API key (PII constraint)',
-      );
-      // Template must NOT include cleartext key bindings
-      const forbiddenPatterns = ['apikey', 'api_key', 'shopKey', 'shopApiKey'];
-      for (const pattern of forbiddenPatterns) {
-        assert.ok(
-          !templateSrc.toLowerCase().includes(pattern.toLowerCase()),
-          `scan-failed.eta must NOT contain "${pattern}" (cleartext key binding forbidden)`,
-        );
-      }
-    } else {
-      // Pre-dev pass: template file not yet created
-      assert.ok(true, 'scan-failed.eta template not yet implemented (pre-dev, expected at Step 3)');
     }
   });
 
@@ -425,40 +402,33 @@ test('scan-failed interception', async (t) => {
 
     const res = await getPage('/scan-failed', { headers: { cookie } });
 
-    if (res.status === 404) {
-      // Route not yet implemented (pre-dev) — ATDD stub, expected at Step 3
-      assert.ok(true, '/scan-failed route not yet implemented (pre-dev, expected at Step 3)');
-    } else {
-      assert.equal(res.status, 200, `GET /scan-failed must return 200 for customer with FAILED scan; got ${res.status}`);
-      const html = await res.text();
+    assert.equal(res.status, 200, `GET /scan-failed must return 200 for customer with FAILED scan; got ${res.status}`);
+    const html = await res.text();
 
-      // failure_reason must be displayed (PT-localized text)
-      // The route translates failure_reason to human-readable PT before rendering
-      // (arch constraint: no raw err.message to template). We check for key PT words.
-      assert.ok(
-        html.includes('canal') || html.includes('Worten') || html.includes('falhou') ||
-        html.includes('análise') || html.includes('erro'),
-        'Page must display failure context in PT copy',
-      );
+    // failure_reason must be rendered verbatim (route stores PT-localized strings
+    // in scan_jobs.failure_reason, so the seeded reason should appear in HTML).
+    assert.ok(
+      html.includes(failureReason),
+      `Page must render the seeded failure_reason verbatim; HTML did not contain: "${failureReason}"`,
+    );
 
-      // "Tentar novamente →" button/link must be present
-      assert.ok(
-        html.includes(RETRY_BUTTON_PT),
-        `Page must contain "${RETRY_BUTTON_PT}" button text`,
-      );
+    // "Tentar novamente →" button/link must be present
+    assert.ok(
+      html.includes(RETRY_BUTTON_PT),
+      `Page must contain "${RETRY_BUTTON_PT}" button text`,
+    );
 
-      // Retry button/link must point to /onboarding/key
-      assert.ok(
-        html.includes(KEY_ENTRY_PATH),
-        `Page must contain a link to "${KEY_ENTRY_PATH}" for re-validation`,
-      );
+    // Retry button/link must point to /onboarding/key
+    assert.ok(
+      html.includes(KEY_ENTRY_PATH),
+      `Page must contain a link to "${KEY_ENTRY_PATH}" for re-validation`,
+    );
 
-      // Page must be PT-localized (no English boilerplate)
-      assert.ok(
-        html.includes('catálogo') || html.includes('Worten') || html.includes('MarketPilot'),
-        'Page must be PT-localized',
-      );
-    }
+    // Page must be PT-localized (no English boilerplate)
+    assert.ok(
+      html.includes('catálogo') || html.includes('Worten') || html.includes('MarketPilot'),
+      'Page must be PT-localized',
+    );
 
     await cleanupMarketplace(cmId);
   });
@@ -472,42 +442,19 @@ test('scan-failed interception', async (t) => {
     const cmId = await seedProvisioningMarketplace(userId);
     await seedFailedScanJob(cmId);
 
-    // GET / — must redirect to /scan-failed (not the dashboard)
+    // GET / — must redirect to /scan-failed (UX-DR3)
     const res = await getPage('/', { headers: { cookie } });
 
-    // Acceptable outcomes:
-    // a) 302 redirect to /scan-failed (interception middleware working)
-    // b) 200 with HTML that has already rendered the scan-failed content inline
-    // c) Pre-dev: middleware not yet implemented → may land on / or /onboarding/scan
-
-    if (res.status === 302) {
-      const location = res.headers.get('location') ?? '';
-      assert.ok(
-        location.includes('/scan-failed'),
-        `GET / for FAILED-scan customer must redirect to /scan-failed; got Location: ${location}`,
-      );
-    } else if (res.status === 200) {
-      // Check if the interception page content is present
-      const html = await res.text();
-      const hasScanFailedContent =
-        html.includes(RETRY_BUTTON_PT) ||
-        html.includes('/scan-failed') ||
-        html.includes('análise') && html.includes('falhou');
-
-      // Pre-dev: if middleware not wired yet, pass with a note
-      if (!hasScanFailedContent) {
-        assert.ok(
-          true,
-          'Interception middleware not yet wired (pre-dev, expected at Step 3) — ' +
-          'GET / did not redirect to /scan-failed',
-        );
-      } else {
-        assert.ok(hasScanFailedContent, 'GET / for FAILED-scan customer must show scan-failed content');
-      }
-    } else {
-      // Any other status is unexpected but acceptable pre-dev
-      assert.ok(true, `GET / returned ${res.status} — interception middleware not yet wired (pre-dev)`);
-    }
+    assert.equal(
+      res.status,
+      302,
+      `GET / for FAILED-scan customer must redirect (302); got ${res.status}`,
+    );
+    const location = res.headers.get('location') ?? '';
+    assert.ok(
+      location.includes('/scan-failed'),
+      `GET / for FAILED-scan customer must redirect to /scan-failed; got Location: ${location}`,
+    );
 
     await cleanupMarketplace(cmId);
   });
@@ -523,35 +470,21 @@ test('scan-failed interception', async (t) => {
     await seedFailedScanJob(cmId);
 
     const res = await getPage('/scan-failed', { headers: { cookie } });
+    assert.equal(res.status, 200, `GET /scan-failed must return 200; got ${res.status}`);
+    const html = await res.text();
 
-    if (res.status === 404) {
-      // Pre-dev: route not yet implemented
-      assert.ok(true, '/scan-failed not yet implemented (pre-dev, expected at Step 3)');
-    } else {
-      assert.equal(res.status, 200, `GET /scan-failed must return 200; got ${res.status}`);
-      const html = await res.text();
+    // The retry element must be an <a href> (keyboard-reachable) or a <button> with
+    // an associated form action — NOT just a div with onclick.
+    // Check that href="/onboarding/key" is present (keyboard-accessible link)
+    const hasKeyboardAccessibleLink =
+      html.includes(`href="${KEY_ENTRY_PATH}"`) ||
+      html.includes(`href='/onboarding/key'`) ||
+      (html.includes(KEY_ENTRY_PATH) && html.includes('<a '));
 
-      // The retry element must be an <a href> (keyboard-reachable) or a <button> with
-      // an associated form action — NOT just a div with onclick.
-      // Check that href="/onboarding/key" is present (keyboard-accessible link)
-      const hasKeyboardAccessibleLink =
-        html.includes(`href="${KEY_ENTRY_PATH}"`) ||
-        html.includes(`href='/onboarding/key'`) ||
-        (html.includes(KEY_ENTRY_PATH) && html.includes('<a '));
-
-      assert.ok(
-        hasKeyboardAccessibleLink,
-        `"${RETRY_BUTTON_PT}" must be an <a href="${KEY_ENTRY_PATH}"> (keyboard-accessible, NFR-A2)`,
-      );
-
-      // No negative tabindex (tabindex="-1" traps would block keyboard access)
-      // This is a heuristic — full keyboard test requires a browser
-      const hasNegativeTabindex = /tabindex=["']-[1-9]/.test(html);
-      if (hasNegativeTabindex) {
-        // Warn: negative tabindex present — may not block the retry link specifically
-        // Full assertion deferred to browser-based accessibility test
-      }
-    }
+    assert.ok(
+      hasKeyboardAccessibleLink,
+      `"${RETRY_BUTTON_PT}" must be an <a href="${KEY_ENTRY_PATH}"> (keyboard-accessible, NFR-A2)`,
+    );
 
     await cleanupMarketplace(cmId);
   });
@@ -568,45 +501,40 @@ test('scan-failed interception', async (t) => {
     // Full behaviour-level assertion covered in onboarding-scan.test.js AC#2.
 
     const { readFile } = await import('node:fs/promises');
-    let scanWorkerSrc = '';
-    try {
-      scanWorkerSrc = await readFile('worker/src/jobs/onboarding-scan.js', 'utf8');
-    } catch { /* not yet implemented */ }
+    const scanWorkerSrc = await readFile('worker/src/jobs/onboarding-scan.js', 'utf8');
 
-    if (scanWorkerSrc.length > 0) {
-      // sendCriticalAlert must only appear in error/catch/failed paths.
-      // Heuristic: count occurrences of sendCriticalAlert — should be exactly 1
-      // (in the FAILED branch catch/finally block).
-      const callCount = (scanWorkerSrc.match(/sendCriticalAlert/g) ?? []).length;
+    // sendCriticalAlert (or its sendScanFailedAlert wrapper) must appear at
+    // least once — the FAILED branch must trigger an email per AC#1.
+    const directCallCount = (scanWorkerSrc.match(/sendCriticalAlert/g) ?? []).length;
+    const wrapperCallCount = (scanWorkerSrc.match(/sendScanFailedAlert/g) ?? []).length;
+    assert.ok(
+      directCallCount >= 1 || wrapperCallCount >= 1,
+      'sendCriticalAlert (or sendScanFailedAlert wrapper) must be referenced in onboarding-scan.js (FAILED path)',
+    );
 
-      // Must appear at least once (called on failure) — and the call must be
-      // in a context suggesting failure (near 'catch', 'FAILED', or 'failure').
+    // The COMPLETE path must not invoke the failure email helper.
+    // Find every 'COMPLETE' occurrence and ensure no email-send call is within
+    // a small window (5 lines) of the transition.
+    const lines = scanWorkerSrc.split('\n');
+    const completeLineIdxs = [];
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].includes("'COMPLETE'") || lines[i].includes('"COMPLETE"')) {
+        completeLineIdxs.push(i);
+      }
+    }
+    assert.ok(
+      completeLineIdxs.length > 0,
+      'onboarding-scan.js must reference COMPLETE status (sanity check)',
+    );
+    for (const idx of completeLineIdxs) {
+      const completionContext = lines
+        .slice(Math.max(0, idx - 3), idx + 5)
+        .join('\n');
       assert.ok(
-        callCount >= 1,
-        `sendCriticalAlert must be called at least once in onboarding-scan.js (on FAILED path)`,
+        !completionContext.includes('sendCriticalAlert') &&
+        !completionContext.includes('sendScanFailedAlert'),
+        `sendCriticalAlert/sendScanFailedAlert must NOT be called near a COMPLETE transition (line ${idx + 1}; FR15 healthy completion is silent)`,
       );
-
-      // The COMPLETE path must not have sendCriticalAlert nearby.
-      // Check: no sendCriticalAlert call within 5 lines of 'COMPLETE' string.
-      const lines = scanWorkerSrc.split('\n');
-      let completeLineIdx = -1;
-      for (let i = 0; i < lines.length; i++) {
-        if (lines[i].includes("'COMPLETE'") || lines[i].includes('"COMPLETE"')) {
-          completeLineIdx = i;
-        }
-      }
-      if (completeLineIdx !== -1) {
-        const completionContext = lines
-          .slice(Math.max(0, completeLineIdx - 3), completeLineIdx + 5)
-          .join('\n');
-        assert.ok(
-          !completionContext.includes('sendCriticalAlert'),
-          'sendCriticalAlert must NOT be called in the COMPLETE transition block (FR15: healthy completion is silent)',
-        );
-      }
-    } else {
-      // Pre-dev: module not yet implemented
-      assert.ok(true, 'onboarding-scan.js not yet implemented (pre-dev, expected at Step 3)');
     }
   });
 
@@ -714,22 +642,17 @@ test('scan-failed interception', async (t) => {
 
     const res = await getPage('/scan-failed', { headers: { cookie } });
 
-    if (res.status === 404) {
-      // Pre-dev: route not yet implemented
-      assert.ok(true, '/scan-failed not yet implemented (pre-dev, expected at Step 3)');
-    } else {
-      // Must redirect to / (no FAILED scan to show)
-      assert.equal(
-        res.status,
-        302,
-        `GET /scan-failed with no FAILED scan must redirect; got ${res.status}`,
-      );
-      const location = res.headers.get('location') ?? '';
-      assert.ok(
-        location === '/' || location === `${BASE}/`,
-        `Must redirect to /; got Location: ${location}`,
-      );
-    }
+    // Must redirect to / (no FAILED scan to show)
+    assert.equal(
+      res.status,
+      302,
+      `GET /scan-failed with no FAILED scan must redirect; got ${res.status}`,
+    );
+    const location = res.headers.get('location') ?? '';
+    assert.ok(
+      location === '/' || location === `${BASE}/`,
+      `Must redirect to /; got Location: ${location}`,
+    );
 
     await cleanupMarketplace(cmId);
   });
@@ -749,21 +672,16 @@ test('scan-failed interception', async (t) => {
 
     const res = await getPage('/scan-failed', { headers: { cookie } });
 
-    if (res.status === 404) {
-      // Pre-dev: route not yet implemented
-      assert.ok(true, '/scan-failed not yet implemented (pre-dev, expected at Step 3)');
-    } else {
-      assert.equal(
-        res.status,
-        302,
-        `GET /scan-failed when scan is COMPLETE must redirect; got ${res.status}`,
-      );
-      const location = res.headers.get('location') ?? '';
-      assert.ok(
-        location === '/' || location === `${BASE}/`,
-        `Must redirect to / when scan is COMPLETE; got Location: ${location}`,
-      );
-    }
+    assert.equal(
+      res.status,
+      302,
+      `GET /scan-failed when scan is COMPLETE must redirect; got ${res.status}`,
+    );
+    const location = res.headers.get('location') ?? '';
+    assert.ok(
+      location === '/' || location === `${BASE}/`,
+      `Must redirect to / when scan is COMPLETE; got Location: ${location}`,
+    );
 
     await cleanupMarketplace(cmId);
   });

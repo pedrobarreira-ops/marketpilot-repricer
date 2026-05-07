@@ -187,12 +187,13 @@ test('sendCriticalAlert unit', async (t) => {
     };
 
     const logOutput = await captureStdout(async () => {
-      // Best-effort call; error handling tested separately.
-      try {
-        await module.sendCriticalAlert(optsWithPii);
-      } catch {
-        // Suppress any throw from test-env Resend failure
-      }
+      // Best-effort call: the SSoT contract states sendCriticalAlert must NEVER
+      // re-throw. If a regression breaks that contract, this assertion surfaces
+      // it before the PII assertion below.
+      await assert.doesNotReject(
+        () => module.sendCriticalAlert(optsWithPii),
+        'sendCriticalAlert must not re-throw on Resend API failure (best-effort)',
+      );
     });
 
     assert.ok(
