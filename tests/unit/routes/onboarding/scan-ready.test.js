@@ -7,7 +7,7 @@
 //   AC#5-1  — totalOffers = total_skus + noEanCount for mixed catalog
 //   AC#5-2  — ready_count = sku_channels WHERE tier IN ('1','2a','2b')
 //   AC#5-3  — no_competitor_count = sku_channels WHERE tier = '3'
-//   AC#5-4  — noEanCount = Math.max(0, skusTotal - total_skus)
+//   AC#5-4  — noEanCount = Math.max(0, skus_processed - total_skus)
 //   AC#5-5  — totalOffers invariant: readyCount + noCompetitorCount + noEanCount = totalOffers
 //   AC#5-6  — UX-DR2 guard: PROVISIONING state should redirect to /onboarding/scan
 //   AC#5-7  — UX-DR2 guard: ACTIVE state should redirect to /
@@ -30,12 +30,24 @@ import assert from 'node:assert/strict';
  * Compute the four scan-ready counts from raw DB values.
  * This is the pure-function core of the route handler (no IO).
  *
- * @param {{ skusTotal: number, totalSkus: number, readyCount: number, noCompetitorCount: number }} params
+ * Parameter semantics (mirrors app/src/routes/onboarding/scan-ready.js):
+ *   - skusProcessed: total OF21 offers paginated, from scan_jobs.skus_processed
+ *                   (includes EAN-less offers that were SKIPPED for missing EAN)
+ *   - totalSkus:    COUNT(skus) for this customer_marketplace_id
+ *                   (≈ scan_jobs.skus_total when no race condition)
+ *   - readyCount:        COUNT(sku_channels) WHERE tier IN ('1','2a','2b')
+ *   - noCompetitorCount: COUNT(sku_channels) WHERE tier = '3'
+ *
+ * Returned semantics:
+ *   - totalOffers = totalSkus + noEanCount  (= skusProcessed when consistent)
+ *   - noEanCount  = Math.max(0, skusProcessed - totalSkus)
+ *
+ * @param {{ skusProcessed: number, totalSkus: number, readyCount: number, noCompetitorCount: number }} params
  * @returns {{ totalOffers: number, readyCount: number, noCompetitorCount: number, noEanCount: number }}
  */
-function computeScanReadyCounts ({ skusTotal, totalSkus, readyCount, noCompetitorCount }) {
-  const noEanCount = Math.max(0, skusTotal - totalSkus);
-  const totalOffers = totalSkus + noEanCount; // = skusTotal when skusTotal >= totalSkus
+function computeScanReadyCounts ({ skusProcessed, totalSkus, readyCount, noCompetitorCount }) {
+  const noEanCount = Math.max(0, skusProcessed - totalSkus);
+  const totalOffers = totalSkus + noEanCount; // = skusProcessed when skusProcessed >= totalSkus
   return { totalOffers, readyCount, noCompetitorCount, noEanCount };
 }
 
@@ -103,7 +115,7 @@ function makeMockDb (responses) {
 test('count_query_total_offers_is_skus_plus_no_ean', () => {
   // 3 sku rows (EAN-bearing) + skusTotal = 4 (1 EAN-less in scan_jobs)
   const result = computeScanReadyCounts({
-    skusTotal: 4,
+    skusProcessed: 4,
     totalSkus: 3,
     readyCount: 2,
     noCompetitorCount: 1,
@@ -121,7 +133,7 @@ test('count_query_ready_count_is_tier_1_2a_2b', () => {
   // Mix: 10 T1 + 5 T2a + 3 T2b + 8 T3 = 26 total sku_channels
   // ready = 10 + 5 + 3 = 18
   const result = computeScanReadyCounts({
-    skusTotal: 26,
+    skusProcessed: 26,
     totalSkus: 26,
     readyCount: 18,     // T1 + T2a + T2b
     noCompetitorCount: 8, // T3
@@ -137,7 +149,7 @@ test('count_query_ready_count_is_tier_1_2a_2b', () => {
 test('count_query_no_competitors_is_tier_3', () => {
   // 5 SKUs total, 2 with competitors (T1/T2a), 3 T3
   const result = computeScanReadyCounts({
-    skusTotal: 5,
+    skusProcessed: 5,
     totalSkus: 5,
     readyCount: 2,
     noCompetitorCount: 3,
@@ -147,14 +159,14 @@ test('count_query_no_competitors_is_tier_3', () => {
 });
 
 // ---------------------------------------------------------------------------
-// AC#5-4 — noEanCount derivation from skusTotal - total_skus
+// AC#5-4 — noEanCount derivation from skus_processed - skus_total (≈ COUNT(skus))
 // ---------------------------------------------------------------------------
 
-test('count_query_no_ean_is_skus_total_minus_sku_rows', () => {
-  // scan_jobs.skus_total = 200 (all OF21 offers including EAN-less)
+test('count_query_no_ean_is_skus_processed_minus_sku_rows', () => {
+  // scan_jobs.skus_processed = 200 (all OF21 offers paginated, including EAN-less)
   // skus table COUNT = 199 (1 was skipped because no EAN)
   const result = computeScanReadyCounts({
-    skusTotal: 200,
+    skusProcessed: 200,
     totalSkus: 199,
     readyCount: 150,
     noCompetitorCount: 49,
@@ -175,7 +187,7 @@ test('count_invariant_ready_plus_tier3_plus_no_ean_equals_total_offers', () => {
   // Invariant: readyCount + noCompetitorCount + noEanCount = totalOffers
   // 28842 + 1806 + 490 = 31138 = skusTotal
   const params = {
-    skusTotal: 31138,   // total OF21 offers (EAN-bearing + EAN-less)
+    skusProcessed: 31138,   // total OF21 offers (EAN-bearing + EAN-less)
     totalSkus: 30648,   // skus rows (EAN-bearing only) = 28842 + 1806
     readyCount: 28842,  // T1/T2a/T2b sku_channels
     noCompetitorCount: 1806, // T3 sku_channels (30648 - 28842)
@@ -198,7 +210,7 @@ test('count_invariant_ready_plus_tier3_plus_no_ean_equals_total_offers', () => {
 test('count_invariant_holds_for_all_tier3_catalog', () => {
   // Edge case: all SKUs are Tier 3 (no competitors at all)
   const result = computeScanReadyCounts({
-    skusTotal: 100,
+    skusProcessed: 100,
     totalSkus: 100,
     readyCount: 0,
     noCompetitorCount: 100,
@@ -211,7 +223,7 @@ test('count_invariant_holds_for_all_tier3_catalog', () => {
 test('count_invariant_holds_for_all_ready_catalog', () => {
   // Edge case: all SKUs are ready for repricing (Tier 1/2a/2b)
   const result = computeScanReadyCounts({
-    skusTotal: 50,
+    skusProcessed: 50,
     totalSkus: 50,
     readyCount: 50,
     noCompetitorCount: 0,
@@ -292,11 +304,11 @@ test('ux_dr2_guard_dry_run_with_complete_scan_allows_render', () => {
 // AC#5-10 — noEanCount never goes negative
 // ---------------------------------------------------------------------------
 
-test('no_ean_count_never_negative_when_skus_total_underreports', () => {
-  // Edge case: if skusTotal < totalSkus (shouldn't happen, but defensive guard)
+test('no_ean_count_never_negative_when_skus_processed_underreports', () => {
+  // Edge case: if skusProcessed < totalSkus (shouldn't happen, but defensive guard)
   const result = computeScanReadyCounts({
-    skusTotal: 5,  // could be wrong/stale value
-    totalSkus: 10, // more sku rows than skusTotal reports
+    skusProcessed: 5,  // could be wrong/stale value
+    totalSkus: 10,     // more sku rows than skusProcessed reports
     readyCount: 8,
     noCompetitorCount: 2,
   });
@@ -306,15 +318,15 @@ test('no_ean_count_never_negative_when_skus_total_underreports', () => {
 });
 
 test('no_ean_count_is_zero_for_catalog_with_no_skipped_offers', () => {
-  // scan_jobs.skus_total = COUNT(skus) → no EAN-less offers
+  // scan_jobs.skus_processed = COUNT(skus) → no EAN-less offers
   const result = computeScanReadyCounts({
-    skusTotal: 100,
+    skusProcessed: 100,
     totalSkus: 100,
     readyCount: 60,
     noCompetitorCount: 40,
   });
 
-  assert.equal(result.noEanCount, 0, 'noEanCount must be 0 when skusTotal = totalSkus');
+  assert.equal(result.noEanCount, 0, 'noEanCount must be 0 when skusProcessed = totalSkus');
   assert.equal(result.totalOffers, 100, 'totalOffers must equal totalSkus when no EAN-less');
 });
 
@@ -326,10 +338,11 @@ test('no_ean_count_is_zero_for_catalog_with_no_skipped_offers', () => {
 test('mock_db_responds_to_sequential_count_queries', async () => {
   const customerMarketplaceId = 'test-cm-uuid-1234';
 
-  // Simulate the route handler's 3 parallel queries + 1 scan_jobs query
+  // Simulate the route handler's 1 sequential scan_jobs query + 3 parallel count queries.
+  // The route SELECTs both skus_total (EAN-bearing) and skus_processed (all OF21 offers).
   const mockDb = makeMockDb([
     // scan_jobs query (sequential, before Promise.all)
-    { rows: [{ skus_total: 50 }] },
+    { rows: [{ status: 'COMPLETE', skus_total: 48, skus_processed: 50 }] },
     // skus COUNT query (parallel 1)
     { rows: [{ total_skus: 48 }] },
     // sku_channels ready count (parallel 2)
@@ -340,8 +353,8 @@ test('mock_db_responds_to_sequential_count_queries', async () => {
 
   // Run the 4 queries sequentially (simulating the route handler's logic)
   const { rows: [scanJob] } = await mockDb.query(
-    'SELECT skus_total FROM scan_jobs WHERE customer_marketplace_id = $1 AND status = $2 LIMIT 1',
-    [customerMarketplaceId, 'COMPLETE'],
+    'SELECT status, skus_total, skus_processed FROM scan_jobs WHERE customer_marketplace_id = $1 ORDER BY started_at DESC LIMIT 1',
+    [customerMarketplaceId],
   );
   const { rows: [{ total_skus }] } = await mockDb.query(
     'SELECT COUNT(*)::int AS total_skus FROM skus WHERE customer_marketplace_id = $1',
@@ -357,7 +370,7 @@ test('mock_db_responds_to_sequential_count_queries', async () => {
   );
 
   const result = computeScanReadyCounts({
-    skusTotal: scanJob.skus_total,
+    skusProcessed: scanJob.skus_processed,
     totalSkus: total_skus,
     readyCount: ready_count,
     noCompetitorCount: no_competitor_count,
@@ -374,4 +387,13 @@ test('mock_db_responds_to_sequential_count_queries', async () => {
     result.totalOffers,
     `Invariant Y+Z+W=X: ${result.readyCount}+${result.noCompetitorCount}+${result.noEanCount} = ${result.totalOffers}`,
   );
+});
+
+// ---------------------------------------------------------------------------
+// Defensive: unknown cron_state falls back to /onboarding/scan
+// ---------------------------------------------------------------------------
+
+test('ux_dr2_guard_unknown_cron_state_redirects_to_onboarding_scan', () => {
+  const redirect = getUxDr2Redirect({ cronState: 'SOMETHING_NEW', scanStatus: null });
+  assert.equal(redirect, '/onboarding/scan', 'Unknown cron_state must defensively redirect to /onboarding/scan');
 });
