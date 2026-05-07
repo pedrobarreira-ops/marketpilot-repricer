@@ -1,5 +1,5 @@
 # Story Dependency Graph
-_Last updated: 2026-05-06T21:00:00Z_
+_Last updated: 2026-05-07T00:00:00Z_
 
 ## Stories
 
@@ -18,9 +18,9 @@ _Last updated: 2026-05-06T21:00:00Z_
 | 3.2 | 3 | Endpoint wrappers A01, PC01, OF21, P11 + Mirakl mock server | done | #11 | #69 | merged | 3.1, 2.1 | ✅ Yes (done) |
 | 3.3 | 3 | Mirakl empirical verify smoke-test script | done | #12 | #70 | merged | 3.1, 3.2 | ✅ Yes (done) |
 | 4.1 | 4 | customer_marketplaces schema + F4 PROVISIONING + cron state machine transitions matrix | done | #13 | #71 | merged | 2.1, 9.0, 9.1 | ✅ Yes (done) |
-| 4.2 | 4 | skus, sku_channels, baseline_snapshots, scan_jobs schemas + RLS | backlog | #14 | — | — | 4.1 | ✅ Yes |
-| 4.3 | 4 | Key entry form /onboarding/key + inline 5s validation + encrypted persistence [MERGE_BLOCK until 4.4] | backlog | #15 | — | — | 4.1, 1.2, 3.1 | ✅ Yes |
-| 4.4 | 4 | Async catalog scan orchestration A01 PC01 OF21 P11 tier-classify baseline (atomicity sibling 4.1) | backlog | #16 | — | — | 4.3, 3.2, 4.2 | ❌ No (4.3 not done) |
+| 4.2 | 4 | skus, sku_channels, baseline_snapshots, scan_jobs schemas + RLS | done | #14 | #72 | merged | 4.1 | ✅ Yes (done) |
+| 4.3 | 4 | Key entry form /onboarding/key + inline 5s validation + encrypted persistence [MERGE_BLOCK until 4.4] | review | #15 | #73 | open | 4.1, 1.2, 3.1 | ✅ Yes (in review — MERGE_BLOCK until 4.4 done) |
+| 4.4 | 4 | Async catalog scan orchestration A01 PC01 OF21 P11 tier-classify baseline (atomicity sibling 4.1) | backlog | #16 | — | — | 4.3, 3.2, 4.2 | ❌ No (4.3 not merged) |
 | 4.5 | 4 | Scan progress page /onboarding/scan — closeable + reconnectable + status polling | backlog | #17 | — | — | 4.4 | ❌ No (4.4 not done) |
 | 4.6 | 4 | Scan-failed email + /scan-failed interception | backlog | #18 | — | — | 4.4 | ❌ No (4.4 not done) |
 | 4.7 | 4 | Scan-ready interstitial /onboarding/scan-ready (UX-DR33-34) | backlog | #21 | — | — | 4.4 | ❌ No (4.4 not done) |
@@ -129,7 +129,7 @@ _Last updated: 2026-05-06T21:00:00Z_
 
 ## Notes
 
-### Current State
+### Current State (Phase 0 reconciliation 2026-05-07)
 - Epic 1 complete (5/5 stories done — pre-BAD direct commits to main, no PRs).
 - Epic 1 retrospective complete (2026-05-03).
 - Epic 2 complete (2/2 stories done).
@@ -145,13 +145,15 @@ _Last updated: 2026-05-06T21:00:00Z_
 - Story 3.3 merged (PR #70, 2026-05-06). sprint-status: done. Epic 3 complete (3/3 done).
 - Epic 3 complete. Epic 3 retrospective complete (2026-05-06). Live smoke passed ✅ (A01/PC01/OF21/P11).
 - Story 4.1 merged (PR #71, 2026-05-06). sprint-status: done. ATOMICITY BUNDLE B (1/2) shipped.
-- Current Ready to Work: **4.2** and **4.3** (both depend on 4.1 which is now done; epic 3+all prior complete).
-  - 4.2: Ready (depends on 4.1 — done).
-  - 4.3: Ready (depends on 4.1, 1.2, 3.1 — all done; MERGE_BLOCK until 4.4 done).
+- Story 4.2 merged (PR #72, 2026-05-06). sprint-status: done.
+- Story 4.3: PR #73 OPEN (not yet merged). sprint-status: review (rolled back from done per Phase 0 reconciliation — GitHub truth wins).
+- Current Ready to Work: **4.3** (in review, PR #73 open) and **4.4** will unlock once 4.3 PR merges.
+  - 4.3: In review (depends on 4.1, 1.2, 3.1 — all done; MERGE_BLOCK until 4.4 done).
+  - 4.4: Blocked on 4.3 not merged yet.
 
 ### Parallelization Opportunities
-- Current batch: Stories **4.2** and **4.3** are Ready to Work in parallel (4.1 is now done).
-- After 4.3 + 4.2 done: 4.4 unlocks. After 4.4 done: 4.5, 4.6, 4.7 unlock in parallel.
+- Current batch: Story **4.3** in review (PR #73 open). Story **4.2** done (PR #72 merged).
+- After 4.3 merged: 4.4 unlocks (also needs 4.2 which is done, and 3.2 which is done). After 4.4 done: 4.5, 4.6, 4.7 unlock in parallel.
 - After 4.7: 4.8, then 4.9 (sequential chain).
 - After epic 4 complete: Epic 5 stories unblock (5.1 depends on 4.1 + 9.1 — both done; epic 4 must complete).
 - Bundle C (Epics 5-7): Stories 5.1, 5.2, 6.1, 6.2, 6.3, 7.2, 7.3, 7.6 can be developed in parallel but ALL must hold for merge until 7.8 gate passes.
