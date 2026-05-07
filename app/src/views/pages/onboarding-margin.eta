@@ -36,7 +36,9 @@
     </fieldset>
 
     <!-- Component: thin-margin warning callout (Story 4.8 AC#2) — §9.10 verbatim copy -->
-    <%~ include('/components/smart-default-warning-thin-margin', {}) %>
+    <!-- Pass calloutOpen so the server-rendered error path (POST under_5 with no -->
+    <!-- acknowledgement, spec line 92) can pre-expand the callout. Default false. -->
+    <%~ include('/components/smart-default-warning-thin-margin', { calloutOpen: it.calloutOpen }) %>
 
     <!-- Hidden field for acknowledgement — keyboard-accessible (AC#2) -->
     <input type="hidden" name="acknowledge" id="acknowledge-field" value="" />

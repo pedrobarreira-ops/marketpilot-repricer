@@ -151,7 +151,7 @@ export async function marginRoutes (fastify, _opts) {
     }
 
     // 4. DRY_RUN + margin not yet set → render margin picker
-    return reply.view('pages/onboarding-margin.eta', { error: null });
+    return reply.view('pages/onboarding-margin.eta', { error: null, calloutOpen: false });
   });
 
   // ---------------------------------------------------------------------------
@@ -163,9 +163,14 @@ export async function marginRoutes (fastify, _opts) {
 
     // Server-side acknowledgement guard for <5% band (AC#2, AC#3 constraint 4)
     // Client-side gate alone is insufficient — forms can be submitted programmatically.
+    // Spec line 92: "respond with 400 OR re-render the margin page with the callout
+    // pre-expanded" — we choose re-render and pass calloutOpen=true so the user
+    // sees the §9.10 warning + "Compreendo e continuo" button without first having
+    // to re-select the <5% radio.
     if (band === 'under_5' && acknowledge !== 'true') {
       return reply.view('pages/onboarding-margin.eta', {
         error: 'Por favor confirma que compreendeste o aviso de margem abaixo de 5%.',
+        calloutOpen: true,
       });
     }
 

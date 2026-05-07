@@ -1,8 +1,12 @@
 <!-- smart-default-warning-thin-margin.eta -->
 <!-- Story 4.8 AC#2 — Thin-margin warning callout (§9.10 verbatim copy). -->
 <!-- Hidden by default; revealed by JS (onboarding-margin.js) when under_5 radio selected. -->
+<!-- When the server re-renders after rejecting a `band=under_5` POST with no -->
+<!-- acknowledgement (AC#3 Critical Constraint 4 / spec line 92), it.calloutOpen -->
+<!-- is true and the callout starts expanded so the user sees the warning + ack -->
+<!-- button without first having to re-select the under_5 radio. -->
 <!-- Copy is verbatim from UX skeleton §9.10 — do NOT paraphrase or translate. -->
-<div class="mp-thin-margin-callout mp-callout-warning" id="thin-margin-callout" role="alert" aria-live="polite" style="display:none;">
+<div class="mp-thin-margin-callout mp-callout-warning" id="thin-margin-callout" role="alert" aria-live="polite" style="display:<%= it.calloutOpen ? 'block' : 'none' %>;">
   <div class="mp-callout-warning-inner">
     <span class="mp-callout-icon" aria-hidden="true">ℹ️</span>
     <div class="mp-callout-body">
