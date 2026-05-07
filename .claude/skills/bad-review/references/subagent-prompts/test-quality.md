@@ -37,6 +37,23 @@ Report:
 - Fixtures with ≥1 behavioral binding: {list}
 - Unbound fixtures: {list or "none"}
 
+## Cross-story RLS test compatibility (run when CODE_FILES includes supabase/migrations/)
+
+If the PR adds or removes RLS policies on any table, grep `tests/` for
+existing assertions about that table's policies:
+```bash
+grep -rn "tablename = 'TABLE_NAME'" tests/
+grep -rn "policyname.*TABLE_NAME\|TABLE_NAME.*polic" tests/
+```
+For each match found, check whether the new policy contradicts the assertion
+(e.g. a test that asserts zero modify policies will break if an INSERT policy
+was added). List any conflicts as a **critical gap** — they will break CI for
+all subsequent PRs on main.
+
+(Root cause: Story 4.3 added `scan_jobs_insert_own` without updating Story 4.2's
+test asserting zero modify policies — CI failed on all three subsequent PRs,
+2026-05-07.)
+
 ## Critical gaps
 List checks that SHOULD exist but don't, focused on:
 - Security invariants (no api_key leak, no err.message in logs)

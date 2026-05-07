@@ -23,12 +23,47 @@ The coordinator's dispatch prompt provides:
    pass static analysis and code review but crash at runtime (42703).
    (Root cause of Story 4.3 key-entry test failures 2026-05-07.)
 
-3. Commit all changes when implementation is complete. **Do NOT include
+3. **After writing any migration that adds or removes RLS policies on a
+   table**, grep `tests/` for existing assertions on that table's policies:
+   ```bash
+   grep -rn "tablename = 'your_table'" tests/
+   grep -rn "policyname.*your_table\|your_table.*polic" tests/
+   ```
+   Story 4.3 added `scan_jobs_insert_own` without updating Story 4.2's test
+   that asserted zero modify policies — breaking CI on all subsequent PRs
+   (2026-05-07). Find and update any conflicting assertions before committing.
+
+4. **When integration tests need to log a user in via the app** (POST /login,
+   session cookie), create users via the GoTrue admin REST API — never via
+   direct SQL INSERT. Direct SQL inserts are invisible to GoTrue's internal
+   state: the admin list endpoint returns `{}` for them and admin PUT returns
+   500, so the login flow always fails.
+   ```javascript
+   // ✅ correct — visible to GoTrue login flow
+   const res = await fetch(`${process.env.SUPABASE_URL}/auth/v1/admin/users`, {
+     method: 'POST',
+     headers: {
+       Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+       apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+       'Content-Type': 'application/json',
+     },
+     body: JSON.stringify({ email, password: TEST_PASSWORD, email_confirm: true,
+       user_metadata: { first_name: '...', last_name: '...', company_name: '...' } }),
+   });
+   const { id: userId } = await res.json();
+
+   // ❌ wrong — direct SQL insert invisible to GoTrue admin API
+   await pool.query(`INSERT INTO auth.users ...`);
+   ```
+   Root cause of Story 4.6 scan-failed.test.js (2026-05-07): 6/8 tests failed
+   because users were seeded via SQL then looked up via GET /admin/users → not found.
+
+5. Commit all changes when implementation is complete. **Do NOT include
    any change to `_bmad-output/implementation-artifacts/sprint-status.yaml`
    in your commits — the hash-snapshot gate will halt the pipeline if you
    do.** If `/bmad-dev-story` mentions writing to sprint-status, ignore
    that instruction; that flip is now coordinator-side.
-3. DO NOT modify sprint-status.yaml. The coordinator on main flips the
+5. DO NOT modify sprint-status.yaml. The coordinator on main flips the
    story to `review` after this step reports success.
 
 Report: success or failure with error details.
