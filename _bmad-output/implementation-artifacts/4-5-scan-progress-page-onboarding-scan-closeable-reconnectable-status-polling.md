@@ -505,14 +505,39 @@ The full onboarding integration flow (`tests/integration/onboarding-flow.test.js
 
 ## Dev Agent Record
 
-*(To be filled by dev agent during implementation)*
-
 ### Agent Model Used
+
+claude-sonnet-4-6
 
 ### Debug Log References
 
+- Auth bypass pattern: authMiddleware and rlsContext hooks check `req.user` / `req.db` before calling real middleware, allowing tests to inject mocks via global preHandler without mock.module.
+- Column names verified against migrations before writing SQL: `scan_jobs` (202604301211), `customer_marketplaces` (202604301203).
+- `@fastify/rate-limit` already in package.json; registered globally with `global: false` in server.js. Per-route opt-in via `config.rateLimit`.
+- `buildApp` in tests requires `@fastify/view` registration to make `reply.view()` work in unit tests.
+
 ### Completion Notes List
+
+- AC#1: GET /onboarding/scan renders 5-phase checklist with UX-DR6 labels, shimmer bar, scan-progress.js script tag. Server-side phase class rendering via PHASE_MAP.
+- AC#2: public/js/scan-progress.js polls /onboarding/scan/status every 1s, redirects on COMPLETE/FAILED, silently retries on network error.
+- AC#3: GET /onboarding/scan/status returns 6-field JSON shape, 404 for no scan row, rate-limited 5 req/sec.
+- AC#4: UX-DR2 guards all 5 conditions correctly (no CM, non-PROVISIONING, PROVISIONING+no job, COMPLETE, FAILED).
+- AC#5: Pure server-side state; no localStorage/sessionStorage; reconnection works via re-render.
+- AC#6: All 10 unit test scenarios pass with `node --test` (no experimental flags needed).
 
 ### File List
 
+**New:**
+- `app/src/routes/onboarding/scan.js`
+- `app/src/views/pages/onboarding-scan.eta`
+- `public/js/scan-progress.js`
+
+**Modified:**
+- `app/src/server.js` — added `scanRoutes` import + registration, `@fastify/rate-limit` registration
+- `tests/app/routes/onboarding/scan.test.js` — added `buildApp` with view engine + auth bypass pattern
+
 ### Change Log
+
+| Date | Change |
+|---|---|
+| 2026-05-07 | Story 4.5 implemented: scan progress page, /status endpoint, vanilla JS poller, server.js updated |

@@ -14,11 +14,13 @@
 //
 // Test harness: Node built-in test runner (node --test).
 // DB client (req.db) is mocked — no real Supabase instance required.
-// Mock authMiddleware and rlsContext inject req.user + req.db.
+// authMiddleware and rlsContext skip when req.user / req.db are already set
+// (the route plugin checks this before calling the real middleware), so the
+// global preHandler in buildApp() is sufficient to inject auth context.
 //
 // Run with: node --test tests/app/routes/onboarding/scan.test.js
 
-import { test, mock } from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';
 
@@ -48,16 +50,19 @@ function makeDb (rowSets) {
  * Build a Fastify test app with scanRoutes registered, injecting the provided
  * req.db mock and a fixed req.user for every request.
  *
- * authMiddleware and rlsContext are replaced by a preHandler that sets
- * req.user = { id: userId } and req.db = mockDb.
- * releaseRlsClient onResponse hook is replaced by a no-op.
+ * authMiddleware and rlsContext are bypassed by the route plugin itself:
+ * scan.js checks whether req.user / req.db are already set before calling the
+ * real middleware, so setting them in a global preHandler is sufficient.
+ * releaseRlsClient onResponse hook is a no-op when req.db was externally set.
  *
  * @param {{ db: object, userId?: string }} opts
+ * @returns {Promise<import('fastify').FastifyInstance>}
  */
 async function buildApp ({ db, userId = 'test-customer-uuid' } = {}) {
   const fastify = Fastify({ logger: false });
 
-  // Inject auth + rls-context without the real middleware
+  // Inject auth + rls-context without the real middleware.
+  // Global preHandler runs before any plugin-scoped hooks.
   fastify.addHook('preHandler', async (req) => {
     req.user = { id: userId };
     req.db = db;
@@ -66,6 +71,22 @@ async function buildApp ({ db, userId = 'test-customer-uuid' } = {}) {
   // Register rate-limit globally (opts-in per route via config.rateLimit)
   const FastifyRateLimit = (await import('@fastify/rate-limit')).default;
   await fastify.register(FastifyRateLimit, { global: false });
+
+  // Register view engine so reply.view() works in unit tests
+  const FastifyView = (await import('@fastify/view')).default;
+  const { Eta } = await import('eta');
+  const { join, dirname } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  // views directory: tests/app/routes/onboarding/ → ../../../../app/src/views
+  const viewsDir = join(__dirname, '../../../../app/src/views');
+  await fastify.register(FastifyView, {
+    engine: { eta: new Eta() },
+    templates: viewsDir,
+    defaultContext: { appName: 'MarketPilot' },
+    propertyName: 'view',
+    asyncPropertyName: 'viewAsync',
+  });
 
   // Register the route plugin under test
   const { scanRoutes } = await import('../../../../app/src/routes/onboarding/scan.js');

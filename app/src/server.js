@@ -12,6 +12,8 @@ import { closeServiceRolePool } from '../../shared/db/service-role-client.js';
 import { healthRoutes } from './routes/health.js';
 import { publicRoutes } from './routes/_public/index.js';
 import { keyRoutes } from './routes/onboarding/key.js';
+import { scanRoutes } from './routes/onboarding/scan.js';
+import FastifyRateLimit from '@fastify/rate-limit';
 
 getEnv();
 
@@ -37,6 +39,10 @@ try {
 
   await fastify.register(FastifyFormbody);
 
+  // Story 4.5: register @fastify/rate-limit globally with global: false so only
+  // routes that opt in via config.rateLimit are rate-limited (AC#3 — /status only).
+  await fastify.register(FastifyRateLimit, { global: false });
+
   await fastify.register(FastifyView, {
     engine: { eta: new Eta() },
     templates: join(__dirname, 'views'),
@@ -60,6 +66,7 @@ try {
   await fastify.register(healthRoutes);
   await fastify.register(publicRoutes);
   await fastify.register(keyRoutes);
+  await fastify.register(scanRoutes);
 
   fastify.get('/', async (_request, _reply) => {
     return 'Hello MarketPilot';
