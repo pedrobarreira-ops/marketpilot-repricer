@@ -25,7 +25,6 @@ import { getServiceRoleClient, closeServiceRolePool } from '../../shared/db/serv
 import {
   resetAuthAndCustomers,
   endResetAuthPool,
-  getResetAuthPool,
 } from './_helpers/reset-auth-tables.js';
 
 const BASE = process.env.APP_BASE_URL ?? 'http://localhost:3000';
@@ -62,27 +61,38 @@ async function postForm (path, body, { headers = {}, redirect = 'manual' } = {})
 // Seed helpers (service-role, bypasses RLS)
 // ---------------------------------------------------------------------------
 
+const TEST_PASSWORD = 'TestPass123!ScanFailed';
+
 /**
- * Create a test customer via Supabase service-role pool.
+ * Create a test customer via the GoTrue admin REST API.
+ * Direct SQL INSERT into auth.users is NOT visible to the GoTrue admin API
+ * (GoTrue maintains its own internal user representation), so password-setting
+ * and login via /login would fail. Using the admin API ensures full GoTrue state.
  * @returns {Promise<{ userId: string, email: string }>}
  */
 async function seedCustomer () {
-  const pool = getResetAuthPool();
+  const adminUrl = process.env.SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const email = `test-sf-${randomUUID()}@scan-failed-test.example.com`;
 
-  // Create auth.users row directly (bypasses email confirmation flow)
-  await pool.query(
-    `INSERT INTO auth.users (id, email, email_confirmed_at, raw_user_meta_data, created_at, updated_at, instance_id)
-     VALUES (gen_random_uuid(), $1, NOW(), '{"first_name":"ScanFailed","last_name":"Test","company_name":"TestCo"}', NOW(), NOW(), '00000000-0000-0000-0000-000000000000')`,
-    [email]
-  );
+  const res = await fetch(`${adminUrl}/auth/v1/admin/users`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${serviceRoleKey}`,
+      apikey: serviceRoleKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      email,
+      password: TEST_PASSWORD,
+      email_confirm: true,
+      user_metadata: { first_name: 'ScanFailed', last_name: 'Test', company_name: 'TestCo' },
+    }),
+  });
 
-  const { rows } = await pool.query(
-    'SELECT id FROM auth.users WHERE email = $1',
-    [email]
-  );
-  const userId = rows[0].id;
-  return { userId, email };
+  const userJson = await res.json();
+  if (!userJson.id) throw new Error(`seedCustomer: admin API user creation failed: ${JSON.stringify(userJson)}`);
+  return { userId: userJson.id, email };
 }
 
 /**
@@ -137,42 +147,13 @@ async function seedScanJob (customerId, { scanStatus = 'FAILED', failureReason =
 
 /**
  * Log in a customer and return the mp_session cookie.
- * Requires the app to be running and the user to have a valid password.
- * Uses Supabase admin API to set password, then calls /login.
- *
- * NOTE: This helper requires SUPABASE_SERVICE_ROLE_KEY in .env.test.
+ * Password was set at user creation time (seedCustomer uses TEST_PASSWORD).
  *
  * @param {string} email
  * @returns {Promise<string>} the mp_session cookie value (name=value)
  */
 async function loginCustomer (email) {
-  // Use the Supabase admin REST API to set a known password for this test user,
-  // then POST to /login. Admin URL derived from SUPABASE_URL.
-  const adminUrl = process.env.SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  // Find user ID
-  const usersRes = await fetch(`${adminUrl}/auth/v1/admin/users?page=1&per_page=200`, {
-    headers: { Authorization: `Bearer ${serviceRoleKey}`, apikey: serviceRoleKey },
-  });
-  const usersJson = await usersRes.json();
-  const user = (usersJson.users ?? []).find((u) => u.email === email);
-  if (!user) throw new Error(`loginCustomer: user ${email} not found in Supabase admin API`);
-
-  // Update password so /login form can authenticate
-  const testPassword = 'TestPass123!ScanFailed';
-  await fetch(`${adminUrl}/auth/v1/admin/users/${user.id}`, {
-    method: 'PUT',
-    headers: {
-      Authorization: `Bearer ${serviceRoleKey}`,
-      apikey: serviceRoleKey,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ password: testPassword }),
-  });
-
-  // POST to /login and extract the mp_session cookie
-  const loginRes = await postForm('/login', { email, password: testPassword });
+  const loginRes = await postForm('/login', { email, password: TEST_PASSWORD });
   assert.equal(loginRes.status, 302, `login should 302; got ${loginRes.status}`);
 
   const setCookies = loginRes.headers.getSetCookie?.() ?? [loginRes.headers.get('set-cookie') ?? ''];
