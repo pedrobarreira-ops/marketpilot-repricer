@@ -184,22 +184,27 @@ test('margin-question', async (t) => {
       // Radio inputs are type="radio"
       assert.ok(html.includes('type="radio"'), 'radio input type missing');
 
-      // PT-localized labels (AC#1)
+      // PT-localized labels (AC#1) — labels are spec-locked verbatim per Story 4.8 AC#1.
+      // Note: `<` is HTML-escaped to `&lt;` in the rendered template, so we accept
+      // either the literal `<5%` (raw) or `&lt;5%` (escaped) form, but require the
+      // exact `5%` boundary — not just any occurrence of `5%`.
       assert.ok(
-        html.includes('<5%') || html.includes('5%'),
-        'PT label for under_5 band missing',
+        html.includes('&lt;5%') || html.includes('<5%'),
+        'PT label "<5%" for under_5 band missing (expected literal or HTML-escaped)',
+      );
+      // `5–10%` uses an en-dash (U+2013) per spec. Accept ASCII `-` as a fallback
+      // only because UX-skeleton variants sometimes emit `5-10%`.
+      assert.ok(
+        html.includes('5–10%') || html.includes('5-10%'),
+        'PT label "5–10%" for 5_10 band missing (en-dash or ASCII hyphen)',
       );
       assert.ok(
-        html.includes('5–10%') || html.includes('5-10%') || html.includes('5%') && html.includes('10%'),
-        'PT label for 5_10 band missing',
+        html.includes('10–15%') || html.includes('10-15%'),
+        'PT label "10–15%" for 10_15 band missing (en-dash or ASCII hyphen)',
       );
       assert.ok(
-        html.includes('10–15%') || html.includes('10-15%') || html.includes('10%') && html.includes('15%'),
-        'PT label for 10_15 band missing',
-      );
-      assert.ok(
-        html.includes('15%+') || html.includes('15%'),
-        'PT label for 15_plus band missing',
+        html.includes('15%+'),
+        'PT label "15%+" for 15_plus band missing',
       );
 
       // None of the radios are pre-selected (AC#1 — customer must actively choose)
@@ -215,10 +220,14 @@ test('margin-question', async (t) => {
         '"Confirmar margem" submit button text missing',
       );
 
-      // Submit button starts disabled (progressive enhancement, AC#1)
+      // Submit button starts disabled (progressive enhancement, AC#1).
+      // Match a <button ...> element that contains both id="margin-submit" and
+      // a `disabled` attribute, in either order, to avoid matching a stray
+      // `disabled` token elsewhere in the document.
+      const submitDisabledRegex = /<button[^>]*\bid="margin-submit"[^>]*\bdisabled\b|<button[^>]*\bdisabled\b[^>]*\bid="margin-submit"/;
       assert.ok(
-        html.includes('disabled'),
-        'submit button should have disabled attribute by default',
+        submitDisabledRegex.test(html),
+        'submit button (id="margin-submit") should have disabled attribute by default',
       );
     } finally {
       await app.close();
