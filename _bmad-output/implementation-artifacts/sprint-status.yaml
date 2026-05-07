@@ -73,7 +73,7 @@
 # by design; pre-dates the rule).
 
 generated: 2026-05-01
-last_updated: 2026-05-07  # Phase 0 reconciliation 2026-05-07 (pass 4): PRs #75 (4.6), #76 (4.7), #77 (4.5) confirmed merged; sprint-status rows already done (coordinator flip confirmed); dependency-graph.md updated (4.5/4.6/4.7 done, 4.8 now Ready to Work); epic-4 stays in-progress (4.8, 4.9 backlog); no open PRs
+last_updated: 2026-05-07  # bmad-create-story: Story 4.8 sharded 2026-05-07 (BAD Step 1); 4-8-margin-question-onboarding-margin-smart-default-mapping-5-warning → ready-for-dev
 project: marketpilot-repricer  # updated by bmad-create-story: Story 1.1 sharded 2026-05-01; Story 1.2 sharded 2026-05-01; Story 1.3 sharded 2026-05-02; Story 1.4 sharded 2026-05-02; Story 1.5 sharded 2026-05-03; Story 1.5 → review 2026-05-03; Story 1.5 → done 2026-05-03 (post-review); Story 2.1 sharded 2026-05-03 (Bob) → ready-for-dev
 project_key: NOKEY
 tracking_system: file-system
@@ -127,7 +127,7 @@ development_status:
   4-5-scan-progress-page-onboarding-scan-closeable-reconnectable-status-polling: done  # sharded 2026-05-07 (BAD Step 1); Pattern B UI — scan.js route + onboarding-scan.eta + scan-progress.js IIFE; rate-limited /status endpoint; UX-DR2 guards; 10 unit test stubs
   4-6-scan-failed-email-scan-failed-interception: done
   4-7-scan-ready-interstitial-onboarding-scan-ready-ux-dr33-34: done  # sharded 2026-05-07 (BAD Step 1); Pattern A UI — scan-ready.js route + onboarding-scan-ready.eta + <details> disclosure; 4 count queries (skus, sku_channels, scan_jobs); UX-DR33-34 verbatim copy; CRITICAL: skus_total semantics gap flagged in Dev Notes — verify against Story 4.4 impl before coding noEanCount
-  4-8-margin-question-onboarding-margin-smart-default-mapping-5-warning: backlog
+  4-8-margin-question-onboarding-margin-smart-default-mapping-5-warning: ready-for-dev  # bmad-create-story: Story 4.8 sharded 2026-05-07 (BAD Step 1)
   4-9-dashboard-root-in-dry-run-minimal-landing-only: backlog
   epic-4-retrospective: optional
 
