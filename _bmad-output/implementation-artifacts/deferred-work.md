@@ -294,3 +294,11 @@ Implementation when triggered: ~4-line change in `founder-admin-only.js` — app
 ## Deferred from: PR #78 review (2026-05-07)
 
 - **PR body stat inflation** [PR body] — body claims 10 files / 1450 insertions vs actual 8 files / 1447 insertions; cosmetic only. 9th occurrence of this BAD Step 6 body-generation pattern across PRs. No functional impact.
+
+---
+
+## Deferred from: PR #79 review (2026-05-07)
+
+- **Page title separator** [`app/src/views/pages/dashboard-dry-run-minimal.eta:1`] — template passes `title: 'Dashboard'` and the layout pattern produces "Dashboard — MarketPilot" (em dash); spec AC#1 specifies "Dashboard · MarketPilot" (middle dot). Test only checks for "Dashboard" and "MarketPilot" independently so CI is green. Cosmetic; resolve in Epic 8 when dashboard title is revisited.
+- **PR body file-count and stat inflation** [PR body] — body claims "10 files changed, 933 insertions(+), 53 deletions(-)" vs actual 8 / 925 / 44; `dependency-graph.md` and `sprint-status.yaml` listed as changed but absent from diff. Cosmetic body overstatement; 10th occurrence of the known BAD Step 6 body-generation pattern. No functional impact.
+- **Dashboard unit test not in GitHub Actions test suite** [`tests/app/routes/dashboard/dry-run-minimal.test.js`] — new test file passes locally (7/7) but the CI workflow does not execute it. Add to the npm test allowlist before Epic 7 hardening.
