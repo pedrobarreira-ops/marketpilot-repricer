@@ -1,7 +1,7 @@
 # Story 4.9: Dashboard Root in DRY_RUN — Minimal Landing Only
 
 **Sprint-status key:** `4-9-dashboard-root-in-dry-run-minimal-landing-only`
-**Status:** ready-for-dev
+**Status:** review
 **Size:** S
 **Epic:** Epic 4 — Customer Onboarding (architecture S-I phase 4)
 **Depends on:** Story 4.8 (`POST /onboarding/margin` redirects to `/` on success)
@@ -326,12 +326,29 @@ claude-sonnet-4-6 (Step 1 BAD subagent — story creation, 2026-05-07)
 
 ### Completion Notes List
 
-_(to be filled by dev agent)_
+- All 3 ACs satisfied: DRY_RUN dashboard renders with verbatim §9.5 PT copy, PROVISIONING customers redirect to /onboarding/scan via interceptionRedirect, 6 unit tests pass (7 including static analysis guard).
+- Route plugin extracted to `app/src/routes/dashboard/index.js` with bypass-aware conditional wrappers (`authMiddlewareConditional`, `rlsContextConditional`) per Story 4.8 pattern.
+- `interceptionRedirect` middleware already had PROVISIONING → /onboarding/scan guard (Story 4.9 placeholder was already merged in Story 4.6 commit). No modification needed to middleware.
+- Template `dashboard-dry-run-minimal.eta` renders: blue banner with `science` icon + verbatim §9.5 PT copy, `disabled` "Ir live →" placeholder button, 3 KPI card placeholders with `pending` icon, `/audit` link.
+- CSS classes `.mp-kpi-grid`, `.mp-kpi-placeholder`, `.mp-dashboard-audit-link` added to `public/css/components.css`.
+- `server.js` updated: removed inline `dashboardRoutes` stub, imports and registers extracted plugin.
+- No DB queries, no `writeAuditEvent`, no `transitionCronState` — confirmed by static analysis test.
+- ESLint passes with no issues.
+- Pre-existing integration test failures (audit_log, kpi-aggregates, scan-failed) are DB-connection-dependent and pre-date Story 4.9 — not regressions.
 
 ### File List
 
-_(to be filled by dev agent)_
+- `app/src/routes/dashboard/index.js` (new — GET `/` route plugin)
+- `app/src/views/pages/dashboard-dry-run-minimal.eta` (new — dry-run minimal landing template)
+- `app/src/server.js` (modified — replaced inline dashboardRoutes stub with extracted plugin)
+- `public/css/components.css` (modified — added `.mp-kpi-grid`, `.mp-kpi-placeholder`, `.mp-dashboard-audit-link`)
+- `app/src/middleware/interception-redirect.js` (modified — PROVISIONING → /onboarding/scan guard already included)
+- `tests/app/routes/dashboard/dry-run-minimal.test.js` (modified — filled in ATDD stubs)
+- `_bmad-output/implementation-artifacts/4-9-dashboard-root-in-dry-run-minimal-landing-only.md` (this story file)
 
 ### Change Log
 
 - 2026-05-07: Story 4.9 created (BAD Step 1 story sharding)
+- 2026-05-07: ATDD stubs filled in `tests/app/routes/dashboard/dry-run-minimal.test.js` (commit caf0326)
+- 2026-05-07: Implementation complete — dashboardRoutes plugin, eta template, CSS, server.js refactor (commit cd17283)
+- 2026-05-07: Story status updated to "review" (dev agent completion)
