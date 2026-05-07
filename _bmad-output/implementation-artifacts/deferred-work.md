@@ -308,3 +308,9 @@ Implementation when triggered: ~4-line change in `founder-admin-only.js` — app
 - **Page title separator** [`app/src/views/pages/dashboard-dry-run-minimal.eta:1`] — template passes `title: 'Dashboard'` and the layout pattern produces "Dashboard — MarketPilot" (em dash); spec AC#1 specifies "Dashboard · MarketPilot" (middle dot). Test only checks for "Dashboard" and "MarketPilot" independently so CI is green. Cosmetic; resolve in Epic 8 when dashboard title is revisited.
 - **PR body file-count and stat inflation** [PR body] — body claims "10 files changed, 933 insertions(+), 53 deletions(-)" vs actual 8 / 925 / 44; `dependency-graph.md` and `sprint-status.yaml` listed as changed but absent from diff. Cosmetic body overstatement; 10th occurrence of the known BAD Step 6 body-generation pattern. No functional impact.
 - **Dashboard unit test not in GitHub Actions test suite** [`tests/app/routes/dashboard/dry-run-minimal.test.js`] — new test file passes locally (7/7) but the CI workflow does not execute it. Add to the npm test allowlist before Epic 7 hardening.
+
+---
+
+## Deferred from: Epic 4 live smoke (2026-05-07)
+
+- **Scan progress counter shows processed > total** [`app/src/views/pages/onboarding-scan.eta` + `worker/src/jobs/onboarding-scan.js`] — live smoke showed "12900 de 12898 SKUs processados". The `total` is captured from P11's `total_count` on the first API call (a point-in-time snapshot); by the time the worker paginates through all pages, new catalog additions or page-boundary rounding can push `processed` past the initial total. Cosmetic — scan data is correct, only the progress display is misleading. Fix: update `total` dynamically as pages are fetched, or cap the displayed processed count at `max(processed, total)`. Defer to Epic 7 / scan hardening.
