@@ -4,6 +4,7 @@ import { loadMasterKey } from '../../shared/crypto/master-key-loader.js';
 import { createWorkerLogger } from '../../shared/logger.js';
 import { startHeartbeat } from './jobs/heartbeat.js';
 import { runMonthlyPartitionCreate } from './jobs/monthly-partition-create.js';
+import { processNextPendingScan } from './jobs/onboarding-scan.js';
 import { closeServiceRolePool } from '../../shared/db/service-role-client.js';
 
 getEnv();
@@ -71,3 +72,25 @@ cron.schedule(
   },
   { timezone: 'Europe/Lisbon' }
 );
+
+// Story 4.4: Onboarding scan poller — check for PENDING scan_jobs every 5 seconds.
+// processNextPendingScan() is a no-op when no PENDING scans exist.
+// FOR UPDATE SKIP LOCKED in the query ensures safe concurrent-worker operation.
+// Defensive .catch(): processNextPendingScan is async; setInterval does not await
+// the callback. If the function rejects (e.g. DB connection lost), the rejection
+// would propagate as an unhandledRejection and could destabilise the worker process.
+// Catching here turns any escaping rejection into a structured log entry.
+let _scanPolling = false;
+const SCAN_POLL_INTERVAL_MS = 5_000;
+
+setInterval(() => {
+  if (_scanPolling) return; // Prevent overlap if a scan is still running
+  _scanPolling = true;
+  processNextPendingScan()
+    .catch((err) => {
+      logger.error({ err }, 'onboarding-scan: scan poller rejected');
+    })
+    .finally(() => {
+      _scanPolling = false;
+    });
+}, SCAN_POLL_INTERVAL_MS);
