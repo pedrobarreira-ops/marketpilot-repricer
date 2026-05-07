@@ -26,8 +26,9 @@ export async function healthRoutes(fastify, _opts) {
     try {
       await pool.query('SELECT 1');
       result.details.db = 'ok';
-    } catch {
+    } catch (err) {
       result.details.db = 'error';
+      result.details.db_error = err?.message ?? 'unknown';
       result.status = 'degraded';
       httpStatus = 503;
     }

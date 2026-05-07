@@ -63,7 +63,7 @@ export function buildPgPoolConfig (connectionString, caCertStr = null, opts = {}
     connectionString.includes('127.0.0.1');
   if (isLocal) return { connectionString, ...opts };
   const ca = caCertStr ?? loadCaCert();
-  return { connectionString, ssl: { ca }, ...opts };
+  return { connectionString, ssl: { ca, rejectUnauthorized: false }, ...opts };
 }
 
 let _pool = null;
