@@ -1,0 +1,51 @@
+<% layout('/layouts/default', { ...it, title: 'Catálogo analisado' }) %>
+<section class="mp-onboarding-card">
+  <span class="mp-onboarding-badge mp-badge-success">Análise concluída</span>
+  <h1>O teu catálogo está pronto</h1>
+  <p class="mp-onboarding-subtitle">
+    Aqui está um resumo da qualidade do teu catálogo para o repricing automático.
+  </p>
+
+  <!-- Catalog quality summary card (UX-DR33) -->
+  <div class="mp-scan-summary">
+    <div class="mp-scan-count-row">
+      <span class="mp-scan-count-number"><%= it.totalOffers.toLocaleString('pt-PT') %></span>
+      <span class="mp-scan-count-label">produtos encontrados no Worten</span>
+    </div>
+
+    <div class="mp-scan-count-row mp-scan-count-ready">
+      <span class="mp-scan-count-number"><%= it.readyCount.toLocaleString('pt-PT') %></span>
+      <span class="mp-scan-count-label">prontos para repricing</span>
+    </div>
+
+    <div class="mp-scan-count-row mp-scan-count-tier3">
+      <span class="mp-scan-count-number"><%= it.noCompetitorCount.toLocaleString('pt-PT') %></span>
+      <span class="mp-scan-count-label">sem competidores (Tier 3 — vamos monitorizar)</span>
+    </div>
+
+    <div class="mp-scan-count-row mp-scan-count-no-ean">
+      <span class="mp-scan-count-number"><%= it.noEanCount.toLocaleString('pt-PT') %></span>
+      <span class="mp-scan-count-label">sem EAN no Worten — ignorados</span>
+
+      <!-- UX-DR34: "porquê?" inline disclosure — keyboard-accessible via <details>/<summary> -->
+      <details class="mp-porque-disclosure">
+        <summary class="mp-porque-trigger">porquê?</summary>
+        <p class="mp-porque-body">
+          Produtos refurbished e listings privados não têm EAN partilhado no Worten —
+          não conseguimos ver competidores no mesmo produto.
+          Ficam fora do scope do repricing automático.
+          Isto é estrutural ao Worten, não uma limitação da MarketPilot.
+        </p>
+      </details>
+    </div>
+  </div>
+
+  <!-- "Continuar →" CTA — leads to margin question (Story 4.8) (AC#3) -->
+  <div class="mp-form-actions">
+    <a href="/onboarding/margin" class="mp-btn mp-btn-primary" role="button">
+      Continuar →
+    </a>
+  </div>
+</section>
+
+<script src="/public/js/onboarding-scan-ready.js" defer></script>

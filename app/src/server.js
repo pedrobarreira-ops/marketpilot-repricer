@@ -14,6 +14,7 @@ import { publicRoutes } from './routes/_public/index.js';
 import { keyRoutes } from './routes/onboarding/key.js';
 import { scanRoutes } from './routes/onboarding/scan.js';
 import FastifyRateLimit from '@fastify/rate-limit';
+import { scanReadyRoutes } from './routes/onboarding/scan-ready.js';
 import { scanFailedRoutes } from './routes/interceptions/scan-failed.js';
 import { authMiddleware } from './middleware/auth.js';
 import { rlsContext, releaseRlsClient } from './middleware/rls-context.js';
@@ -71,6 +72,7 @@ try {
   await fastify.register(publicRoutes);
   await fastify.register(keyRoutes);
   await fastify.register(scanRoutes);
+  await fastify.register(scanReadyRoutes);
   // Story 4.6: scan-failed interception route (authenticated, under /scan-failed)
   await fastify.register(scanFailedRoutes);
 
