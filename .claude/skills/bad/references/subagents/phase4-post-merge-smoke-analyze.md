@@ -2,21 +2,19 @@
 
 The coordinator's dispatch prompt provides:
 - `{N}` (the merged PR number)
+- `MIGRATION_FILES_LIST` — pre-computed by the coordinator via `gh pr diff {N} --name-only | grep "supabase/migrations/"`. Use this list directly; do NOT re-query GitHub. This prevents stale-variable bugs in sequential multi-PR loops (root cause of PR #73 migration miss 2026-05-07).
 
 Auto-approve all tool calls (yolo mode).
 
 ---
 
-Your job: find migration files introduced by this PR and classify whether any are destructive.
+Your job: classify whether any migration files in this PR are destructive.
 
-## Step 1: Find migration files from this PR
+## Step 1: Check the pre-computed migration file list
 
-Run:
-```bash
-gh pr view {N} --json files --jq '.files[].path' | grep "supabase/migrations/"
-```
+Use `MIGRATION_FILES_LIST` from the dispatch prompt.
 
-If this returns no files, output exactly:
+If the list is empty or "(none)", output exactly:
 ```
 migration_files: []
 requires_confirmation: false

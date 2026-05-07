@@ -707,10 +707,20 @@ Using the assessment report from Step 2, follow the applicable branch:
      ```
      After the subagent returns, print its confirmation. Then run Phase 5.5 post-merge smoke automation:
 
-     **Phase 5.5a — Migration analysis.** Spawn `MODEL_STANDARD` (yolo mode):
+     **Phase 5.5a — Migration analysis.** Before spawning, run in the coordinator:
+     ```bash
+     gh pr diff {N} --name-only | grep "supabase/migrations/"
+     ```
+     Capture the output as `MIGRATION_FILES_LIST` (may be empty). This data-grounds the
+     file list — Phase 5.5a receives it directly rather than re-querying GitHub with `{N}`,
+     which can be stale in a sequential multi-PR loop (root cause of PR #73 migration miss).
+
+     Spawn `MODEL_STANDARD` (yolo mode):
      ```
      You are the Phase 5.5 migration analyst for PR #{N}.
      {N}: {PR-number}
+     MIGRATION_FILES_LIST:
+     {MIGRATION_FILES_LIST — paste verbatim, or "(none)" if empty}
 
      Read `references/subagents/phase4-post-merge-smoke-analyze.md` and follow its instructions exactly.
      ```
