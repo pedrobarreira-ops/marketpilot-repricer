@@ -49,6 +49,18 @@ try {
 
 const logger = createWorkerLogger();
 
+// Master key is held in worker-process memory only (AD3) and loaded once per
+// process (lazy on first scan). Re-loading it on every scan is wasted work and
+// would also turn a missing env var into a per-scan failure rather than a boot
+// failure — the worker boot already aborts cleanly when the env is absent.
+let _cachedMasterKey = null;
+function getMasterKey () {
+  if (_cachedMasterKey === null) {
+    _cachedMasterKey = loadMasterKey();
+  }
+  return _cachedMasterKey;
+}
+
 // Batch size for P11 calls (AD16 spec — 100 EANs per call)
 const P11_BATCH_SIZE = 100;
 
@@ -157,7 +169,7 @@ async function runScan (db, scanJob, cm) {
 
   logger.info({ scan_job_id: scanJobId }, 'onboarding-scan: Phase 0 — decrypt key');
 
-  const masterKey = loadMasterKey();
+  const masterKey = getMasterKey();
 
   const { rows: vaultRows } = await db.query(
     `SELECT ciphertext, nonce, auth_tag, master_key_version
@@ -222,8 +234,40 @@ async function runScan (db, scanJob, cm) {
   const a01 = await getAccount(baseUrl, apiKey);
 
   const shopName = a01.shop_name;
-  // channels from A01 is an array of channel objects; extract just the codes as text[]
-  const channelCodes = (a01.channels ?? []).map(c => (typeof c === 'object' ? (c.code ?? c) : c)).filter(Boolean);
+  // Defensive guard: a missing shop_name would later crash filterCompetitorOffers
+  // (self-filter.js:40 — TypeError if ownShopName is not a non-empty string),
+  // aborting Phase 5 with an opaque error. Surface a PT-localized failure here
+  // instead, mirroring the PC01 DISABLED hard-abort pattern below.
+  if (typeof shopName !== 'string' || shopName.length === 0) {
+    const failureReason = 'A resposta A01 da Worten não inclui shop_name. Por favor contacta o suporte.';
+    await db.query(
+      `UPDATE scan_jobs
+       SET status = 'FAILED', phase_message = $1, failure_reason = $2, completed_at = NOW()
+       WHERE id = $3`,
+      [PHASE_MESSAGES.FAILED, failureReason, scanJobId]
+    );
+    logger.warn(
+      { scan_job_id: scanJobId },
+      'onboarding-scan: A01 shop_name missing — aborting scan'
+    );
+    await sendCriticalAlert({
+      type: 'scan-failed',
+      customerMarketplaceId,
+      scanJobId,
+      reason: 'A01 shop_name missing',
+    });
+    return;
+  }
+  // channels from A01 is an array of channel objects; extract just the codes as text[].
+  // Defensive: drop entries that aren't strings or lack a string `code` so we never
+  // forward a malformed value to pg's text[] coercion (which would error opaquely).
+  const channelCodes = (a01.channels ?? [])
+    .map(c => {
+      if (typeof c === 'string') return c;
+      if (c && typeof c === 'object' && typeof c.code === 'string') return c.code;
+      return null;
+    })
+    .filter(c => typeof c === 'string' && c.length > 0);
 
   await db.query(
     `UPDATE customer_marketplaces
