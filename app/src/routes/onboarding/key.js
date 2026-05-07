@@ -112,8 +112,23 @@ export async function keyRoutes (fastify, _opts) {
           [customerId]
         );
         if (vaultResult.rows.length > 0) {
-          // PROVISIONING with validated key → redirect to scan
-          return reply.redirect('/onboarding/scan', 302);
+          // PROVISIONING with validated key — check scan status before redirecting.
+          // If latest scan FAILED, show the form so the customer can re-enter their key
+          // (Story 4.6 "Tentar novamente" flow). Redirecting to /onboarding/scan would
+          // just bounce back to /scan-failed, creating an unescapable loop.
+          const scanResult = await req.db.query(
+            `SELECT sj.status
+             FROM scan_jobs sj
+             JOIN customer_marketplaces cm ON cm.id = sj.customer_marketplace_id
+             WHERE cm.customer_id = $1
+             ORDER BY sj.started_at DESC LIMIT 1`,
+            [customerId]
+          );
+          const latestScanStatus = scanResult.rows[0]?.status;
+          if (latestScanStatus !== 'FAILED') {
+            return reply.redirect('/onboarding/scan', 302);
+          }
+          // FAILED scan → fall through to show form (key re-entry / rotation)
         }
         // PROVISIONING with no validated key → show form (allow re-entry / rotation)
       } else {
