@@ -19,13 +19,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';
 
-const BASE = process.env.APP_BASE_URL ?? 'http://localhost:3000';
-
 // Verbatim PT copy from UX skeleton §9.5 (DRY_RUN banner)
 // Spec-locked: do NOT paraphrase or truncate.
 const DRY_RUN_BANNER_COPY_FRAGMENT = 'MODO SIMULAÇÃO';
-const DRY_RUN_BANNER_FULL_COPY =
-  'O que vês são decisões que o motor TOMARIA, não acções no Worten. Quando estiveres confortável, vai live.';
 
 // ---------------------------------------------------------------------------
 // Helpers — mock DB factory
@@ -226,6 +222,19 @@ test('dashboard-dry-run-minimal', async (t) => {
       assert.ok(
         !html.includes('Go Live') && !html.includes('Ativar repricing'),
         'page must NOT contain "Go Live" or "Ativar repricing" English/live text',
+      );
+
+      // Critical Constraint #1 — the "Ir live →" placeholder button MUST be
+      // disabled (non-functional). Match a <button ...>...Ir live...</button>
+      // span and assert the opening tag carries the `disabled` attribute.
+      const irLiveButtonMatch = html.match(/<button[^>]*>[^<]*Ir live[^<]*<\/button>/);
+      assert.ok(
+        irLiveButtonMatch,
+        '"Ir live" must be rendered inside a <button> element',
+      );
+      assert.ok(
+        /\sdisabled(\s|=|>)/.test(irLiveButtonMatch[0]),
+        '"Ir live →" placeholder <button> must have the `disabled` attribute (Critical Constraint #1 — Go-Live action ships in Epic 8 Story 8.6)',
       );
 
       // No margin editor (ships Story 8.4)
