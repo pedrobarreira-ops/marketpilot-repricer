@@ -257,3 +257,10 @@ Implementation when triggered: ~4-line change in `founder-admin-only.js` — app
 
 - **PHASE_MAP duplicated across server (scan.js) and client (scan-progress.js) — drift risk** [app/src/routes/onboarding/scan.js:25-35 + public/js/scan-progress.js:30-40] — Both files hand-maintain identical 9-key PHASE_MAP. Server has a regression test (`renders_correct_active_phase_for_each_status`); client has no test. A new enum value requires updating both places; client falls back to phase 1 silently. Mirror is documented via comment on line 28-29 of the client. Pragmatic for MVP; extract to a shared JSON or HTML data attribute when Epic 8 visual layer lands.
 - **Inline `style="..."` on trust block bypasses tokens.css** [app/src/views/pages/onboarding-scan.eta:113-128] — Hardcoded colors (`#f7f9fc`, `#c0c6d4`, `#0a1230`) duplicated as CSS-var fallbacks. Should live in tokens.css as a `.mp-trust-block` rule. Pattern is consistent with rest of codebase using missing classes (Epic 8 ships visual layer); extracting now is premature.
+
+---
+
+## Deferred from: PR #77 review (2026-05-07)
+
+- **PR body "8 files changed" off-by-one** [PR body] — diff shows 7 changed files; body headline claims 8. Recurring BAD Step 6 body-generation error (7th occurrence across PRs). No functional impact; cosmetic only.
+- **PR body `APP_BASE_URL` env var claim is spurious** [PR body] — `APP_BASE_URL` not referenced in `scan.js`, `scan-progress.js`, or `server.js`. Carried from a template env-vars section. Same pattern as PR #74 deferred item (`APP_BASE_URL` and `WORKER_BASE_URL`). Cosmetic body overstatement; no functional impact.
