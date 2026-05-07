@@ -1,5 +1,5 @@
 # Story Dependency Graph
-_Last updated: 2026-05-07T14:00:00Z_
+_Last updated: 2026-05-07T16:30:00Z_
 
 ## Stories
 
@@ -21,10 +21,10 @@ _Last updated: 2026-05-07T14:00:00Z_
 | 4.2 | 4 | skus, sku_channels, baseline_snapshots, scan_jobs schemas + RLS | done | #14 | #72 | merged | 4.1 | ✅ Yes (done) |
 | 4.3 | 4 | Key entry form /onboarding/key + inline 5s validation + encrypted persistence [MERGE_BLOCK until 4.4] | done | #15 | #73 | merged | 4.1, 1.2, 3.1 | ✅ Yes (done) |
 | 4.4 | 4 | Async catalog scan orchestration A01 PC01 OF21 P11 tier-classify baseline (atomicity sibling 4.1) | done | #16 | #74 | merged | 4.1, 3.2, 4.2 | ✅ Yes (done) |
-| 4.5 | 4 | Scan progress page /onboarding/scan — closeable + reconnectable + status polling | backlog | #17 | — | — | 4.4 | ✅ Yes |
-| 4.6 | 4 | Scan-failed email + /scan-failed interception | backlog | #18 | — | — | 4.4 | ✅ Yes |
-| 4.7 | 4 | Scan-ready interstitial /onboarding/scan-ready (UX-DR33-34) | backlog | #21 | — | — | 4.4 | ✅ Yes |
-| 4.8 | 4 | Margin question /onboarding/margin + smart-default mapping + <5% warning | backlog | #63 | — | — | 4.7 | ❌ No (4.7 not done) |
+| 4.5 | 4 | Scan progress page /onboarding/scan — closeable + reconnectable + status polling | done | #17 | #77 | merged | 4.4 | ✅ Yes (done) |
+| 4.6 | 4 | Scan-failed email + /scan-failed interception | done | #18 | #75 | merged | 4.4 | ✅ Yes (done) |
+| 4.7 | 4 | Scan-ready interstitial /onboarding/scan-ready (UX-DR33-34) | done | #21 | #76 | merged | 4.4 | ✅ Yes (done) |
+| 4.8 | 4 | Margin question /onboarding/margin + smart-default mapping + <5% warning | backlog | #63 | — | — | 4.7 | ✅ Yes |
 | 4.9 | 4 | Dashboard root in DRY_RUN — minimal landing only | backlog | #20 | — | — | 4.8 | ❌ No (4.8 not done) |
 | 5.1 | 5 | Master cron dispatcher + advisory locks + worker-must-filter-by-customer ESLint rule [MERGE_BLOCK until 7.8] | backlog | #24 | — | — | 4.1, 9.1 | ❌ No (epic 4 not complete) |
 | 5.2 | 5 | PRI01 staging schema + cycle assembly skeleton [MERGE_BLOCK until 7.8] | backlog | #25 | — | — | 5.1 | ❌ No (epic 4 not complete) |
@@ -129,7 +129,7 @@ _Last updated: 2026-05-07T14:00:00Z_
 
 ## Notes
 
-### Current State (Phase 0 reconciliation 2026-05-07 pass 3)
+### Current State (Phase 0 reconciliation 2026-05-07 pass 4)
 - Epic 1 complete (5/5 stories done — pre-BAD direct commits to main, no PRs).
 - Epic 1 retrospective complete (2026-05-03).
 - Epic 2 complete (2/2 stories done).
@@ -148,17 +148,17 @@ _Last updated: 2026-05-07T14:00:00Z_
 - Story 4.2 merged (PR #72, 2026-05-06). sprint-status: done.
 - Story 4.4 merged (PR #74, 2026-05-07T10:03:17Z). sprint-status: done. ATOMICITY BUNDLE B (2/2) shipped.
 - Story 4.3 merged (PR #73, 2026-05-07T11:29:54Z). sprint-status: done. Bundle B MERGE_BLOCK cleared.
-- Current Ready to Work: **4.5**, **4.6**, **4.7** — all unlocked by 4.4 done.
-  - 4.5: Ready (depends on 4.4 — done).
-  - 4.6: Ready (depends on 4.4 — done).
-  - 4.7: Ready (depends on 4.4 — done).
-  - 4.8: Blocked on 4.7.
+- Story 4.5 merged (PR #77, 2026-05-07T14:51:11Z). sprint-status: done.
+- Story 4.6 merged (PR #75, 2026-05-07T15:24:25Z). sprint-status: done.
+- Story 4.7 merged (PR #76, 2026-05-07T15:52:41Z). sprint-status: done.
+- Current Ready to Work: **4.8** — unlocked by 4.7 done.
+  - 4.8: Ready (depends on 4.7 — done; epics 1-3 all complete).
   - 4.9: Blocked on 4.8.
-  - 5.1-9.x: Blocked on epic 4 not yet complete (4.5-4.9 still backlog).
+  - 5.1+: Blocked on epic 4 not yet complete (4.8, 4.9 still backlog).
 
 ### Parallelization Opportunities
-- **Current batch (Epic 4 continuation):** Stories **4.5**, **4.6**, **4.7** are all ready and can run in parallel.
-- After 4.7: 4.8 unlocks, then 4.9 (sequential chain).
+- **Current batch (Epic 4 continuation):** Story **4.8** is the next ready story (no parallelism — sequential chain 4.8 → 4.9).
+- After 4.9: Epic 4 completes, unblocking Epic 5.
 - After epic 4 complete: Epic 5 stories unblock (5.1 depends on 4.1 + 9.1 — both done; epic 4 must complete first).
 - Bundle C (Epics 5-7): Stories 5.1, 5.2, 6.1, 6.2, 6.3, 7.2, 7.3, 7.6 can be developed in parallel but ALL must hold for merge until 7.8 gate passes.
 - Epic 8 has the most parallelism: stories 8.3-8.12 can mostly run in parallel after 8.1 ships.
