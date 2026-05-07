@@ -9,7 +9,7 @@ subheader: "Configure the autonomous development pipeline for this project.\nHar
 
 max_parallel_stories:
   prompt: "Max stories to run in a single batch"
-  default: "3"
+  default: "1"
   result: "{value}"
 
 worktree_base_path:
