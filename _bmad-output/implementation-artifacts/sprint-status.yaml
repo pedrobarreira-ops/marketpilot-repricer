@@ -377,3 +377,4 @@ integration_test_required:
   2-2-rls-regression-suite-ci-block: true   # live RLS verification against Supabase
   9-1-audit-log-partitioned-base-table-priority-derivation-trigger-initial-partition-monthly-partition-cron: true   # audit_log trigger + RLS + compound index existence
   4-1-customer-marketplaces-schema-with-f4-provisioning-cron-state-machine-transitions-matrix: true   # schema + F4 CHECK constraint + RLS isolation + transitionCronState audit emission
+  4-6-scan-failed-email-scan-failed-interception: true   # Resend SDK first integration — shared/resend/client.js library contract surface

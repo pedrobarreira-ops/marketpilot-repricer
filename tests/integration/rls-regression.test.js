@@ -1277,20 +1277,24 @@ test('story_4_2_scan_jobs_table_exists_with_rls_select_only_policy', { concurren
   const { rows: policies } = await pool.query(
     `SELECT policyname, cmd FROM pg_policies WHERE tablename = 'scan_jobs' AND schemaname = 'public'`
   );
-  // scan_jobs must have exactly 1 RLS policy (SELECT-only — no modify policy per AC#4).
+  // scan_jobs policies after Story 4.3: SELECT (4.2 AC#4) + INSERT (4.3 — key submission triggers scan).
   // pg_policies.cmd values are uppercase strings: 'SELECT' | 'INSERT' | 'UPDATE' | 'DELETE' | 'ALL'.
   // (Short single-char codes 'r','a','w','d','*' come from pg_policy.polcmd, not from this view.)
-  const modifyPolicies = policies.filter((p) =>
-    ['INSERT', 'UPDATE', 'DELETE', 'ALL'].includes(p.cmd)
+  const unexpectedModifyPolicies = policies.filter((p) =>
+    ['INSERT', 'UPDATE', 'DELETE', 'ALL'].includes(p.cmd) && p.policyname !== 'scan_jobs_insert_own'
   );
   assert.ok(
     policies.find((p) => p.policyname === 'scan_jobs_select_own'),
     'scan_jobs_select_own policy must exist'
   );
+  assert.ok(
+    policies.find((p) => p.policyname === 'scan_jobs_insert_own'),
+    'scan_jobs_insert_own policy must exist (added by Story 4.3 key submission flow)'
+  );
   assert.strictEqual(
-    modifyPolicies.length,
+    unexpectedModifyPolicies.length,
     0,
-    `scan_jobs must have NO customer-side modify policy (worker writes via service-role); found: ${modifyPolicies.map((p) => p.policyname).join(', ')}`
+    `scan_jobs must have no unexpected customer-side modify policies; found: ${unexpectedModifyPolicies.map((p) => p.policyname).join(', ')}`
   );
 
   // Verify scan_job_status enum exists with exactly 9 UPPER_SNAKE_CASE values.
