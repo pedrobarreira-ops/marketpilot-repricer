@@ -297,6 +297,12 @@ Implementation when triggered: ~4-line change in `founder-admin-only.js` — app
 
 ---
 
+## Deferred from: Coolify deployment prep (2026-05-07)
+
+- **Migration naming drift blocks `npx supabase db push`** [`supabase/migrations/20260430120730_create_audit_log_event_types.sql`] — The 14-digit filename `20260430120730_` sorts lexicographically BEFORE `202604301207_create_baseline_snapshots.sql` (because digit `3` at position 13 < `_` at position 13), but sorts AFTER it in version string comparison (longer string > shorter prefix). The Supabase CLI sorted-merge algorithm sees them at different positions in local vs remote lists and can never match them — causing `migration list` to show both as unmatched and `db push` to abort with "Remote migration versions not found in local migrations directory." Schema is correct on remote (all tables and policies confirmed via direct SQL); the mismatch is purely a CLI artefact. The F5 amendment comment inside the file (`-- filename uses 'a' suffix`) suggests the intended name was `202604301207a_create_audit_log_event_types.sql`, which would sort correctly in both orderings (`a` at position 13 has ASCII 97 > `_` ASCII 95). **Proposed fix (surface at Epic 4 retro):** rename local file to `202604301207a_create_audit_log_event_types.sql`, run `supabase migration repair --status reverted 20260430120730` then `--status applied 202604301207a` on remote, and reset local Supabase. Deliberately deferred — renaming an applied migration file is an exception to the append-only rule and warrants a retro decision before acting.
+
+---
+
 ## Deferred from: PR #79 review (2026-05-07)
 
 - **Page title separator** [`app/src/views/pages/dashboard-dry-run-minimal.eta:1`] — template passes `title: 'Dashboard'` and the layout pattern produces "Dashboard — MarketPilot" (em dash); spec AC#1 specifies "Dashboard · MarketPilot" (middle dot). Test only checks for "Dashboard" and "MarketPilot" independently so CI is green. Cosmetic; resolve in Epic 8 when dashboard title is revisited.
