@@ -1,0 +1,54 @@
+<% layout('/layouts/default', { ...it, title: 'Configura as tuas margens' }) %>
+<section class="mp-onboarding-card">
+  <span class="mp-onboarding-badge">Passo 4 de 4</span>
+  <h1>Qual é a tua margem habitual?</h1>
+  <p class="mp-onboarding-subtitle">
+    Usamos isto para calcular o limite mínimo de desconto ao repriçar.
+  </p>
+
+  <% if (it.error) { %>
+    <p class="mp-inline-error" role="alert" aria-live="polite"><%= it.error %></p>
+  <% } %>
+
+  <form method="POST" action="/onboarding/margin" novalidate>
+    <fieldset class="mp-band-picker">
+      <legend class="mp-sr-only">Seleciona a tua margem habitual</legend>
+
+      <label class="mp-field mp-radio">
+        <input type="radio" name="band" value="under_5" />
+        <span>&lt;5%</span>
+      </label>
+
+      <label class="mp-field mp-radio">
+        <input type="radio" name="band" value="5_10" />
+        <span>5–10%</span>
+      </label>
+
+      <label class="mp-field mp-radio">
+        <input type="radio" name="band" value="10_15" />
+        <span>10–15%</span>
+      </label>
+
+      <label class="mp-field mp-radio">
+        <input type="radio" name="band" value="15_plus" />
+        <span>15%+</span>
+      </label>
+    </fieldset>
+
+    <!-- Component: thin-margin warning callout (Story 4.8 AC#2) — §9.10 verbatim copy -->
+    <!-- Pass calloutOpen so the server-rendered error path (POST under_5 with no -->
+    <!-- acknowledgement, spec line 92) can pre-expand the callout. Default false. -->
+    <%~ include('/components/smart-default-warning-thin-margin', { calloutOpen: it.calloutOpen }) %>
+
+    <!-- Hidden field for acknowledgement — keyboard-accessible (AC#2) -->
+    <input type="hidden" name="acknowledge" id="acknowledge-field" value="" />
+
+    <div class="mp-form-actions">
+      <button type="submit" id="margin-submit" class="mp-btn mp-btn-primary" disabled>
+        Confirmar margem
+      </button>
+    </div>
+  </form>
+</section>
+
+<script src="/public/js/onboarding-margin.js" defer></script>

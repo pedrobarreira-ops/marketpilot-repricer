@@ -15,6 +15,7 @@ import { keyRoutes } from './routes/onboarding/key.js';
 import { scanRoutes } from './routes/onboarding/scan.js';
 import FastifyRateLimit from '@fastify/rate-limit';
 import { scanReadyRoutes } from './routes/onboarding/scan-ready.js';
+import { marginRoutes } from './routes/onboarding/margin.js';
 import { scanFailedRoutes } from './routes/interceptions/scan-failed.js';
 import { authMiddleware } from './middleware/auth.js';
 import { rlsContext, releaseRlsClient } from './middleware/rls-context.js';
@@ -73,6 +74,8 @@ try {
   await fastify.register(keyRoutes);
   await fastify.register(scanRoutes);
   await fastify.register(scanReadyRoutes);
+  // Story 4.8: margin question /onboarding/margin + smart-default mapping + <5% warning
+  await fastify.register(marginRoutes);
   // Story 4.6: scan-failed interception route (authenticated, under /scan-failed)
   await fastify.register(scanFailedRoutes);
 
