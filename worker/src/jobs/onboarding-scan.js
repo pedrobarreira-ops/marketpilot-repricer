@@ -14,6 +14,7 @@
 //   - All worker queries include customer_marketplace_id filter (worker-must-filter-by-customer)
 //   - All prices stored as integer cents (Math.round(price * 100))
 //   - No float arithmetic for price storage
+// Story 4.6 — sendCriticalAlert SSoT wired (shared/resend/client.js)
 
 import { getServiceRoleClient } from '../../../shared/db/service-role-client.js';
 import { tx } from '../../../shared/db/tx.js';
@@ -30,18 +31,8 @@ import { writeAuditEvent } from '../../../shared/audit/writer.js';
 import { runVerification } from '../../../scripts/mirakl-empirical-verify.js';
 import { classifyInitialTier } from '../lib/tier-classify.js';
 import { createWorkerLogger } from '../../../shared/logger.js';
-
-// ---------------------------------------------------------------------------
-// sendCriticalAlert — Story 4.6 SSoT (import with graceful stub if not yet shipped)
-// ---------------------------------------------------------------------------
-
-let sendCriticalAlert;
-try {
-  ({ sendCriticalAlert } = await import('../../../shared/resend/client.js'));
-} catch {
-  // Story 4.6 not yet shipped — no-op stub until the module lands
-  sendCriticalAlert = async () => {}; // TODO: remove stub once Story 4.6 ships
-}
+import { sendCriticalAlert } from '../../../shared/resend/client.js';
+import { renderScanFailedEmail } from '../email/scan-failed-email.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -79,6 +70,80 @@ const PHASE_MESSAGES = {
   COMPLETE:              'Pronto',
   FAILED:                'Falhou',
 };
+
+// Email subject (verbatim per Story 4.6 AC1 — do NOT change)
+const SCAN_FAILED_EMAIL_SUBJECT = 'A análise do teu catálogo MarketPilot não conseguiu completar';
+
+// ---------------------------------------------------------------------------
+// Internal: sendScanFailedAlert — resolve email + render template + send
+// ---------------------------------------------------------------------------
+
+/**
+ * Send a scan-failed critical alert email to the customer.
+ *
+ * Story 4.6 — best-effort: logs errors but does NOT re-throw so the calling
+ * code can continue (e.g., the scan failure record must be persisted regardless
+ * of whether the email was delivered).
+ *
+ * Wiring: uses service-role DB client to look up the customer email from
+ * public.customers via the customer_marketplace FK chain.
+ *
+ * DO NOT pass cleartext API key in failureReason or any other template data.
+ *
+ * @param {import('pg').Pool} db - service-role DB pool
+ * @param {string} customerMarketplaceId - UUID of the customer_marketplaces row
+ * @param {string} failureReason - PT-localized human-readable failure reason
+ * @returns {Promise<void>} resolves when email is sent (or after logging an error)
+ */
+async function sendScanFailedAlert (db, customerMarketplaceId, failureReason) {
+  try {
+    // Resolve customer email and name via the customer_marketplace → customers join.
+    // Uses service-role client so this works regardless of RLS policies.
+    const { rows } = await db.query(
+      `SELECT c.email, cp.first_name
+       FROM customer_marketplaces cm
+       JOIN customers c ON c.id = cm.customer_id
+       LEFT JOIN customer_profiles cp ON cp.customer_id = cm.customer_id
+       WHERE cm.id = $1
+       LIMIT 1`,
+      [customerMarketplaceId]
+    );
+
+    if (rows.length === 0) {
+      logger.warn(
+        { customer_marketplace_id: customerMarketplaceId },
+        'sendScanFailedAlert: could not find customer email — alert not sent'
+      );
+      return;
+    }
+
+    const { email: customerEmail, first_name: firstName } = rows[0];
+
+    // Build the full URL to the re-validation page (APP_BASE_URL from env)
+    const appBaseUrl = (process.env.APP_BASE_URL ?? '').replace(/\/+$/, '');
+    const keyUrl = `${appBaseUrl}/onboarding/key`;
+
+    // Render the email template (app/src/views/emails/scan-failed.eta)
+    const html = await renderScanFailedEmail({
+      customerName: firstName ?? null,
+      failureReason,
+      keyUrl,
+    });
+
+    // Send via Resend SSoT (best-effort — sendCriticalAlert never re-throws)
+    await sendCriticalAlert({
+      to: customerEmail,
+      subject: SCAN_FAILED_EMAIL_SUBJECT,
+      html,
+    });
+  } catch (alertErr) {
+    // Catch render errors or unexpected failures. Log and continue.
+    logger.error(
+      { err_name: alertErr?.name, customer_marketplace_id: customerMarketplaceId },
+      'sendScanFailedAlert: unexpected error composing scan-failed email (non-fatal)'
+    );
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Main export: processNextPendingScan
@@ -215,12 +280,7 @@ async function runScan (db, scanJob, cm) {
          WHERE id = $3`,
         [PHASE_MESSAGES.FAILED, failureReason, scanJobId]
       );
-      await sendCriticalAlert({
-        type: 'scan-failed',
-        customerMarketplaceId,
-        scanJobId,
-        reason: 'smoke-test failed',
-      });
+      await sendScanFailedAlert(db, customerMarketplaceId, failureReason);
       return;
     }
   }
@@ -250,12 +310,7 @@ async function runScan (db, scanJob, cm) {
       { scan_job_id: scanJobId },
       'onboarding-scan: A01 shop_name missing — aborting scan'
     );
-    await sendCriticalAlert({
-      type: 'scan-failed',
-      customerMarketplaceId,
-      scanJobId,
-      reason: 'A01 shop_name missing',
-    });
+    await sendScanFailedAlert(db, customerMarketplaceId, failureReason);
     return;
   }
   // channels from A01 is an array of channel objects; extract just the codes as text[].
@@ -319,12 +374,7 @@ async function runScan (db, scanJob, cm) {
       { scan_job_id: scanJobId, channel_pricing: pc01.channel_pricing },
       'onboarding-scan: PC01 DISABLED — aborting scan'
     );
-    await sendCriticalAlert({
-      type: 'scan-failed',
-      customerMarketplaceId,
-      scanJobId,
-      reason: 'PC01 channel_pricing DISABLED',
-    });
+    await sendScanFailedAlert(db, customerMarketplaceId, failureReason);
     return;
   }
 
@@ -774,19 +824,9 @@ async function failScan (db, scanJob, err) {
     );
   }
 
-  try {
-    await sendCriticalAlert({
-      type: 'scan-failed',
-      customerMarketplaceId,
-      scanJobId,
-      reason: getSafeErrorMessage(err),
-    });
-  } catch (alertErr) {
-    logger.warn(
-      { scan_job_id: scanJobId, err: alertErr },
-      'onboarding-scan: sendCriticalAlert failed (non-fatal)'
-    );
-  }
+  // sendScanFailedAlert is best-effort and catches its own errors internally.
+  // Pass the human-readable failure reason so the customer gets a useful email.
+  await sendScanFailedAlert(db, customerMarketplaceId, getSafeErrorMessage(err));
 }
 
 // ---------------------------------------------------------------------------
