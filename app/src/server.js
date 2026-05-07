@@ -17,9 +17,7 @@ import FastifyRateLimit from '@fastify/rate-limit';
 import { scanReadyRoutes } from './routes/onboarding/scan-ready.js';
 import { marginRoutes } from './routes/onboarding/margin.js';
 import { scanFailedRoutes } from './routes/interceptions/scan-failed.js';
-import { authMiddleware } from './middleware/auth.js';
-import { rlsContext, releaseRlsClient } from './middleware/rls-context.js';
-import { interceptionRedirect } from './middleware/interception-redirect.js';
+import { dashboardRoutes } from './routes/dashboard/index.js';
 
 getEnv();
 
@@ -79,20 +77,10 @@ try {
   // Story 4.6: scan-failed interception route (authenticated, under /scan-failed)
   await fastify.register(scanFailedRoutes);
 
-  // Dashboard root — authenticated with interception redirect middleware (Story 4.6 UX-DR3).
-  // Auth + RLS context applied as preHandler hooks; interceptionRedirect runs after
-  // auth + RLS so it has access to req.user and req.db.
-  // Epic 8 stories will expand this to a full dashboard handler.
-  await fastify.register(async function dashboardRoutes (instance) {
-    instance.addHook('preHandler', authMiddleware);
-    instance.addHook('preHandler', rlsContext);
-    instance.addHook('preHandler', interceptionRedirect);
-    instance.addHook('onResponse', releaseRlsClient);
-
-    instance.get('/', async (_request, _reply) => {
-      return 'Hello MarketPilot';
-    });
-  });
+  // Story 4.9: Dashboard root — extracted route plugin with dry-run minimal landing.
+  // Auth + RLS + interception hooks applied inside the plugin scope.
+  // Epic 8 stories will expand this to a full state-aware dashboard.
+  await fastify.register(dashboardRoutes);
 
   await fastify.listen({ port: Number(process.env.PORT) || 3000, host: '0.0.0.0' });
 } catch (err) {

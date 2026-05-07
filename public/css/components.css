@@ -1,0 +1,35 @@
+/* components.css — shared component styles for MarketPilot app UI
+ * Tokens are defined in tokens.css (OKLCH design system).
+ * Add component-scoped CSS here; never create additional CSS files.
+ */
+
+/* ── Dashboard: dry-run minimal (Story 4.9) ─────────────────────────────────── */
+
+/* 3-column KPI card grid — KPI data ships in Epic 8 Story 8.2 */
+.mp-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-block: 24px;
+}
+
+/* KPI placeholder card — dashed border, muted text (Story 4.9) */
+.mp-kpi-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 16px;
+  background: var(--mp-surface);
+  border: 2px dashed var(--mp-line);
+  border-radius: 8px;
+  color: var(--mp-ink-3);
+  font-style: italic;
+  text-align: center;
+}
+
+/* Audit log link row */
+.mp-dashboard-audit-link {
+  margin-block-start: 16px;
+}

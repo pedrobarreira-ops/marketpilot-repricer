@@ -9,6 +9,9 @@
 // Story 4.6 — scan-failed interception:
 //   cron_state = PROVISIONING AND latest scan_jobs row is FAILED → /scan-failed
 //
+// Story 4.9 — forward-only UX-DR2:
+//   cron_state = PROVISIONING AND no FAILED scan → /onboarding/scan
+//
 // Epic 8 stories will extend this middleware with additional interceptions:
 //   // Epic 8: PAUSED_BY_KEY_REVOKED → /key-revoked
 //   // Epic 8: PAUSED_BY_PAYMENT_FAILURE → /payment-failed
@@ -73,6 +76,16 @@ export async function interceptionRedirect (req, reply) {
         'interception-redirect: scan-failed interception triggered'
       );
       return reply.redirect('/scan-failed', 302);
+    }
+
+    // Story 4.9: UX-DR2 forward-only — PROVISIONING without a FAILED scan
+    // (scan not started, pending, or in-progress) redirects to /onboarding/scan.
+    if (cronState === 'PROVISIONING') {
+      req.log.info(
+        { user_id: customerId, cron_state: cronState },
+        'interception-redirect: PROVISIONING customer redirected to /onboarding/scan'
+      );
+      return reply.redirect('/onboarding/scan', 302);
     }
 
     // Epic 8 stories add additional interceptions here:
