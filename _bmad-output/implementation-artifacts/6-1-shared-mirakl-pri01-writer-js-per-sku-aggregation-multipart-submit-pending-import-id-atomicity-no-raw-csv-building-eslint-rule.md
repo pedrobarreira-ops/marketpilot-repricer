@@ -471,3 +471,18 @@ None — implementation proceeded cleanly.
 - `eslint-rules/no-raw-CSV-building.js` — CREATED (no-raw-CSV-building ESLint rule; ships with SSoT per deferred-rule pattern)
 - `eslint.config.js` — MODIFIED (registered `no-raw-CSV-building` under `local-cron` plugin namespace)
 - `tests/shared/mirakl/pri01-writer.test.js` — MODIFIED (scaffold stubs replaced with full test implementations; import uncommented)
+
+### Review Findings
+
+Step 5 code review — 2026-05-08. Three review layers run inline (subagent dispatch unavailable from nested skill context): Blind Hunter (diff-only structural), Edge Case Hunter (diff + project read), Acceptance Auditor (diff vs spec). All 36 unit tests pass; ESLint 0 violations on the two new files; module boots cleanly; spec ACs #1–#5 satisfied. No `decision-needed`, no `patch` items, no Critical/Major findings. Three `defer` items (all align with explicit MVP-scope acknowledgements in the spec):
+
+- [x] [Review][Defer] No request timeout on `fetch` in `submitPriceImport` [`shared/mirakl/pri01-writer.js:159`] — deferred, pre-existing pattern (same gap exists in `shared/mirakl/api-client.js`'s `mirAklGet`); resolve when 3rd Mirakl module needs the same retry+timeout helper, per Dev Notes Note #4
+- [x] [Review][Defer] Per-row `UPDATE sku_channels` loop — N round-trips per cycle [`shared/mirakl/pri01-writer.js:259-274`] — deferred, Dev Notes Note #12 explicitly accepts this for MVP scale; batch with `WHERE id = ANY($array)` is a follow-up if cycle latency becomes a measurable concern
+- [x] [Review][Defer] `no-raw-CSV-building` rule could false-positive on legitimate error-message strings containing `;\n` or `,\n` [`eslint-rules/no-raw-CSV-building.js:158-184`] — deferred, low-impact (developers can switch to string concatenation if hit); tests confirm CSV-reading patterns are not flagged
+
+Findings dismissed as non-issues (recorded for traceability):
+
+- (Blind) `shopSku` / `channelCode` not CSV-escaped — Mirakl SKUs empirically alphanumeric; PRI03 surfaces any malformed line; no observed evidence of dangerous values
+- (EdgeCase) `await res.json()` on a 200 with non-JSON body would throw — Mirakl spec contract guarantees `import_id` JSON; not in defensive scope
+- (EdgeCase) Orphan staging rows (sku exists, no `sku_channel`) — pathological; FK + Story 5.2 cycle-assembly precludes; not reachable in practice
+- (Blind) `stagedBySkuChannel.set` could overwrite duplicates — `SELECT DISTINCT` + Story 5.2 invariant precludes duplicate (sku_id, channel_code, new_price_cents) triples
