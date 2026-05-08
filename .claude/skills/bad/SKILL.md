@@ -325,26 +325,17 @@ feature worktrees) own NOTHING in sprint-status.yaml and MUST NOT modify it
 collides with main's flips at merge time, causing rebase conflicts (Epic 2
 retro Item 5).
 
-Enforce by hash-snapshot around each:
+Enforce by hash-snapshot around each, with a per-story file backup for Step 3 (Q1, Epic 5 retro):
 
-Before spawning Step 2/3/4/5/6/7: compute `sha256sum _bmad-output/implementation-artifacts/sprint-status.yaml` → save as `STATUS_HASH_PRE`.
+Before spawning Step 2/3/4/5/6/7: compute `sha256sum _bmad-output/implementation-artifacts/sprint-status.yaml` → save as `STATUS_HASH_PRE`. **For Step 3 only:** also `cp _bmad-output/implementation-artifacts/sprint-status.yaml /tmp/bad-sprint-status-backup-{number}.yaml` so the coordinator can mechanically restore rather than halt — Step 3's vendored dev-story workflow has historically modified sprint-status despite wrapper guards.
 After Step 2/3/4/5/6/7 reports success: recompute → save as `STATUS_HASH_POST`.
-If `STATUS_HASH_POST != STATUS_HASH_PRE`, HALT this story's pipeline with:
-`❌ Story {number}: Step {N} modified sprint-status.yaml — state-machine
-violation. Steps 2-7 run in feature worktrees and MUST NOT touch
-sprint-status.yaml; only Step 1 (on main) and the coordinator own per-story
-flips. Investigate the stray write, revert the sprint-status change, and
-re-run.`
+If `STATUS_HASH_POST != STATUS_HASH_PRE`:
+- **Step 3 only**: restore from `/tmp/bad-sprint-status-backup-{number}.yaml`, log `↩ Story {N}: Step 3 sprint-status mutation reverted from backup (Q1)`, delete the backup file, continue to Step 4.
+- **Step 2/4/5/6/7**: HALT this story's pipeline with: `❌ Story {number}: Step {N} modified sprint-status.yaml — state-machine violation. Steps 2-7 run in feature worktrees and MUST NOT touch sprint-status.yaml; only Step 1 (on main) and the coordinator own per-story flips. Investigate the stray write, revert the sprint-status change, and re-run.`
 
-After Step 2/3/7 reports success and the gate passes, the coordinator
-performs the post-step flip on main (see "Coordinator-Side Sprint-Status
-Flips" below).
+After Step 2/3/7 reports success and the gate passes, the coordinator performs the post-step flip on main (see "Coordinator-Side Sprint-Status Flips" below).
 
-Rationale: dual-flip pattern (subagent flips in worktree + coordinator flips
-on main) caused the PR #65 sprint-status conflict that required force-push +
-rebase. Single-source-of-truth (main only, coordinator-driven) eliminates
-the conflict class entirely. Step 1 is exempt because it runs on main, so
-its flip and the coordinator's flip are the same operation.
+Rationale: avoids dual-flip rebase conflicts (PR #65 caused force-push). Step 1 is exempt — runs on main.
 
 **Coordinator-Side Sprint-Status Flips:**
 
@@ -360,9 +351,9 @@ commit pushed directly to origin/main:
 | Step 3 (Develop) success | `review` | `chore(sprint-status): Story {N} → review (dev-done)` |
 | Step 7 (PR Review) success | `done` | `chore(sprint-status): Story {N} → done` |
 
-For each: from main worktree, edit sprint-status.yaml, commit with the
-message above, push to origin/main. Steps 4, 5, 6 do not flip (they're
-intermediate quality checks within the dev → review transition).
+For each: from main worktree, edit sprint-status.yaml, commit with the message above, push to origin/main. Steps 4, 5, 6 do not flip (they're intermediate quality checks within the dev → review transition).
+
+**Q4 — Done-flip merge confirmation gate (Epic 5 retro):** Before flipping a story to `done` after Step 7 success, run `gh pr view {N} --json mergedAt --jq .mergedAt`. If the result is empty/null, do NOT flip — leave the story at `review` and emit `⏸ Story {N}: PR #{N} not yet merged on GitHub (Step 7 success ≠ merged); leaving at review. Phase 0 reconciliation will retry next batch.` Story 5.1's done-flip raced PR #81's actual merge on 2026-05-08 (commit `66b947a` rolled back to `fe95a9d` review) — Step 7 exit success is not equivalent to GitHub-confirmed merge.
 
 ### Step 1: Create Story (`MODEL_STANDARD`)
 
