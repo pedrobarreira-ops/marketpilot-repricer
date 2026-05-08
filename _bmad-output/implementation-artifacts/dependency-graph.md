@@ -1,5 +1,5 @@
 # Story Dependency Graph
-_Last updated: 2026-05-08T22:00:00Z_
+_Last updated: 2026-05-08T23:30:00Z_
 
 ## Stories
 
@@ -28,9 +28,9 @@ _Last updated: 2026-05-08T22:00:00Z_
 | 4.9 | 4 | Dashboard root in DRY_RUN — minimal landing only | done | #20 | #79 | merged | 4.8 | ✅ Yes (done) |
 | 5.1 | 5 | Master cron dispatcher + advisory locks + worker-must-filter-by-customer ESLint rule [MERGE_BLOCK until 7.8] | review | #24 | #81 | open | 4.1, 9.1 | ❌ No (review-shipped, awaiting bundle gate 7-8-end-to-end-integration-gate-full-cycle-test-on-all-17-p11-fixtures-atomicity-bundle-gate-for-ad7-ad8-ad9-ad11) |
 | 5.2 | 5 | PRI01 staging schema + cycle assembly skeleton [MERGE_BLOCK until 7.8] | review | #25 | #82 | open | 5.1 | ❌ No (review-shipped, awaiting bundle gate 7-8-end-to-end-integration-gate-full-cycle-test-on-all-17-p11-fixtures-atomicity-bundle-gate-for-ad7-ad8-ad9-ad11) |
-| 6.1 | 6 | shared/mirakl/pri01-writer.js + per-SKU aggregation + multipart submit + no-raw-CSV-building ESLint rule [MERGE_BLOCK until 7.8] | atdd-done | #22 | — | — | 5.2, 3.1 | ✅ Yes (bundle-stacked: story-5.2-pri01-staging-schema-cycle-assembly-skeleton) |
-| 6.2 | 6 | shared/mirakl/pri02-poller.js + worker/src/jobs/pri02-poll.js + cron entry complete/failed handling [MERGE_BLOCK until 7.8] | backlog | #23 | — | — | 6.1 | ❌ No (upstream 6.1 not in review yet — bundle exception requires upstream PR open) |
-| 6.3 | 6 | shared/mirakl/pri03-parser.js + per-SKU rebuild semantics [MERGE_BLOCK until 7.8] | backlog | #26 | — | — | 6.2 | ❌ No (upstream 6.1 not in review yet — bundle exception requires upstream PR open) |
+| 6.1 | 6 | shared/mirakl/pri01-writer.js + per-SKU aggregation + multipart submit + no-raw-CSV-building ESLint rule [MERGE_BLOCK until 7.8] | review | #22 | #83 | open | 5.2, 3.1 | ❌ No (review-shipped, awaiting bundle gate 7-8-end-to-end-integration-gate-full-cycle-test-on-all-17-p11-fixtures-atomicity-bundle-gate-for-ad7-ad8-ad9-ad11) |
+| 6.2 | 6 | shared/mirakl/pri02-poller.js + worker/src/jobs/pri02-poll.js + cron entry complete/failed handling [MERGE_BLOCK until 7.8] | backlog | #23 | — | — | 6.1 | ✅ Yes (bundle-stacked: story-6.1-pri01-writer-aggregation-multipart-submit) |
+| 6.3 | 6 | shared/mirakl/pri03-parser.js + per-SKU rebuild semantics [MERGE_BLOCK until 7.8] | backlog | #26 | — | — | 6.2 | ❌ No (upstream 6.2 not in review yet — bundle exception requires upstream PR open) |
 | 7.1 | 7 | shared/money/index.js + no-float-price ESLint rule | backlog | #27 | — | — | epic 6 complete | ❌ No (epic 6 not complete) |
 | 7.2 | 7 | worker/src/engine/decide.js — full AD8 decision flow with filter chain via self-filter [MERGE_BLOCK until 7.8] | backlog | #28 | — | — | 7.1, 3.2, 6.1 | ❌ No (epic 6 not complete) |
 | 7.3 | 7 | worker/src/engine/cooperative-absorb.js — STEP 2 absorption + skip-on-pending [MERGE_BLOCK until 7.8] | backlog | #29 | — | — | 7.2 | ❌ No (epic 6 not complete) |
@@ -129,7 +129,7 @@ _Last updated: 2026-05-08T22:00:00Z_
 
 ## Notes
 
-### Current State (Phase 0 reconciliation 2026-05-08 pass 15)
+### Current State (Phase 0 reconciliation 2026-05-08 pass 16)
 - Epic 1 complete (5/5 stories done — pre-BAD direct commits to main, no PRs).
 - Epic 1 retrospective complete (2026-05-03).
 - Epic 2 complete (2/2 stories done).
@@ -160,17 +160,19 @@ _Last updated: 2026-05-08T22:00:00Z_
 - **Story 5.2 (PR #82): OPEN — in review.** Review-shipped exclusion fires: 5.2 is in merge_blocks (Bundle C), status=review, open PR → NOT Ready.
   - Worktree `.worktrees/story-5.2-pri01-staging-schema-cycle-assembly-skeleton` still active — NOT cleaned up (PR still open).
 - Epic 5: in-progress (both stories review-shipped, neither merged yet).
-- **Story 6.1: READY TO WORK (bundle-stacked)** — atomicity-bundle DUAL RELAXATION exception fires (pass 15):
-  - Status: `atdd-done` (ATDD scaffolds + golden CSV fixtures committed 2026-05-08; worktree `.worktrees/story-6.1-pri01-writer-aggregation-multipart-submit` active, no PR yet).
-  - Per-story dep 5.2 is Bundle C, review, open PR → relaxed (treated as merged-for-dispatch).
-  - Epic-ordering: Epic 5 has only Bundle C stories (5.1 + 5.2), both review + open PR → relaxed for 6.1.
-  - 6.1 itself is Bundle C → worktree forks from `story-5.2-pri01-staging-schema-cycle-assembly-skeleton`.
-  - Not review-shipped (no open PR yet) → Ready cell remains ✅ Yes.
-- **Story 6.2, 6.3**: 6.1 is `atdd-done` (no open PR yet) → bundle exception does NOT fire for their upstream 6.1 dep → blocked.
+- **Story 6.1 (PR #83): OPEN — in review.** Review-shipped exclusion fires: 6.1 is in merge_blocks (Bundle C), status=review, open PR → NOT Ready. BAD has no more pipeline work for 6.1 until bundle gate 7.8 reaches done.
+  - Worktree `.worktrees/story-6.1-pri01-writer-aggregation-multipart-submit` still active — NOT cleaned up (PR still open).
+  - Sprint-status updated from `atdd-done` to `review` (PR #83 opened since pass 15).
+- **Story 6.2: READY TO WORK (bundle-stacked)** — atomicity-bundle DUAL RELAXATION exception fires (pass 16):
+  - Status: `backlog`, no PR yet.
+  - Per-story dep 6.1 is Bundle C, review, open PR #83 → relaxed (treated as merged-for-dispatch).
+  - Epic-ordering: Epic 5 has only Bundle C stories (5.1 + 5.2), both review + open PRs → relaxed. Epic 6 story 6.1 is Bundle C, review, open PR → relaxed.
+  - 6.2 itself is Bundle C → worktree forks from `story-6.1-pri01-writer-aggregation-multipart-submit`.
+- **Story 6.3**: 6.2 is `backlog` (no open PR yet) → bundle exception does NOT fire for 6.3 → blocked.
 
 ### Parallelization Opportunities
-- **Current state (Epic 6 pass 15):** Story **6.1** is Ready to Work (bundle-stacked on PR #82 branch), currently `atdd-done` — dev implementation pending. Stories 5.1 (PR #81) and 5.2 (PR #82) remain review-shipped. Epic-Start Test Design for Epic 6 is done (scaffolds on main).
-- Once 6.1 reaches `review` with an open PR, 6.2 becomes Ready (bundle-stacked). Then 6.3 after 6.2.
+- **Current state (Epic 6 pass 16):** Story **6.2** is Ready to Work (bundle-stacked on PR #83 branch). Stories 5.1 (PR #81), 5.2 (PR #82), and 6.1 (PR #83) remain review-shipped. Epic-Start Test Design for Epic 6 is done (scaffolds on main).
+- Once 6.2 reaches `review` with an open PR, 6.3 becomes Ready (bundle-stacked). Then Epic 7 stories after Epic 6 is complete.
 - Bundle C (Epics 5-7): Stories 5.1, 5.2, 6.1, 6.2, 6.3, 7.2, 7.3, 7.6 must all hold for merge until 7.8 gate passes.
 - Epic 8 has the most parallelism: stories 8.3-8.12 can mostly run in parallel after 8.1 ships.
 
