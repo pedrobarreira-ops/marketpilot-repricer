@@ -5,7 +5,7 @@ bad:
     runs bmad-create-story, bmad-dev-story, bmad-code-review, and commit/PR in batches,
     driven by the sprint backlog and dependency graph
   version: 1.2.0
-  max_parallel_stories: '3'
+  max_parallel_stories: '1'
   worktree_base_path: .worktrees
   auto_pr_merge: false
   run_ci_locally: true

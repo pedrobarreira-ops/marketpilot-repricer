@@ -26,7 +26,15 @@ import { rlsContext, releaseRlsClient } from '../../middleware/rls-context.js';
  * @returns {Promise<void>}
  */
 async function authMiddlewareConditional (req, reply) {
-  if (req.user) return; // already set by test global preHandler — skip real auth
+  if (req.user) {
+    // Bypass is test-only — Epic 4 retro Q3 guard. If req.user is truthy outside
+    // NODE_ENV=test it means a global preHandler in server.js set it before this
+    // route's hooks ran, which would silently skip auth in production.
+    if (process.env.NODE_ENV !== 'test') {
+      throw new Error('authMiddlewareConditional bypass fired outside NODE_ENV=test — auth would be silently skipped');
+    }
+    return;
+  }
   return authMiddleware(req, reply);
 }
 
@@ -39,7 +47,13 @@ async function authMiddlewareConditional (req, reply) {
  * @returns {Promise<void>}
  */
 async function rlsContextConditional (req, _reply) {
-  if (req.db) return; // already set by test global preHandler — skip real RLS client
+  if (req.db) {
+    // Bypass is test-only — Epic 4 retro Q3 guard.
+    if (process.env.NODE_ENV !== 'test') {
+      throw new Error('rlsContextConditional bypass fired outside NODE_ENV=test — RLS context would be silently skipped');
+    }
+    return;
+  }
   return rlsContext(req, _reply);
 }
 
@@ -52,7 +66,13 @@ async function rlsContextConditional (req, _reply) {
  * @returns {Promise<void>}
  */
 async function releaseRlsClientConditional (req) {
-  if (!req.db) return;
+  if (!req.db) {
+    // No DB client to release — this is the test-injection path. Epic 4 retro Q3 guard.
+    if (process.env.NODE_ENV !== 'test') {
+      throw new Error('releaseRlsClientConditional reached with no req.db outside NODE_ENV=test — RLS client teardown skipped');
+    }
+    return;
+  }
   return releaseRlsClient(req);
 }
 
