@@ -1,5 +1,5 @@
 # Story Dependency Graph
-_Last updated: 2026-05-08T16:00:00Z_
+_Last updated: 2026-05-08T17:00:00Z_
 
 ## Stories
 
@@ -26,7 +26,7 @@ _Last updated: 2026-05-08T16:00:00Z_
 | 4.7 | 4 | Scan-ready interstitial /onboarding/scan-ready (UX-DR33-34) | done | #21 | #76 | merged | 4.4 | ✅ Yes (done) |
 | 4.8 | 4 | Margin question /onboarding/margin + smart-default mapping + <5% warning | done | #63 | #78 | merged | 4.7 | ✅ Yes (done) |
 | 4.9 | 4 | Dashboard root in DRY_RUN — minimal landing only | done | #20 | #79 | merged | 4.8 | ✅ Yes (done) |
-| 5.1 | 5 | Master cron dispatcher + advisory locks + worker-must-filter-by-customer ESLint rule [MERGE_BLOCK until 7.8] | review | #24 | #81 | open | 4.1, 9.1 | ✅ Yes (in review — PR #81 open) |
+| 5.1 | 5 | Master cron dispatcher + advisory locks + worker-must-filter-by-customer ESLint rule [MERGE_BLOCK until 7.8] | review | #24 | #81 | open | 4.1, 9.1 | ❌ No (review-shipped, awaiting bundle gate 7-8-end-to-end-integration-gate-full-cycle-test-on-all-17-p11-fixtures-atomicity-bundle-gate-for-ad7-ad8-ad9-ad11) |
 | 5.2 | 5 | PRI01 staging schema + cycle assembly skeleton [MERGE_BLOCK until 7.8] | backlog | #25 | — | — | 5.1 | ✅ Yes (bundle-stacked: story-5.1-master-cron-dispatcher) |
 | 6.1 | 6 | shared/mirakl/pri01-writer.js + per-SKU aggregation + multipart submit + no-raw-CSV-building ESLint rule [MERGE_BLOCK until 7.8] | backlog | #22 | — | — | 5.2, 3.1 | ❌ No (epic 5 not complete) |
 | 6.2 | 6 | shared/mirakl/pri02-poller.js + worker/src/jobs/pri02-poll.js + cron entry complete/failed handling [MERGE_BLOCK until 7.8] | backlog | #23 | — | — | 6.1 | ❌ No (epic 5 not complete) |
@@ -129,7 +129,7 @@ _Last updated: 2026-05-08T16:00:00Z_
 
 ## Notes
 
-### Current State (Phase 0 reconciliation 2026-05-08 pass 11)
+### Current State (Phase 0 reconciliation 2026-05-08 pass 12)
 - Epic 1 complete (5/5 stories done — pre-BAD direct commits to main, no PRs).
 - Epic 1 retrospective complete (2026-05-03).
 - Epic 2 complete (2/2 stories done).
@@ -155,14 +155,14 @@ _Last updated: 2026-05-08T16:00:00Z_
 - Story 4.9 merged (PR #79, 2026-05-07T19:44:06Z). sprint-status: done. **Epic 4 COMPLETE (9/9 stories done).**
 - epic-4 row: done (confirmed pass 8+).
 - PR #80 (epic-4-retro-p0-fixes) merged 2026-05-08T11:07:37Z — retro P0 fixes branch, not a story PR.
-- **Story 5.1 (PR #81): OPEN — in review.** Sprint-status stays at review.
+- **Story 5.1 (PR #81): OPEN — in review.** Sprint-status stays at `review`. Review-shipped exclusion fires (pass 12): 5.1 is in merge_blocks (Bundle C), status=review, open PR → NOT Ready. BAD has no more pipeline work for 5.1 until bundle gate 7.8 reaches done.
   - Worktree `.worktrees/story-5.1-master-cron-dispatcher` still active — NOT cleaned up (PR still open).
-- **Story 5.2: atomicity-bundle exception fires (pass 11).** 5.1 is in merge_blocks (until_story 7.8, Bundle C); 5.2 is also in merge_blocks (same until_story); 5.1 is in `review` with open PR #81. All conditions met → 5.2 is Ready to Work (bundle-stacked: story-5.1-master-cron-dispatcher). Worktree for 5.2 will be forked from the story-5.1-master-cron-dispatcher branch.
-- Current active work: **5.1** under review (PR #81 open); **5.2** ready for dispatch (bundle-stacked on 5.1 branch).
-  - Epic 5: in-progress (1/2 stories in review, 1/2 backlog but ready-stacked).
+- **Story 5.2: atomicity-bundle exception fires (pass 11/12).** 5.1 is in merge_blocks (until_story 7.8, Bundle C); 5.2 is also in merge_blocks (same until_story); 5.1 is in `review` with open PR #81. All conditions met → 5.2 is Ready to Work (bundle-stacked: story-5.1-master-cron-dispatcher). Worktree for 5.2 will be forked from the story-5.1-master-cron-dispatcher branch.
+- Current active work: **5.1** under review (PR #81 open, review-shipped — awaiting bundle gate); **5.2** ready for dispatch (bundle-stacked on 5.1 branch).
+  - Epic 5: in-progress (1/2 stories review-shipped, 1/2 backlog but ready-stacked).
 
 ### Parallelization Opportunities
-- **Current state (Epic 5):** Story **5.1** is in review (PR #81 open). Story **5.2** is now ready for bundle-stacked dispatch (atomicity-bundle exception fired pass 11 — 5.1 in review with open PR). Epic-Start Test Design for Epic 5 is done (epic_test_design.5 = done).
+- **Current state (Epic 5):** Story **5.1** is review-shipped (PR #81 open, bundle gate pending). Story **5.2** is ready for bundle-stacked dispatch (atomicity-bundle exception still fires pass 12 — 5.1 still in review with open PR). Epic-Start Test Design for Epic 5 is done (epic_test_design.5 = done).
 - Epic 5 is sequential by dependency (5.1 → 5.2), but the atomicity-bundle exception allows 5.2 to be developed on a stacked worktree forked from story-5.1-master-cron-dispatcher while 5.1 awaits review/merge.
 - Bundle C (Epics 5-7): Stories 5.1, 5.2, 6.1, 6.2, 6.3, 7.2, 7.3, 7.6 can be developed in parallel but ALL must hold for merge until 7.8 gate passes.
 - Epic 8 has the most parallelism: stories 8.3-8.12 can mostly run in parallel after 8.1 ships.
