@@ -78,15 +78,24 @@ function resolveDelimiter (operatorCsvDelimiter, customerMarketplaceId) {
 // ── Exports ───────────────────────────────────────────────────────────────────
 
 /**
- * Build a PRI01 CSV body from an array of sku_channel-like objects for ONE SKU.
+ * Build a PRI01 CSV body from an array of sku_channel-like objects.
  *
- * PRI01 uses delete-and-replace semantics: any channel NOT in the submitted CSV
- * gets its price deleted by Mirakl. Passthrough lines (channels with no new
- * staging decision) MUST be included using lastSetPriceCents.
+ * PRI01 uses delete-and-replace semantics PER (offer-sku, channel) pair:
+ * for any SKU represented in the CSV, any channel of that SKU NOT in the
+ * submitted CSV gets its price deleted by Mirakl. Passthrough lines
+ * (channels with no new staging decision) MUST therefore be included using
+ * lastSetPriceCents — for every channel of every participating SKU.
+ *
+ * Multi-SKU usage is supported: rows for multiple shopSku values may be
+ * concatenated in one call, and the cycle path normally builds one CSV per
+ * cycle covering every staged SKU and its passthrough channels in a single
+ * submission (see markStagingPending which marks per-cycle, not per-SKU).
  *
  * @param {object} opts
  * @param {Array<{shopSku: string, channelCode: string, newPriceCents: number|null|undefined, lastSetPriceCents: number}>} opts.skuChannels
- *   All channels for ONE SKU. newPriceCents present = staged decision; absent/null = passthrough.
+ *   Every channel row to emit. For each participating SKU, ALL of its channels
+ *   must be present (passthrough or staged) — see delete-and-replace note above.
+ *   newPriceCents present = staged decision; absent/null = passthrough.
  * @param {string|null|undefined} opts.operatorCsvDelimiter - 'SEMICOLON' | 'COMMA' (from customer_marketplaces)
  * @param {number|null|undefined} opts.offerPricesDecimals - integer decimal places (from customer_marketplaces)
  * @param {string} opts.customerMarketplaceId - UUID included in error messages
