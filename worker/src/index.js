@@ -4,6 +4,7 @@ import { loadMasterKey } from '../../shared/crypto/master-key-loader.js';
 import { createWorkerLogger } from '../../shared/logger.js';
 import { startHeartbeat } from './jobs/heartbeat.js';
 import { startMasterCron } from './jobs/master-cron.js';
+import { startPri02PollCron } from './jobs/pri02-poll.js';
 import { runMonthlyPartitionCreate } from './jobs/monthly-partition-create.js';
 import { processNextPendingScan } from './jobs/onboarding-scan.js';
 import { closeServiceRolePool } from '../../shared/db/service-role-client.js';
@@ -56,6 +57,11 @@ startHeartbeat(logger);
 // dispatchCycle is called by master-cron.js on each tick.
 // The in-flight guard is inside master-cron.js itself.
 startMasterCron(logger);
+
+// Story 6.2: PRI02 poll cron — every 5 min, polls all pending PRI01 imports
+// and resolves their status (COMPLETE → clear state; FAILED → clear + PRI03 parser).
+// Independent schedule from master-cron.js; no in-flight guard needed (imports are independent).
+startPri02PollCron();
 
 // Story 9.1: Monthly audit_log partition cron.
 // Fires on the 28th of each month at 02:00 Lisbon time — creates the partition

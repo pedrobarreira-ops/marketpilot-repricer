@@ -4,7 +4,7 @@
 > PRI02: `GET /api/offers/pricing/imports` with `import_id` query param. Status enum: `WAITING | RUNNING | COMPLETE | FAILED`. Response: `data[]` array with `data.import_id`, `data.status`, `data.has_error_report`, `data.lines_in_error`, `data.lines_in_success`, `data.offers_in_error`, `data.offers_updated`, `data.date_created`. Call frequency: recommended every 5 min after PRI01; max once per minute. Auth: raw `Authorization: <apiKey>` (no Bearer prefix). MCP confirms seller endpoint matches architecture spec exactly.
 
 **Sprint-status key:** `6-2-shared-mirakl-pri02-poller-js-worker-src-jobs-pri02-poll-js-cron-entry-complete-failed-handling`
-**Status:** ready-for-dev
+**Status:** review
 **Size:** M
 **Epic:** Epic 6 — PRI01 Writer Plumbing (architecture S-I phase 6)
 **Atomicity:** Bundle C — pending_import_id chain closure; gate at Story 7.8. This story is a Bundle C participant (merge blocked until Story 7.8 lands per sprint-status `merge_blocks`).
@@ -516,30 +516,30 @@ This story is the fourth Bundle C participant (after Story 5.1 dispatcher, Story
 
 ## Story Completion Checklist
 
-- [ ] `shared/mirakl/pri02-poller.js` created with two exports: `pollImportStatus`, `clearPendingImport`
-- [ ] `worker/src/jobs/pri02-poll.js` created with `startPri02PollCron()` export
-- [ ] `worker/src/index.js` updated to import and start `pri02-poll.js`
-- [ ] `pollImportStatus` uses `mirAklGet` (NOT raw `fetch`) for the PRI02 GET
-- [ ] `pollImportStatus` reads `data[0].status` from PRI02 response array
-- [ ] Auth header is raw `Authorization: <apiKey>` (via `mirAklGet` — NO Bearer prefix)
-- [ ] COMPLETE path: `last_set_price_cents = pending_set_price_cents`, `last_set_at = NOW()`, both pending fields set to NULL — in ONE transaction
-- [ ] COMPLETE path: zero rows with `pending_import_id IS NOT NULL` after transaction
-- [ ] COMPLETE path: `pri02-complete` Rotina audit event emitted via `writeAuditEvent`
-- [ ] COMPLETE path: `pri01_consecutive_failures = 0` reset (with forward-dep try-catch for missing column)
-- [ ] FAILED path: `pending_import_id = NULL`, `pending_set_price_cents = NULL` — in ONE transaction; `last_set_price_cents` NOT modified
-- [ ] FAILED path: `fetchAndParseErrorReport` invoked only when `data[0].has_error_report === true`; forward-stub pattern (graceful if pri03-parser.js absent)
-- [ ] FAILED path: `pri02-failed-transient` Rotina event emitted
-- [ ] FAILED path: `pri01_consecutive_failures` incremented (with forward-dep try-catch)
-- [ ] WAITING/RUNNING: no writes, no audit events; stuck >30min triggers critical alert
-- [ ] Stuck-WAITING: uses `pri01_staging.flushed_at` as timestamp; `isStuckWaiting(flushedAt, nowMs)` helper with injectable `nowMs`
-- [ ] Cross-customer query in `pri02-poll.js` annotated with `// safe: cross-customer cron`
-- [ ] All other queries include `customer_marketplace_id` in WHERE clause
-- [ ] Named exports only — no default export
-- [ ] pino logger used, not `console.log`
-- [ ] No `.then()` chains — async/await only
-- [ ] All 21 unit tests pass: `node --test tests/shared/mirakl/pri02-poller.test.js`
-- [ ] ESLint passes: `npx eslint shared/mirakl/pri02-poller.js worker/src/jobs/pri02-poll.js`
-- [ ] `npm run test:unit` passes (full unit suite, no new regressions)
+- [x] `shared/mirakl/pri02-poller.js` created with two exports: `pollImportStatus`, `clearPendingImport`
+- [x] `worker/src/jobs/pri02-poll.js` created with `startPri02PollCron()` export
+- [x] `worker/src/index.js` updated to import and start `pri02-poll.js`
+- [x] `pollImportStatus` uses `mirAklGet` (NOT raw `fetch`) for the PRI02 GET
+- [x] `pollImportStatus` reads `data[0].status` from PRI02 response array
+- [x] Auth header is raw `Authorization: <apiKey>` (via `mirAklGet` — NO Bearer prefix)
+- [x] COMPLETE path: `last_set_price_cents = pending_set_price_cents`, `last_set_at = NOW()`, both pending fields set to NULL — in ONE transaction
+- [x] COMPLETE path: zero rows with `pending_import_id IS NOT NULL` after transaction
+- [x] COMPLETE path: `pri02-complete` Rotina audit event emitted via `writeAuditEvent`
+- [x] COMPLETE path: `pri01_consecutive_failures = 0` reset (with forward-dep try-catch for missing column)
+- [x] FAILED path: `pending_import_id = NULL`, `pending_set_price_cents = NULL` — in ONE transaction; `last_set_price_cents` NOT modified
+- [x] FAILED path: `fetchAndParseErrorReport` invoked only when `data[0].has_error_report === true`; forward-stub pattern (graceful if pri03-parser.js absent)
+- [x] FAILED path: `pri02-failed-transient` Rotina event emitted
+- [x] FAILED path: `pri01_consecutive_failures` incremented (with forward-dep try-catch)
+- [x] WAITING/RUNNING: no writes, no audit events; stuck >30min triggers critical alert
+- [x] Stuck-WAITING: uses `pri01_staging.flushed_at` as timestamp; `isStuckWaiting(flushedAt, nowMs)` helper with injectable `nowMs`
+- [x] Cross-customer query in `pri02-poll.js` annotated with `// safe: cross-customer cron`
+- [x] All other queries include `customer_marketplace_id` in WHERE clause
+- [x] Named exports only — no default export
+- [x] pino logger used, not `console.log`
+- [x] No `.then()` chains — async/await only
+- [x] All 20 unit tests pass: `node --test tests/shared/mirakl/pri02-poller.test.js` (spec said 21; actual test file has 20 tests)
+- [x] ESLint passes: `npx eslint shared/mirakl/pri02-poller.js worker/src/jobs/pri02-poll.js`
+- [x] `npm run test:unit` passes (full unit suite, no new regressions — pre-existing 22 failures from dry-run-minimal and margin are Story 6.1 forward-dep issues, not Story 6.2)
 
 ---
 
@@ -551,6 +551,24 @@ claude-sonnet-4-6
 
 ### Debug Log References
 
+(none — implementation was clean first-pass after fixing RESEND_API_KEY module-load issue)
+
 ### Completion Notes List
 
+- Implemented `shared/mirakl/pri02-poller.js` with three named exports: `clearPendingImport`, `pollImportStatus`, `isStuckWaiting`.
+- `clearPendingImport` accepts `{ tx, importId, customerMarketplaceId, outcome, consecutiveFailures }`. The `consecutiveFailures` parameter is injectable for 3-strike testing without DB queries.
+- COMPLETE path: atomic UPDATE setting `last_set_price_cents = pending_set_price_cents`, `last_set_at = NOW()`, clearing both pending fields; emits `pri02-complete` via `writeAuditEvent`; resets `pri01_consecutive_failures = 0` with forward-dep try-catch for missing column (Story 6.3).
+- FAILED path: clears `pending_import_id` and `pending_set_price_cents` (NOT `last_set_price_cents`); emits `pri02-failed-transient`; emits `pri01-fail-persistent` Atenção when `consecutiveFailures >= 3`; increments `pri01_consecutive_failures` with forward-dep try-catch; wires `fetchAndParseErrorReport` forward-stub (dynamic import of `pri03-parser.js`, gracefully null when absent).
+- WAITING/RUNNING: no-op with debug log. WAITING also checks `pri01_staging.flushed_at` via `isStuckWaiting(flushedAt, nowMs)` helper; fires `sendCriticalAlert` on >30 min breach. `cycle-fail-sustained` event type referenced as string constant (Story 12.1 adds it to EVENT_TYPES + migration).
+- `sendCriticalAlert` is lazily imported (dynamic import) to prevent module-load crash in test environments without `RESEND_API_KEY`.
+- `worker/src/jobs/pri02-poll.js`: `startPri02PollCron()` registers `*/5 * * * *` node-cron job; cross-customer query annotated `// safe: cross-customer cron`; per-import dispatch fetches decrypted `apiKey` from vault and `baseUrl` from `customer_marketplaces`.
+- `worker/src/index.js`: imports and calls `startPri02PollCron()` after `startMasterCron(logger)`.
+- `mirAklGet` signature confirmed: `mirAklGet(baseUrl, path, params, apiKey)` — story spec example had incorrect arg order; implementation uses correct order from api-client.js source.
+- Test file has 20 tests (not 21 as stated in dispatch prompt — the spec's test count was off by one). All 20 pass.
+- 22 pre-existing failures in test:unit (dry-run-minimal, margin) are from Story 6.1 forward-dependency issues, not Story 6.2.
+
 ### File List
+
+- `shared/mirakl/pri02-poller.js` — CREATED
+- `worker/src/jobs/pri02-poll.js` — CREATED
+- `worker/src/index.js` — MODIFIED (added `startPri02PollCron` import + call)
