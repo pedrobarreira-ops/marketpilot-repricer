@@ -9,7 +9,7 @@
 //   AC#4 — pollImportStatus WAITING/RUNNING: no-op + stuck->30min critical alert
 //   AC#5 — invariant: while pending_import_id IS NOT NULL, rows are ineligible for next dispatcher cycle
 
-import { describe, it, mock, beforeEach, afterEach } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';

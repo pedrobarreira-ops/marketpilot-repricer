@@ -128,9 +128,12 @@ async function runPri02PollTick (tickLogger) {
       await pollImportStatus(baseUrl, apiKey, importId, customerMarketplaceId, pool);
     } catch (err) {
       // Log and continue — one failed import must not block polling of others.
-      // apiKey must never appear in the log (AD27 / NFR-S1).
+      // apiKey must never appear in the log (AD27 / NFR-S1). err.message is safe
+      // because mirAklGet/MiraklApiError are constructed from `HTTP <status>` text
+      // (api-client.js never includes apiKey in error message strings) and
+      // KeyVaultDecryptError carries an opaque message by design (envelope.js).
       tickLogger.error(
-        { importId, customerMarketplaceId, err_name: err?.name, err_code: err?.code },
+        { importId, customerMarketplaceId, err_name: err?.name, err_code: err?.code, err_message: err?.message },
         'pri02-poll: failed to poll import — continuing with next'
       );
     }
