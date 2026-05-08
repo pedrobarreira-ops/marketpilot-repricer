@@ -17,14 +17,23 @@
 /**
  * Derive a deterministic Postgres advisory lock key (bigint) from a UUID string.
  * Uses the first 8 bytes of the UUID hex representation (strips hyphens, takes
- * first 16 hex characters, interprets as unsigned 64-bit integer).
+ * first 16 hex characters, interprets the 64-bit pattern as a SIGNED bigint).
+ *
+ * Why signed (asIntN(64, ...)): Postgres `pg_try_advisory_lock(bigint)` accepts
+ * `int8` whose range is signed [-2^63, 2^63-1]. A naive `BigInt('0x' + hex)`
+ * yields an UNSIGNED 64-bit value up to 2^64-1, which fails Postgres bigint
+ * coercion with `22003 numeric_value_out_of_range` for ~50% of UUIDs (any UUID
+ * whose first byte has the high bit set). `BigInt.asIntN(64, value)` preserves
+ * the bit pattern (and therefore uniqueness / collision properties) while
+ * reinterpreting it as a signed 64-bit integer that always fits in int8.
  *
  * @param {string} uuid - UUID string (e.g. '12345678-1234-1234-1234-123456789012')
- * @returns {BigInt} Deterministic bigint lock key
+ * @returns {BigInt} Deterministic signed bigint lock key (fits in Postgres int8)
  */
 export function uuidToBigint (uuid) {
   const hex = uuid.replace(/-/g, '').slice(0, 16); // first 8 bytes
-  return BigInt('0x' + hex);
+  // Reinterpret as signed int64 so the value always fits in Postgres bigint.
+  return BigInt.asIntN(64, BigInt('0x' + hex));
 }
 
 /**

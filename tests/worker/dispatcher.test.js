@@ -332,6 +332,53 @@ test('advisory_lock_different_uuids_map_to_different_bigints', async () => {
   assert.notEqual(bigintA.toString(), bigintB.toString(), 'Different UUIDs must produce different bigints');
 });
 
+// Regression guard: Postgres `pg_try_advisory_lock(bigint)` takes a SIGNED int8
+// whose range is [-2^63, 2^63-1]. A naive `BigInt('0x' + hex)` yields an
+// UNSIGNED 64-bit value up to 2^64-1, which fails Postgres bigint coercion with
+// `22003 numeric_value_out_of_range` for ~50% of UUIDs (any UUID whose first
+// byte has the high bit set). `uuidToBigint` MUST reinterpret the 64-bit
+// pattern as a signed int64 so all UUIDs map cleanly to the bigint param.
+test('advisory_lock_bigint_fits_postgres_signed_int8_range', async () => {
+  const { uuidToBigint } = await import('../../worker/src/advisory-lock.js');
+
+  // Postgres signed bigint bounds (inclusive).
+  const PG_BIGINT_MIN = -9223372036854775808n;
+  const PG_BIGINT_MAX = 9223372036854775807n;
+
+  // High-bit-set UUIDs (first hex character >= '8') are the previously-broken case.
+  const highBitUuids = [
+    '80000000-0000-0000-0000-000000000000',
+    'ffffffff-ffff-ffff-0000-000000000000',
+    'ff000000-0000-0000-0000-000000000000',
+    'a1b2c3d4-e5f6-7890-1234-567890abcdef',
+  ];
+
+  for (const uuid of highBitUuids) {
+    const result = uuidToBigint(uuid);
+    assert.ok(typeof result === 'bigint', `uuidToBigint(${uuid}) must return a BigInt, got ${typeof result}`);
+    assert.ok(
+      result >= PG_BIGINT_MIN && result <= PG_BIGINT_MAX,
+      `uuidToBigint(${uuid}) = ${result.toString()} must fit in Postgres signed int8 [-2^63, 2^63-1]; otherwise pg_try_advisory_lock will fail with 22003 numeric_value_out_of_range`,
+    );
+  }
+
+  // Low-bit (high bit clear) UUIDs must remain in range too — covers the
+  // original test-case UUIDs and ensures we didn't accidentally break them.
+  const lowBitUuids = [
+    '00000000-0000-0000-0000-000000000000',
+    '12345678-1234-1234-1234-123456789012',
+    '7fffffff-ffff-ffff-0000-000000000000',
+  ];
+
+  for (const uuid of lowBitUuids) {
+    const result = uuidToBigint(uuid);
+    assert.ok(
+      result >= PG_BIGINT_MIN && result <= PG_BIGINT_MAX,
+      `uuidToBigint(${uuid}) = ${result.toString()} must fit in Postgres signed int8`,
+    );
+  }
+});
+
 // ---------------------------------------------------------------------------
 // AC#5 — Cycle-end log includes stats; audit events emitted
 // ---------------------------------------------------------------------------
