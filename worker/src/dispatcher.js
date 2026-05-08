@@ -56,6 +56,7 @@ SELECT cm.id, sc.id AS sku_channel_id, sc.sku_id, sc.channel_code
   JOIN sku_channels sc ON sc.customer_marketplace_id = cm.id
  WHERE cm.cron_state = 'ACTIVE'
    AND sc.frozen_for_anomaly_review = false
+   AND sc.frozen_for_pri01_persistent = false
    AND sc.pending_import_id IS NULL
    AND sc.excluded_at IS NULL
    AND sc.last_checked_at + (sc.tier_cadence_minutes * INTERVAL '1 minute') < NOW()

@@ -198,6 +198,13 @@ const CUSTOMER_SCOPED_TABLES = [
   {
     table: 'sku_channels',
     ownerCol: 'customer_marketplace_id',
+    // Story 6.3 (AC#4): adds pri01_consecutive_failures (smallint, base schema) and
+    // frozen_for_pri01_persistent (boolean, migration 202604301215). Both columns are
+    // covered by the existing table-level RLS policy (sku_channels_modify_own) — Postgres
+    // row-level security applies at the row level; new columns are automatically covered
+    // by existing row-level policies without requiring new policy additions.
+    // new columns are covered by existing table-level RLS (row-level — all columns protected).
+    // Story 6.3: pri01_consecutive_failures and frozen_for_pri01_persistent verified covered.
     selectQuery: (ownerId, _otherId) => ({
       text: `SELECT sc.customer_marketplace_id
              FROM sku_channels sc
@@ -213,7 +220,10 @@ const CUSTOMER_SCOPED_TABLES = [
       values: [otherId],
     }),
     updateQuery: (_ownerId, otherId) => ({
-      text: `UPDATE sku_channels SET channel_code = 'WRT_PT_ONLINE'
+      // Story 6.3: verify tenant isolation also covers the new failure-tracking columns
+      // (pri01_consecutive_failures, frozen_for_pri01_persistent) — UPDATE must be blocked
+      // for cross-tenant writes on all sku_channels columns including these new ones.
+      text: `UPDATE sku_channels SET frozen_for_pri01_persistent = false, pri01_consecutive_failures = 0
              WHERE customer_marketplace_id = $1`,
       values: [otherId],
     }),
