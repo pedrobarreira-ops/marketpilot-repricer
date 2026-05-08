@@ -3,3 +3,7 @@
 # in working tree thanks to this rule, no autocrlf surprise.
 *.sh text eol=lf
 .githooks/* text eol=lf
+
+# Force LF for CSV test fixtures — byte-exact golden-file tests require LF
+# endings; autocrlf=true on Windows would corrupt the comparison otherwise.
+tests/fixtures/**/*.csv text eol=lf
