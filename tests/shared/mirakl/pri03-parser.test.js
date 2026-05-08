@@ -217,6 +217,147 @@ describe('fetchAndParseErrorReport', () => {
       || errorMessage.includes('preço');
     assert.ok(isPt, `errorMessage "${errorMessage}" must be PT-localized (contain PT characters or known PT words)`);
   });
+
+  // ---------------------------------------------------------------------------
+  // Step 4 review additions — CSV edge-case behavioural coverage
+  // ---------------------------------------------------------------------------
+
+  it('fetch_and_parse_error_report_handles_empty_error_report_all_successful', async () => {
+    // Edge case: PRI03 returns an empty body — every line in the lineMap is a success.
+    // This guards the "absent from error report = success" semantic at the boundary.
+    let fetchAndParseErrorReport;
+    try {
+      ({ fetchAndParseErrorReport } = await import('../../../shared/mirakl/pri03-parser.js'));
+    } catch {
+      assert.fail('Module shared/mirakl/pri03-parser.js does not exist yet — implement it first');
+    }
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({
+      ok: true, status: 200,
+      text: async () => '',
+      json: async () => { throw new Error('not JSON'); },
+    });
+
+    const lineMap = {
+      1: 'EZ1111111111111',
+      2: 'EZ2222222222222',
+      3: 'EZ3333333333333',
+    };
+
+    let result;
+    try {
+      result = await fetchAndParseErrorReport('https://worten.mirakl.net', 'key', 'import-empty', lineMap);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+
+    assert.equal(result.failedSkus.length, 0,
+      'Empty error report → zero failedSkus');
+    assert.equal(result.successfulSkus.length, 3,
+      'Empty error report → ALL SKUs in lineMap classified successful');
+    const successSkus = result.successfulSkus.map(s => s.shopSku).sort();
+    assert.deepEqual(successSkus, ['EZ1111111111111', 'EZ2222222222222', 'EZ3333333333333']);
+  });
+
+  it('fetch_and_parse_error_report_unknown_error_code_falls_back_to_pt_default', async () => {
+    // Edge case: Mirakl returns an error code not in PRI03_ERROR_MESSAGES_PT.
+    // The parser MUST emit the DEFAULT_PT_ERROR fallback ('Erro ao processar preço…').
+    // Behavioral assertion: the errorMessage matches the documented PT fallback shape,
+    // and the raw errorCode is preserved unchanged for diagnostics.
+    let fetchAndParseErrorReport;
+    try {
+      ({ fetchAndParseErrorReport } = await import('../../../shared/mirakl/pri03-parser.js'));
+    } catch {
+      assert.fail('Module shared/mirakl/pri03-parser.js does not exist yet — implement it first');
+    }
+
+    // 'TOTALLY_NEW_CODE_42' is not in the parser's PT map — must hit fallback.
+    const csvBody = '1,TOTALLY_NEW_CODE_42\n';
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({
+      ok: true, status: 200,
+      text: async () => csvBody,
+      json: async () => { throw new Error('not JSON'); },
+    });
+
+    const lineMap = { 1: 'EZ7777777777777' };
+
+    let result;
+    try {
+      result = await fetchAndParseErrorReport('https://worten.mirakl.net', 'key', 'import-unknown', lineMap);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+
+    assert.equal(result.failedSkus.length, 1, 'One failed SKU from CSV');
+    const failed = result.failedSkus[0];
+    assert.equal(failed.errorCode, 'TOTALLY_NEW_CODE_42',
+      'Raw errorCode preserved verbatim for diagnostic surfacing (not silently rewritten)');
+    // DEFAULT_PT_ERROR shape: PT fallback string starting with 'Erro' (per parser source)
+    assert.match(failed.errorMessage, /^Erro/,
+      `Unknown errorCode must surface DEFAULT_PT_ERROR PT fallback ('Erro ao processar…'). Got: "${failed.errorMessage}"`);
+    assert.ok(/preço|artigo/.test(failed.errorMessage),
+      `Fallback message must contain PT vocabulary ('preço' or 'artigo'). Got: "${failed.errorMessage}"`);
+  });
+
+  it('fetch_and_parse_error_report_skips_malformed_lines_and_unknown_line_numbers', async () => {
+    // Edge cases combined:
+    //   1. A malformed CSV line (no comma/semicolon separator) → silently skipped
+    //   2. A line with a non-numeric line number → silently skipped (parseInt → NaN)
+    //   3. A line number absent from lineMap → silently skipped (defensive log)
+    //   4. A blank line → silently skipped
+    // The parser MUST NOT crash and MUST still process valid lines correctly.
+    let fetchAndParseErrorReport;
+    try {
+      ({ fetchAndParseErrorReport } = await import('../../../shared/mirakl/pri03-parser.js'));
+    } catch {
+      assert.fail('Module shared/mirakl/pri03-parser.js does not exist yet — implement it first');
+    }
+
+    // Mix:
+    //   "garbage_no_separator" — no comma → skipped
+    //   ",ORPHAN_ERROR"        — empty line number (NaN) → skipped
+    //   "999,UNMAPPED_LINE"    — line 999 not in lineMap → skipped
+    //   ""                     — blank line → skipped
+    //   "header,reason"        — header-like row (NaN line number) → skipped
+    //   "1,PRICE_TOO_LOW"      — valid → kept
+    const csvBody = [
+      'garbage_no_separator',
+      ',ORPHAN_ERROR',
+      '999,UNMAPPED_LINE',
+      '',
+      'header,reason',
+      '1,PRICE_TOO_LOW',
+    ].join('\n');
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({
+      ok: true, status: 200,
+      text: async () => csvBody,
+      json: async () => { throw new Error('not JSON'); },
+    });
+
+    const lineMap = { 1: 'EZ_VALID_SKU' };
+
+    let result;
+    try {
+      result = await fetchAndParseErrorReport('https://worten.mirakl.net', 'key', 'import-malformed', lineMap);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+
+    // Only the one valid line survives — defensive parsing must not crash.
+    assert.equal(result.failedSkus.length, 1,
+      `Only the one valid CSV line should produce a failed SKU; got ${result.failedSkus.length}. ` +
+      `Defensive parser must skip malformed/orphaned/unmapped rows without crashing.`);
+    assert.equal(result.failedSkus[0].shopSku, 'EZ_VALID_SKU');
+    assert.equal(result.failedSkus[0].errorCode, 'PRICE_TOO_LOW');
+
+    // Line 1 is the only mapped line in lineMap, and it failed → no successful SKUs.
+    assert.equal(result.successfulSkus.length, 0,
+      'Only one SKU in lineMap and it failed → zero successful SKUs');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -658,10 +799,16 @@ describe('Freeze representation design choice (AD12)', () => {
   });
 
   it('dispatcher_predicate_updated_for_chosen_freeze_representation', () => {
-    // Story 5.1 dispatcher.js must have the new freeze predicate added
+    // Story 5.1 dispatcher.js must have the new freeze predicate added.
+    // Beyond the literal-string check, this test parses the DISPATCH_SQL block
+    // and asserts BOTH freeze predicates AND-combine inside the SAME WHERE clause —
+    // i.e. a row with frozen_for_pri01_persistent = true is structurally excluded
+    // regardless of the value of frozen_for_anomaly_review (orthogonal columns).
     const dispatcherPath = join(repoRoot, 'worker/src/dispatcher.js');
     assert.ok(existsSync(dispatcherPath), 'worker/src/dispatcher.js must exist');
     const dispatcherSrc = readFileSync(dispatcherPath, 'utf-8');
+
+    // Literal-string predicate present
     assert.ok(
       dispatcherSrc.includes('frozen_for_pri01_persistent = false'),
       "dispatcher.js DISPATCH_SQL must include 'AND sc.frozen_for_pri01_persistent = false' predicate to exclude frozen SKUs from repricing"
@@ -670,6 +817,42 @@ describe('Freeze representation design choice (AD12)', () => {
     assert.ok(
       dispatcherSrc.includes('frozen_for_anomaly_review = false'),
       "dispatcher.js must retain existing 'AND sc.frozen_for_anomaly_review = false' predicate (orthogonal to new column)"
+    );
+
+    // ── Structural assertion: both predicates live in the SAME WHERE block ──
+    // Extract the DISPATCH_SQL block (template literal between backticks immediately
+    // following the `const DISPATCH_SQL =` declaration). This proves the predicate
+    // wasn't accidentally placed in a different SQL string elsewhere in the file.
+    const sqlMatch = dispatcherSrc.match(/const\s+DISPATCH_SQL\s*=\s*`([\s\S]*?)`/);
+    assert.ok(sqlMatch, 'dispatcher.js must declare DISPATCH_SQL as a template-literal const');
+    const dispatchSqlBody = sqlMatch[1];
+
+    // Find the WHERE clause (terminated by ORDER BY / LIMIT)
+    const whereMatch = dispatchSqlBody.match(/WHERE\s+([\s\S]*?)\s+(?:ORDER\s+BY|LIMIT|$)/i);
+    assert.ok(whereMatch, 'DISPATCH_SQL must have a WHERE clause');
+    const whereBody = whereMatch[1];
+
+    // Both freeze predicates must appear inside the SAME WHERE block, AND-combined.
+    assert.match(whereBody, /frozen_for_anomaly_review\s*=\s*false/,
+      'frozen_for_anomaly_review = false must be inside DISPATCH_SQL WHERE block');
+    assert.match(whereBody, /frozen_for_pri01_persistent\s*=\s*false/,
+      'frozen_for_pri01_persistent = false must be inside DISPATCH_SQL WHERE block (not in an unrelated query)');
+
+    // SQL semantics: a chain of AND-separated predicates means BOTH must be true
+    // for a row to survive. Verify there is no OR keyword between the freeze
+    // predicates (orthogonal-AND, never orthogonal-OR — that would re-introduce
+    // the "either flag clears the row" behaviour we explicitly avoided in Option b).
+    const segmentBetween = (() => {
+      const aIdx = whereBody.search(/frozen_for_anomaly_review\s*=\s*false/);
+      const pIdx = whereBody.search(/frozen_for_pri01_persistent\s*=\s*false/);
+      const lo = Math.min(aIdx, pIdx);
+      const hi = Math.max(aIdx, pIdx);
+      return whereBody.slice(lo, hi);
+    })();
+    assert.ok(
+      !/\bOR\b/i.test(segmentBetween),
+      'The two freeze predicates must be AND-combined (not OR) — a frozen-PRI01 row must be excluded ' +
+      'regardless of frozen_for_anomaly_review value. Found OR between the two predicates.'
     );
   });
 
