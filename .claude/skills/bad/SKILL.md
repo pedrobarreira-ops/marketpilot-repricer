@@ -392,20 +392,21 @@ Read `references/subagents/step2-atdd.md` and follow its instructions exactly.
 Check if this story touches Mirakl: look for "mirakl" (case-insensitive) in `{short_description}`, or verify the story spec file references `shared/mirakl/`.
 
 If the story touches Mirakl:
-1. Use ToolSearch with query `"mcp__mirakl"` to probe availability. If ToolSearch returns at least one result, the Mirakl MCP is active — proceed to dispatch Step 3 normally.
-2. If ToolSearch returns no results (MCP disconnected), print:
+1. Use ToolSearch with query `"mcp__mirakl"` to probe availability. **Filter out tool names matching `/authenticate/i`** — `mcp__mirakl__authenticate` and `mcp__mirakl__complete_authentication` exist as deferred tools even before the MCP is authenticated (they ARE the auth handshake) so unfiltered counts produce false positives. If the filtered count is > 0 (i.e., at least one non-auth Mirakl data tool exists), the MCP is authenticated and active — proceed to dispatch Step 3 normally. If filtered count == 0 (only auth tools present, OR no results at all), the MCP is disabled or pending authentication — halt as below. Story 6.1 dispatch on 2026-05-08 hit this false positive: gate said "active ✅" while MCP was pending auth, Step 3 began writing training-data-guessed PRI01 endpoint code before it was caught and reset.
+2. On halt, print:
    ```
-   ⚠️  Mirakl MCP is disabled.
+   ⚠️  Mirakl MCP is unavailable (disabled OR pending authentication).
    Story {number} ({short_description}) requires live Mirakl MCP verification during development.
    Without it, Step 3 will guess endpoint behaviour from training data — exactly the failure mode CLAUDE.md forbids.
 
-   Enable it: in Claude Code go to Settings → MCP → mirakl → toggle on.
+   Enable it: Claude Code Settings → MCP → mirakl → toggle on. If toggled but pending auth, complete the OAuth flow via `mcp__mirakl__authenticate` first.
+   Verify: ToolSearch for "mcp__mirakl" should return data tools (e.g. mcp__mirakl__list_offers) beyond just the two authenticate tools.
 
    [C] Retry — re-test MCP and dispatch Step 3
    [S] Stop BAD
    ```
-   📣 **Notify:** `⚠️ Mirakl MCP disabled — story {number} needs it. Enable and type [C].`
-3. On **[C]**: re-run ToolSearch for `"mcp__mirakl"`. If available, dispatch Step 3. If still unavailable, re-print the message and wait again.
+   📣 **Notify:** `⚠️ Mirakl MCP unavailable — story {number} needs it. Enable/authenticate and type [C].`
+3. On **[C]**: re-run the ToolSearch + filter check. If filtered count > 0, dispatch Step 3. If still 0, re-print the message and wait again.
 4. On **[S]**: halt BAD. Print `BAD stopped — enable Mirakl MCP and re-run /bad.` 📣 **Notify:** `🛑 BAD stopped — Mirakl MCP required.`
 
 Spawn with model `MODEL_STANDARD` (yolo mode):
