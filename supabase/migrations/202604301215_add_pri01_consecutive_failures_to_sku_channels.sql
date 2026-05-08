@@ -15,6 +15,11 @@
 -- Dispatcher predicate: Story 5.1 dispatcher.js WHERE clause must be updated in the
 -- same PR to add: AND sc.frozen_for_pri01_persistent = false
 -- (done in worker/src/dispatcher.js in this story's PR).
+--
+-- Hot-path index update: idx_sku_channels_dispatch's partial-index WHERE clause is
+-- extended to include `frozen_for_pri01_persistent = false` in a follow-up
+-- migration in this same PR (202605082100_update_sku_channels_dispatch_index_for_pri01_freeze.sql)
+-- to keep the dispatch SELECT index-scannable as freeze flags accumulate.
 
 ALTER TABLE sku_channels
   ADD COLUMN IF NOT EXISTS frozen_for_pri01_persistent boolean NOT NULL DEFAULT false;

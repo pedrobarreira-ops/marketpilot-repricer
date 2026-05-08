@@ -94,6 +94,26 @@ function localizeErrorCode (rawErrorCode) {
   return PRI03_ERROR_MESSAGES_PT[trimmed] ?? DEFAULT_PT_ERROR;
 }
 
+/**
+ * HTML-escape a string for safe interpolation inside an HTML attribute or text node.
+ *
+ * Defence-in-depth for the alert email body: shopSku and errorCode are
+ * operator/Mirakl-controlled (low trust risk today), but interpolating them
+ * raw into HTML is a forward-compat hazard if the data sources ever change.
+ * Cheap to escape here, expensive to retrofit later.
+ *
+ * @param {unknown} value
+ * @returns {string}
+ */
+function escapeHtml (value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // ---------------------------------------------------------------------------
 // Lazy import for sendCriticalAlert
 // ---------------------------------------------------------------------------
@@ -283,10 +303,13 @@ export async function scheduleRebuildForFailedSkus ({
   for (const { shopSku, errorCode, errorMessage } of failedSkus) {
     // Step 1: Fetch ALL sku_channel rows for this shopSku + customer (per-SKU, not per-line)
     // This ensures the rebuild CSV includes ALL channels (delete-and-replace invariant).
+    // Selecting frozen_for_pri01_persistent so the escalation block can gate
+    // its side-effects to "fire once" (not on every cycle past the threshold).
     const { rows: channelRows } = await tx.query(
       `SELECT sc.id, sc.sku_id, sc.channel_code,
               sc.list_price_cents, sc.last_set_price_cents,
-              sc.pri01_consecutive_failures
+              sc.pri01_consecutive_failures,
+              sc.frozen_for_pri01_persistent
          FROM sku_channels sc
          JOIN skus s ON s.id = sc.sku_id
         WHERE sc.customer_marketplace_id = $1
@@ -302,10 +325,25 @@ export async function scheduleRebuildForFailedSkus ({
       continue;
     }
 
-    // The failure counter is per-SKU (not per-channel) — use the first row's value.
-    // All channels of the same SKU share the same failure count semantically.
-    const currentFailures = channelRows[0].pri01_consecutive_failures ?? 0;
+    // Step-7 fix (counter divergence sanity): the per-SKU counter is updated
+    // in two places (this module + pri02-poller.js). pri02-poller targets
+    // affected rows by `id = ANY(...)` which can leave channels of the same
+    // SKU at different counts in edge cases (only one channel had a pending
+    // import). Use MAX across all channels of the SKU so the escalation
+    // decision reflects the highest observed counter rather than the first
+    // row Postgres happened to return (the SELECT has no ORDER BY and is not
+    // guaranteed stable).
+    const currentFailures = channelRows.reduce(
+      (max, r) => Math.max(max, r.pri01_consecutive_failures ?? 0),
+      0
+    );
     const newFailureCount = currentFailures + 1;
+    // Step-7 fix (re-fire suppression): if the SKU is already frozen for
+    // PRI01 persistent failure, the escalation side-effects (audit row +
+    // critical alert email) must NOT re-emit on subsequent cycles past the
+    // threshold. The dispatcher excludes frozen SKUs, so this can only
+    // happen for in-flight imports queued before the freeze landed.
+    const alreadyFrozen = channelRows.some(r => r.frozen_for_pri01_persistent === true);
 
     // Step 2: Insert fresh pri01_staging rows for ALL channels of this SKU
     // Per-SKU rebuild: include EVERY channel so delete-and-replace is safe on retry.
@@ -342,8 +380,10 @@ export async function scheduleRebuildForFailedSkus ({
       'pri03-parser: rebuild staging rows inserted, failure counter incremented'
     );
 
-    // Step 4: 3-strike escalation
-    if (newFailureCount >= THREE_STRIKE_THRESHOLD) {
+    // Step 4: 3-strike escalation — fire side-effects once, not on every
+    // cycle past the threshold. `alreadyFrozen` short-circuits re-emit when
+    // an in-flight import lands after the SKU has already been frozen.
+    if (newFailureCount >= THREE_STRIKE_THRESHOLD && !alreadyFrozen) {
       // Freeze the SKU: set frozen_for_pri01_persistent = true for ALL channels
       // (Option b: parallel boolean, orthogonal to frozen_for_anomaly_review — AD24 / AC#4)
       await tx.query(
@@ -390,15 +430,22 @@ export async function scheduleRebuildForFailedSkus ({
 
       // Send Resend critical alert — best-effort, outside the tx boundary
       // (Resend is a side-effect; never let a send failure abort the DB transaction).
+      // Step-7 fix: HTML-escape interpolated values. shopSku/errorCode/customerMarketplaceId
+      // are operator/Mirakl-controlled today (low risk), but escaping them is a
+      // cheap defence-in-depth that survives any future change in data source.
+      const safeShopSku = escapeHtml(shopSku);
+      const safeErrorCode = escapeHtml(errorCode);
+      const safeCustomerId = escapeHtml(customerMarketplaceId);
+      const safeFailureCount = escapeHtml(newFailureCount);
       try {
         const sendCriticalAlert = await getSendCriticalAlert();
         await sendCriticalAlert({
           to: process.env.MARKETPILOT_ALERT_EMAIL ?? process.env.RESEND_FROM_ADDRESS ?? 'noreply@marketpilot.pt',
           subject: `[MarketPilot] PRI01 persistent failure — ${shopSku} congelado`,
-          html: `<p>O artigo <code>${shopSku}</code> falhou ${newFailureCount} importações PRI01 consecutivas.</p>
-<p>Código de erro: <code>${errorCode}</code></p>
+          html: `<p>O artigo <code>${safeShopSku}</code> falhou ${safeFailureCount} importações PRI01 consecutivas.</p>
+<p>Código de erro: <code>${safeErrorCode}</code></p>
 <p>O artigo foi <strong>congelado</strong> (<code>frozen_for_pri01_persistent = true</code>) e não será incluído em novos ciclos até resolução manual.</p>
-<p>Customer marketplace: ${customerMarketplaceId}</p>`,
+<p>Customer marketplace: ${safeCustomerId}</p>`,
         });
       } catch (alertErr) {
         // Best-effort: critical alert failure must not abort repricing
