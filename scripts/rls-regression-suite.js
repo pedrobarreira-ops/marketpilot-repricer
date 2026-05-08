@@ -271,6 +271,28 @@ const CUSTOMER_SCOPED_TABLES = [
     deferred: false,
     serviceRoleOnly: true,
   },
+  // ---------------------------------------------------------------------------
+  // Story 5.2: pri01_staging
+  // Ownership is indirect via customer_marketplace_id → customer_marketplaces.customer_id.
+  // Worker writes via service-role; customer SELECT is gated by RLS.
+  // ---------------------------------------------------------------------------
+  {
+    table: 'pri01_staging',
+    ownerCol: 'customer_marketplace_id',
+    selectQuery: (ownerId, _otherId) => ({
+      text: `SELECT ps.customer_marketplace_id
+             FROM pri01_staging ps
+             JOIN customer_marketplaces cm ON cm.id = ps.customer_marketplace_id
+             WHERE cm.customer_id = $1
+             LIMIT 1`,
+      values: [ownerId],
+    }),
+    insertQuery: () => null, // service-role only — worker writes via cycle-assembly
+    updateQuery: () => null, // service-role only — no customer UPDATE policy
+    deleteQuery: () => null, // service-role only — no customer DELETE policy
+    deferred: false,
+    serviceRoleOnly: true,
+  },
 ];
 
 // ---------------------------------------------------------------------------
