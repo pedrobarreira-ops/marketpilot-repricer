@@ -35,6 +35,32 @@ import { writeAuditEvent } from '../audit/writer.js';
 import { EVENT_TYPES } from '../audit/event-types.js';
 import { createWorkerLogger } from '../logger.js';
 
+// ── Internal retry helpers (duplicated from api-client.js — NOT imported to
+//    avoid forcing mirAklGet to handle CSV responses; refactor to
+//    shared/mirakl/retry.js if a third module needs this). Same schedule as
+//    pri01-writer.js (RETRY_DELAYS_MS [1s, 2s, 4s, 8s, 16s], MAX_RETRIES=5).
+//    Retryable: 429 + 5xx + transport errors (status 0).
+//    Non-retryable: other 4xx — fail immediately. ────────────────────────────
+
+const RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 16000];
+const MAX_RETRIES = 5;
+
+/**
+ * @param {number} status - HTTP status code; 0 for transport errors
+ * @returns {boolean}
+ */
+function isRetryable (status) {
+  return status === 429 || status >= 500;
+}
+
+/**
+ * @param {number} ms - delay in milliseconds; capped at 30 000 ms
+ * @returns {Promise<void>}
+ */
+function backoffDelay (ms) {
+  return new Promise(r => setTimeout(r, Math.min(ms, 30000)));
+}
+
 // PT-localized error code → message map for known PRI03 error codes.
 // These are the codes returned by Mirakl in the CSV error report's second column.
 // Any unknown code falls through to the default PT fallback.
@@ -112,16 +138,48 @@ const logger = createWorkerLogger();
 export async function fetchAndParseErrorReport (baseUrl, apiKey, importId, lineMap) {
   const url = `${baseUrl}/api/offers/pricing/imports/${importId}/error_report`;
 
-  const res = await fetch(url, {
-    method: 'GET',
-    headers: {
-      Authorization: apiKey, // NO Bearer prefix — empirically verified on all Mirakl endpoints
-    },
-  });
+  // Raw fetch (NOT mirAklGet) — mirAklGet calls res.json() on success and would
+  // throw on the CSV body returned here. Raw fetch is allowed inside
+  // shared/mirakl/ per the no-direct-fetch ESLint allowlist.
+  // Retry pattern mirrors api-client.js / pri01-writer.js: 5 retries on
+  // 429/5xx/transport errors, exponential backoff [1s, 2s, 4s, 8s, 16s].
+  let lastStatus = 0;
+  let res;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      res = await fetch(url, {
+        method: 'GET',
+        headers: {
+          Authorization: apiKey, // NO Bearer prefix — empirically verified on all Mirakl endpoints
+        },
+      });
+    } catch {
+      // Transport-level failure (DNS, ECONNRESET, socket hang-up). Retry.
+      lastStatus = 0;
+      if (attempt < MAX_RETRIES) {
+        await backoffDelay(RETRY_DELAYS_MS[attempt]);
+        continue;
+      }
+      // apiKey MUST NEVER appear in error messages
+      throw new Error(`PRI03 error report fetch failed after ${MAX_RETRIES} retries: transport error for import ${importId}`);
+    }
 
-  if (!res.ok) {
-    // Never include apiKey in error messages
-    throw new Error(`PRI03 error report fetch failed: HTTP ${res.status} for import ${importId}`);
+    if (res.ok) break;
+
+    lastStatus = res.status;
+
+    if (!isRetryable(res.status)) {
+      // Non-retryable 4xx — throw immediately. apiKey NEVER in message.
+      throw new Error(`PRI03 error report fetch failed: HTTP ${res.status} for import ${importId}`);
+    }
+
+    if (attempt < MAX_RETRIES) {
+      await backoffDelay(RETRY_DELAYS_MS[attempt]);
+    }
+  }
+
+  if (!res || !res.ok) {
+    throw new Error(`PRI03 error report fetch failed after ${MAX_RETRIES} retries: HTTP ${lastStatus} for import ${importId}`);
   }
 
   const csvText = await res.text();
