@@ -384,20 +384,17 @@ test('cycle_start_and_end_audit_events_emitted', async () => {
   // that the dispatcher attempts to write `cycle-start` and `cycle-end` audit
   // events (via writeAuditEvent → INSERT INTO audit_log).
   //
-  // Source-grep approach was insufficient — it would still pass even if the
-  // dispatcher silently caught the writer's error and never reached audit_log.
-  // (See known gap below.)
+  // Architectural note (Step 5 code review fix — reconciled with AD19/AD20):
+  //   cycle-start / cycle-end are PER-CUSTOMER audit events (audit_log.customer_marketplace_id
+  //   is NOT NULL; AD20 description: "Ciclo iniciado para este cliente/marketplace").
+  //   The dispatcher emits them inside the per-customer loop, scoped to the
+  //   active customer_marketplace_id, wrapped in BEGIN/COMMIT on the
+  //   per-customer client (Bundle B atomicity). The earlier story-spec wording
+  //   that called these "cross-customer global" events conflicted with the
+  //   architecture; the architecture wins.
   //
-  // KNOWN GAP — Story 5.1 spec vs writer.js contract:
-  //   The story spec (line 200) says writeAuditEvent accepts a null
-  //   customerMarketplaceId for global events like cycle-start/cycle-end. The
-  //   actual writer (shared/audit/writer.js, line 121) throws when
-  //   customerMarketplaceId is null/empty. The dispatcher catches that error
-  //   silently and logs at debug. Until the writer is updated to support
-  //   global cross-customer events, audit_log will not receive cycle-start /
-  //   cycle-end rows in production. This test asserts the dispatcher AT LEAST
-  //   attempts the call — regression-proof against future cleanup that drops
-  //   the wiring entirely.
+  //   The cross-customer cycle-level stats are captured by the structured
+  //   pino log line at cycle-end — observability tier, not audit_log tier.
   const queryCalls = [];
 
   const mockClient = {

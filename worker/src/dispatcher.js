@@ -8,9 +8,21 @@
 //   2. Group rows by customer_marketplace_id
 //   3. Attempt advisory lock per customer (skip if locked — another worker instance
 //      is handling that customer this tick)
-//   4. Call assembleCycle (stub until Story 5.2 ships the real implementation)
-//   5. Release advisory lock (try/finally guarantee)
-//   6. Emit cycle-start and cycle-end audit events; log stats at info level
+//   4. Emit per-customer cycle-start audit event (Bundle B: BEGIN/COMMIT on the
+//      dedicated client) — matches AD19/AD20 per-customer scope
+//   5. Call assembleCycle (stub until Story 5.2 ships the real implementation)
+//   6. Emit per-customer cycle-end audit event (Bundle B: BEGIN/COMMIT)
+//   7. Release advisory lock (try/finally guarantee)
+//   8. Log cycle stats at info level (cross-customer log line, NOT an audit event)
+//
+// Why per-customer audit events (not global):
+//   - audit_log.customer_marketplace_id is NOT NULL (AD19 schema)
+//   - AD20 cycle-start description: "Ciclo iniciado para este cliente/marketplace"
+//   - Bundle B atomicity (architecture _index.md): every audit event is scoped
+//     to the customer_marketplace whose state it describes
+//   - The cross-customer cycle-level stats are captured by the structured pino
+//     log line at cycle-end (logs ≠ audit_log; observability tier, not customer-
+//     facing audit trail)
 //
 // Negative assertions (AD17, architectural constraint):
 //   - No lock tracking table — Postgres session-scoped advisory locks only
@@ -100,6 +112,52 @@ async function defaultAssembleCycleStub (_client, _customerMarketplaceId, _skuCh
 }
 
 /**
+ * Emit one cycle-scoped audit event (cycle-start or cycle-end) atomically on the
+ * caller's dedicated client. Wraps writeAuditEvent in BEGIN/COMMIT so the writer's
+ * `tx` parameter is an active transaction (Bundle B atomicity invariant).
+ *
+ * Failure is swallowed at debug level: until Story 9.1 ships the audit_log
+ * partitioned table, the INSERT will fail and that's expected. After Story 9.1
+ * ships, transient errors must not abort an otherwise-healthy repricing cycle.
+ * The structured pino log captures any failure for observability.
+ *
+ * @param {import('pg').PoolClient} client - Dedicated pool client (already holds the per-customer advisory lock)
+ * @param {object} params
+ * @param {string} params.customerMarketplaceId - UUID of the customer this audit row belongs to
+ * @param {string} params.eventType - EVENT_TYPES.CYCLE_START or EVENT_TYPES.CYCLE_END
+ * @param {string} params.cycleId - UUID of the current dispatch cycle
+ * @param {object} params.payload - Structured payload (PayloadForCycleStart / PayloadForCycleEnd)
+ * @param {string} params.logContext - Short tag for log messages ('cycle-start' / 'cycle-end')
+ * @returns {Promise<void>}
+ */
+async function emitCycleAuditEvent (client, { customerMarketplaceId, eventType, cycleId, payload, logContext }) {
+  try {
+    await client.query('BEGIN');
+    await writeAuditEvent({
+      tx: client,
+      customerMarketplaceId,
+      eventType,
+      cycleId,
+      payload,
+    });
+    await client.query('COMMIT');
+  } catch (auditErr) {
+    // Best-effort rollback — if the BEGIN itself failed, ROLLBACK is a no-op
+    // that will also throw; we silence that secondary error to surface the
+    // primary failure cleanly.
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      // Secondary rollback failure ignored — primary error is what matters
+    }
+    logger.debug(
+      { err: auditErr, customer_marketplace_id: customerMarketplaceId, cycle_id: cycleId },
+      `dispatcher: ${logContext} audit event INSERT failed (expected pre-Story 9.1; after 9.1, indicates transient DB error — cycle continues)`
+    );
+  }
+}
+
+/**
  * Run one full dispatch cycle: select work, acquire advisory locks per customer,
  * call assembleCycle (stub until Story 5.2), emit audit events, log stats.
  *
@@ -115,23 +173,6 @@ export async function dispatchCycle (options = {}) {
   const startedAt = Date.now();
 
   logger.info({ cycle_id: cycleId }, 'dispatcher: cycle-start');
-
-  // Emit cycle-start audit event.
-  // cycle-start / cycle-end are cross-customer global events — pass null for
-  // customerMarketplaceId. The audit writer's null guard is handled by try/catch;
-  // the cross-customer global pattern will be supported in a future writer update.
-  try {
-    // safe: cross-customer cron
-    await writeAuditEvent({
-      tx: pool,
-      customerMarketplaceId: null,
-      eventType: EVENT_TYPES.CYCLE_START,
-      cycleId,
-      payload: { tierBreakdown: {} },
-    });
-  } catch (auditErr) {
-    logger.debug({ err: auditErr }, 'dispatcher: cycle-start audit event skipped (cross-customer global — writer requires customerMarketplaceId; will be supported after writer update)');
-  }
 
   // Resolve assembleCycle: try real module, fall back to stub
   let assembleCycle = defaultAssembleCycleStub;
@@ -174,6 +215,21 @@ export async function dispatchCycle (options = {}) {
         continue;
       }
 
+      // Emit per-customer cycle-start audit event under Bundle B atomicity:
+      // BEGIN/COMMIT on the dedicated client so writeAuditEvent's tx parameter
+      // is an active transaction (writer's contract — see shared/audit/writer.js).
+      // We catch & log on failure rather than abort the cycle: a missing audit
+      // row on the start-event must not stop us from actually repricing this
+      // customer. Failure is most often the absence of audit_log (Story 9.1
+      // not yet applied to the local DB) or a transient connection error.
+      await emitCycleAuditEvent(client, {
+        customerMarketplaceId,
+        eventType: EVENT_TYPES.CYCLE_START,
+        cycleId,
+        payload: { tierBreakdown: {} },
+        logContext: 'cycle-start',
+      });
+
       // Process this customer's SKU-channels
       const result = await assembleCycle(client, customerMarketplaceId, skuChannels, cycleId);
       const customerDecisions = result?.decisionsEmitted ?? 0;
@@ -182,8 +238,21 @@ export async function dispatchCycle (options = {}) {
       skusEvaluated += skuChannels.length;
       decisionsEmitted += customerDecisions;
 
-      await releaseCustomerLock(client, customerMarketplaceId);
-      lockAcquired = false;
+      // Emit per-customer cycle-end audit event (Bundle B atomicity: BEGIN/COMMIT).
+      // Same swallow-on-failure rationale as cycle-start.
+      await emitCycleAuditEvent(client, {
+        customerMarketplaceId,
+        eventType: EVENT_TYPES.CYCLE_END,
+        cycleId,
+        payload: {
+          skusProcessed: skuChannels.length,
+          undercutCount: 0,
+          ceilingRaiseCount: 0,
+          holdCount: 0,
+          failureCount: 0,
+        },
+        logContext: 'cycle-end',
+      });
     } catch (err) {
       logger.error({ err, customer_marketplace_id: customerMarketplaceId }, 'dispatcher: error processing customer batch');
     } finally {
@@ -202,7 +271,9 @@ export async function dispatchCycle (options = {}) {
 
   const durationMs = Date.now() - startedAt;
 
-  // Log cycle-end stats at info level (AC#5)
+  // Log cycle-end stats at info level (AC#5).
+  // This is the cross-customer observability log line — distinct from the
+  // per-customer cycle-end audit_log row emitted inside the loop above.
   const cycleStats = {
     cycle_id: cycleId,
     customers_processed: customersProcessed,
@@ -211,26 +282,6 @@ export async function dispatchCycle (options = {}) {
     duration_ms: durationMs,
   };
   logger.info(cycleStats, 'dispatcher: cycle-end');
-
-  // Emit cycle-end audit event (same cross-customer global pattern as cycle-start)
-  try {
-    // safe: cross-customer cron
-    await writeAuditEvent({
-      tx: pool,
-      customerMarketplaceId: null,
-      eventType: EVENT_TYPES.CYCLE_END,
-      cycleId,
-      payload: {
-        skusProcessed: skusEvaluated,
-        undercutCount: 0,
-        ceilingRaiseCount: 0,
-        holdCount: 0,
-        failureCount: 0,
-      },
-    });
-  } catch (auditErr) {
-    logger.debug({ err: auditErr }, 'dispatcher: cycle-end audit event skipped (cross-customer global — writer requires customerMarketplaceId; will be supported after writer update)');
-  }
 
   // Write to cycle_summaries stub (Story 9.2 ships the table schema).
   // Wrapped in try/catch — INSERT will fail until Story 9.2 runs.
