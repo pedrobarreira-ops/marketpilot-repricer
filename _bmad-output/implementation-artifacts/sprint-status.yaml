@@ -148,7 +148,7 @@ development_status:
   # =========================================================================
   epic-6: in-progress
   6-1-shared-mirakl-pri01-writer-js-per-sku-aggregation-multipart-submit-pending-import-id-atomicity-no-raw-csv-building-eslint-rule: review  # ATOMICITY BUNDLE C (1/4 -- AD7); ESLint: no-raw-CSV-building ships here; bmad-create-story: Story 6.1 sharded 2026-05-08 (Bob); worktree forks from story-5.2-pri01-staging-schema-cycle-assembly-skeleton (atomicity-bundle exception); BAD Step 2 ATDD scaffolds + golden CSV fixtures committed 2026-05-08
-  6-2-shared-mirakl-pri02-poller-js-worker-src-jobs-pri02-poll-js-cron-entry-complete-failed-handling: atdd-done  # ATOMICITY BUNDLE C (2/4 -- AD7 poller half); bmad-create-story: Story 6.2 sharded 2026-05-08 (Bob); worktree forks from story-6.1-pri01-writer-aggregation-multipart-submit (atomicity-bundle stacked dispatch exception); atdd-done 2026-05-08 (BAD coordinator) — 21 failing tests committed at ce7bfd8
+  6-2-shared-mirakl-pri02-poller-js-worker-src-jobs-pri02-poll-js-cron-entry-complete-failed-handling: review  # ATOMICITY BUNDLE C (2/4 -- AD7 poller half); bmad-create-story: Story 6.2 sharded 2026-05-08 (Bob); worktree forks from story-6.1-pri01-writer-aggregation-multipart-submit (atomicity-bundle stacked dispatch exception); atdd-done 2026-05-08 (BAD coordinator) — 21 failing tests committed at ce7bfd8; dev-done 2026-05-08 (BAD coordinator) — 20/20 ATDD passing
   6-3-shared-mirakl-pri03-parser-js-per-sku-rebuild-semantics: backlog
   epic-6-retrospective: optional
 
