@@ -230,9 +230,17 @@ export async function dispatchCycle (options = {}) {
         logContext: 'cycle-start',
       });
 
-      // Process this customer's SKU-channels
+      // Process this customer's SKU-channels.
+      //
+      // Result shape evolved in Story 5.2: the real cycle-assembly returns
+      // `{ stagedCount, heldCount }` (per Story 5.2 AC#2 contract). The pre-5.2
+      // stub returned `{ decisionsEmitted }`. Read both keys so the KPI / log
+      // line stays accurate before AND after Story 5.2 ships.
+      // Decisions = staging rows actually written (HOLD does not emit a price-
+      // write decision; it emits only an audit event). Story 9.2's
+      // `cycle_summaries.decisions_emitted` follows the same semantic.
       const result = await assembleCycle(client, customerMarketplaceId, skuChannels, cycleId);
-      const customerDecisions = result?.decisionsEmitted ?? 0;
+      const customerDecisions = result?.decisionsEmitted ?? result?.stagedCount ?? 0;
 
       customersProcessed++;
       skusEvaluated += skuChannels.length;
