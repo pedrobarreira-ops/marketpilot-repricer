@@ -136,7 +136,7 @@ development_status:
   # =========================================================================
   epic-5: in-progress
   5-1-master-cron-dispatcher-sql-per-customer-advisory-locks-worker-must-filter-by-customer-eslint-rule: review  # ESLint: worker-must-filter-by-customer ships here; BAD subagent must retrofit `// safe: cross-customer cron` to Story 9.1's monthly-partition-create.js; bmad-create-story: Story 5.1 sharded 2026-05-08 (Bob); PR #81 OPEN — rolled back done→review by Phase 0 reconciliation 2026-05-08 (push-race: sprint-status flipped done on local but PR not yet merged)
-  5-2-pri01-staging-schema-cycle-assembly-skeleton: review  # bmad-create-story: Story 5.2 sharded 2026-05-08 (Bob); worktree forks from story-5.1-master-cron-dispatcher; atdd-done 2026-05-08 (BAD coordinator); dev-done 2026-05-08
+  5-2-pri01-staging-schema-cycle-assembly-skeleton: done  # bmad-create-story: Story 5.2 sharded 2026-05-08 (Bob); worktree forks from story-5.1-master-cron-dispatcher; atdd-done 2026-05-08 (BAD coordinator); dev-done 2026-05-08; done 2026-05-08 (BAD coordinator — PR #82)
   epic-5-retrospective: optional
 
   # =========================================================================
