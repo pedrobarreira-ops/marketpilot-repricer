@@ -17,10 +17,23 @@
 import cron from 'node-cron';
 import { getServiceRoleClient } from '../../../shared/db/service-role-client.js';
 import { decryptShopApiKey } from '../../../shared/crypto/envelope.js';
+import { loadMasterKey } from '../../../shared/crypto/master-key-loader.js';
 import { pollImportStatus } from '../../../shared/mirakl/pri02-poller.js';
 import { createWorkerLogger } from '../../../shared/logger.js';
 
 const logger = createWorkerLogger();
+
+// Master key is held in worker-process memory only (AD3) and loaded once per
+// process (lazy on first cron tick). Re-loading every tick is wasted work and
+// would also turn a missing env var into a per-tick failure rather than a boot
+// failure. Pattern matches onboarding-scan.js getMasterKey().
+let _cachedMasterKey = null;
+function getMasterKey () {
+  if (_cachedMasterKey === null) {
+    _cachedMasterKey = loadMasterKey();
+  }
+  return _cachedMasterKey;
+}
 
 /**
  * Initialise and start the PRI02 poll cron.
@@ -70,10 +83,12 @@ async function runPri02PollTick (tickLogger) {
   for (const { pending_import_id: importId, customer_marketplace_id: customerMarketplaceId } of pendingImports) {
     try {
       // Fetch the encrypted shop_api_key and baseUrl for this customer.
+      // Column names match shop_api_key_vault DDL (202604301204): ciphertext, nonce, auth_tag.
+      // pg returns bytea columns as Buffer objects — pass directly to decryptShopApiKey.
       const { rows: vaultRows } = await pool.query(
-        `SELECT v.encrypted_api_key_ciphertext,
-                v.encrypted_api_key_iv,
-                v.encrypted_api_key_tag
+        `SELECT v.ciphertext,
+                v.nonce,
+                v.auth_tag
            FROM shop_api_key_vault v
           WHERE v.customer_marketplace_id = $1
           LIMIT 1`,
@@ -85,8 +100,10 @@ async function runPri02PollTick (tickLogger) {
         continue;
       }
 
+      // customer_marketplaces.marketplace_instance_url is the canonical baseUrl
+      // column (202604301203). It is filtered by id (PK) — same-customer scope.
       const { rows: cmRows } = await pool.query(
-        `SELECT cm.base_url
+        `SELECT cm.marketplace_instance_url
            FROM customer_marketplaces cm
           WHERE cm.id = $1
           LIMIT 1`,
@@ -99,12 +116,13 @@ async function runPri02PollTick (tickLogger) {
       }
 
       const vaultRow = vaultRows[0];
-      const { base_url: baseUrl } = cmRows[0];
+      const { marketplace_instance_url: baseUrl } = cmRows[0];
 
       const apiKey = decryptShopApiKey({
-        ciphertext: vaultRow.encrypted_api_key_ciphertext,
-        iv: vaultRow.encrypted_api_key_iv,
-        tag: vaultRow.encrypted_api_key_tag,
+        ciphertext: vaultRow.ciphertext,
+        nonce: vaultRow.nonce,
+        authTag: vaultRow.auth_tag,
+        masterKey: getMasterKey(),
       });
 
       await pollImportStatus(baseUrl, apiKey, importId, customerMarketplaceId, pool);

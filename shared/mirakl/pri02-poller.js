@@ -80,6 +80,9 @@ export function isStuckWaiting (flushedAt, nowMs = Date.now()) {
  * @param {string} params.customerMarketplaceId - UUID of the customer_marketplace row
  * @param {'COMPLETE'|'FAILED'} params.outcome - PRI02 status resolved from Mirakl
  * @param {number} [params.consecutiveFailures=0] - Injectable failure count for 3-strike escalation
+ * @param {boolean} [params.hasErrorReport=false] - PRI02 data[0].has_error_report (FAILED path only — gates fetchAndParseErrorReport)
+ * @param {string} [params.baseUrl] - Marketplace base URL (FAILED path only — passed to fetchAndParseErrorReport)
+ * @param {string} [params.apiKey] - Decrypted shop_api_key (FAILED path only — passed to fetchAndParseErrorReport; never logged)
  * @returns {Promise<void>}
  */
 export async function clearPendingImport ({
@@ -88,10 +91,17 @@ export async function clearPendingImport ({
   customerMarketplaceId,
   outcome,
   consecutiveFailures = 0,
+  hasErrorReport = false,
+  baseUrl,
+  apiKey,
 }) {
   if (outcome === 'COMPLETE') {
     // ── COMPLETE path ───────────────────────────────────────────────────────
     // Atomically clear pending state and record confirmed price.
+    // RETURNING id captures the affected sku_channel IDs so the
+    // pri01_consecutive_failures reset can target those rows by id (after this
+    // UPDATE has nulled pending_import_id, the original WHERE predicate would
+    // match zero rows — id-based targeting is the correct approach).
     const { rows: updatedRows } = await tx.query(
       `UPDATE sku_channels
           SET last_set_price_cents = pending_set_price_cents,
@@ -121,26 +131,32 @@ export async function clearPendingImport ({
     }
 
     // Reset pri01_consecutive_failures = 0 on COMPLETE.
+    // Targets rows by id (captured from RETURNING above) — must NOT use the
+    // pending_import_id WHERE predicate because that column was just nulled.
+    // customer_marketplace_id retained in WHERE for ESLint compliance + defense.
     // Forward-dependency: column added by Story 6.3 migration. Wrap in try-catch
     // to allow Story 6.2 to run before Story 6.3 is deployed. Once Story 6.3
     // ships, the try-catch becomes a no-op safety net.
-    try {
-      await tx.query(
-        `UPDATE sku_channels
-            SET pri01_consecutive_failures = 0
-          WHERE pending_import_id = $1
-            AND customer_marketplace_id = $2`,
-        [importId, customerMarketplaceId]
-      );
-    } catch (err) {
-      if (err.message && err.message.includes('column "pri01_consecutive_failures" does not exist')) {
-        // Expected until Story 6.3 migration is applied — silently continue.
-        logger.debug(
-          { importId, customerMarketplaceId },
-          'pri02-poller: pri01_consecutive_failures column not yet present (Story 6.3 forward-dep) — reset skipped'
+    if (updatedRows.length > 0) {
+      const updatedIds = updatedRows.map(r => r.id);
+      try {
+        await tx.query(
+          `UPDATE sku_channels
+              SET pri01_consecutive_failures = 0
+            WHERE id = ANY($1::uuid[])
+              AND customer_marketplace_id = $2`,
+          [updatedIds, customerMarketplaceId]
         );
-      } else {
-        throw err;
+      } catch (err) {
+        if (err.message && err.message.includes('column "pri01_consecutive_failures" does not exist')) {
+          // Expected until Story 6.3 migration is applied — silently continue.
+          logger.debug(
+            { importId, customerMarketplaceId },
+            'pri02-poller: pri01_consecutive_failures column not yet present (Story 6.3 forward-dep) — reset skipped'
+          );
+        } else {
+          throw err;
+        }
       }
     }
 
@@ -154,6 +170,10 @@ export async function clearPendingImport ({
   if (outcome === 'FAILED') {
     // ── FAILED path ─────────────────────────────────────────────────────────
     // Clear pending state. last_set_price_cents NOT updated (import failed).
+    // RETURNING id captures the affected sku_channel IDs so the
+    // pri01_consecutive_failures increment can target those rows by id (after
+    // this UPDATE has nulled pending_import_id, the original WHERE predicate
+    // would match zero rows — id-based targeting is the correct approach).
     const { rows: clearedRows } = await tx.query(
       `UPDATE sku_channels
           SET pending_import_id = NULL,
@@ -198,38 +218,48 @@ export async function clearPendingImport ({
     }
 
     // Increment pri01_consecutive_failures per affected row.
+    // Targets rows by id (captured from RETURNING above) — must NOT use the
+    // pending_import_id WHERE predicate because that column was just nulled.
+    // customer_marketplace_id retained in WHERE for ESLint compliance + defense.
     // Forward-dependency: column added by Story 6.3 migration. Wrap in try-catch.
-    try {
-      await tx.query(
-        `UPDATE sku_channels
-            SET pri01_consecutive_failures = pri01_consecutive_failures + 1
-          WHERE pending_import_id = $1
-            AND customer_marketplace_id = $2`,
-        [importId, customerMarketplaceId]
-      );
-    } catch (err) {
-      if (err.message && err.message.includes('column "pri01_consecutive_failures" does not exist')) {
-        // Expected until Story 6.3 migration is applied — silently continue.
-        logger.debug(
-          { importId, customerMarketplaceId },
-          'pri02-poller: pri01_consecutive_failures column not yet present (Story 6.3 forward-dep) — increment skipped'
+    if (clearedRows.length > 0) {
+      const clearedIds = clearedRows.map(r => r.id);
+      try {
+        await tx.query(
+          `UPDATE sku_channels
+              SET pri01_consecutive_failures = pri01_consecutive_failures + 1
+            WHERE id = ANY($1::uuid[])
+              AND customer_marketplace_id = $2`,
+          [clearedIds, customerMarketplaceId]
         );
-      } else {
-        throw err;
+      } catch (err) {
+        if (err.message && err.message.includes('column "pri01_consecutive_failures" does not exist')) {
+          // Expected until Story 6.3 migration is applied — silently continue.
+          logger.debug(
+            { importId, customerMarketplaceId },
+            'pri02-poller: pri01_consecutive_failures column not yet present (Story 6.3 forward-dep) — increment skipped'
+          );
+        } else {
+          throw err;
+        }
       }
     }
 
-    // Forward dependency on Story 6.3 — stub until pri03-parser.js ships
+    // Forward dependency on Story 6.3 — stub until pri03-parser.js ships.
     // fetchAndParseErrorReport is invoked only when has_error_report === true.
     // This wires up the invocation contract without blocking Story 6.2 deployment.
-    let fetchAndParseErrorReport;
-    try {
-      ({ fetchAndParseErrorReport } = await import('./pri03-parser.js'));
-    } catch {
-      fetchAndParseErrorReport = null; // Story 6.3 not yet deployed
-    }
-    if (fetchAndParseErrorReport && tx._pri02HasErrorReport === true) {
-      await fetchAndParseErrorReport(tx._pri02BaseUrl, tx._pri02ApiKey, importId, tx);
+    // baseUrl + apiKey arrive as explicit params from pollImportStatus — they
+    // are never attached to tx (apiKey leak risk; tx-monkey-patching code smell).
+    if (hasErrorReport === true) {
+      let fetchAndParseErrorReport;
+      try {
+        ({ fetchAndParseErrorReport } = await import('./pri03-parser.js'));
+      } catch {
+        fetchAndParseErrorReport = null; // Story 6.3 not yet deployed
+      }
+      if (fetchAndParseErrorReport) {
+        await fetchAndParseErrorReport(baseUrl, apiKey, importId, tx);
+      }
     }
 
     logger.info(
@@ -285,21 +315,18 @@ export async function pollImportStatus (baseUrl, apiKey, importId, customerMarke
   );
 
   if (status === 'COMPLETE' || status === 'FAILED') {
-    // Open transaction and dispatch to clearPendingImport
+    // Open transaction and dispatch to clearPendingImport.
+    // baseUrl + apiKey passed explicitly — never attached to tx (apiKey-leak guard).
     const { tx: txFn } = await import('../db/tx.js');
     await txFn(pool, async (txClient) => {
-      // For FAILED with has_error_report: attach context to txClient so
-      // clearPendingImport can invoke fetchAndParseErrorReport correctly.
-      if (status === 'FAILED' && hasErrorReport === true) {
-        txClient._pri02HasErrorReport = true;
-        txClient._pri02BaseUrl = baseUrl;
-        // apiKey intentionally NOT attached to txClient — must not leak into objects
-      }
       await clearPendingImport({
         tx: txClient,
         importId,
         customerMarketplaceId,
         outcome: status,
+        hasErrorReport: status === 'FAILED' ? hasErrorReport === true : false,
+        baseUrl,
+        apiKey,
       });
     });
     return;
