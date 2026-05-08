@@ -3,6 +3,7 @@ import { getEnv } from '../../shared/config/runtime-env.js';
 import { loadMasterKey } from '../../shared/crypto/master-key-loader.js';
 import { createWorkerLogger } from '../../shared/logger.js';
 import { startHeartbeat } from './jobs/heartbeat.js';
+import { startMasterCron } from './jobs/master-cron.js';
 import { runMonthlyPartitionCreate } from './jobs/monthly-partition-create.js';
 import { processNextPendingScan } from './jobs/onboarding-scan.js';
 import { closeServiceRolePool } from '../../shared/db/service-role-client.js';
@@ -50,6 +51,11 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
 startHeartbeat(logger);
+
+// Story 5.1: Master 5-min repricing cron.
+// dispatchCycle is called by master-cron.js on each tick.
+// The in-flight guard is inside master-cron.js itself.
+startMasterCron(logger);
 
 // Story 9.1: Monthly audit_log partition cron.
 // Fires on the 28th of each month at 02:00 Lisbon time — creates the partition

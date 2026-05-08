@@ -11,6 +11,7 @@ import noDirPgInApp from './eslint-rules/no-direct-pg-in-app.js';
 import noRawInsertAuditLog from './eslint-rules/no-raw-INSERT-audit-log.js';
 import noDirectFetch from './eslint-rules/no-direct-fetch.js';
 import noRawCronStateUpdate from './eslint-rules/no-raw-cron-state-update.js';
+import workerMustFilterByCustomer from './eslint-rules/worker-must-filter-by-customer.js';
 
 export default [
   {
@@ -65,12 +66,24 @@ export default [
     // customer_marketplaces.cron_state outside shared/state/cron-state.js SSoT.
     // All cron_state transitions MUST flow through transitionCronState() which enforces
     // validation, optimistic concurrency, and audit event emission (Bundle B atomicity).
+    // Story 5.1: worker-must-filter-by-customer rule — forbids worker queries on
+    // customer-scoped tables without a customer_marketplace_id filter. RLS is bypassed
+    // in the service-role worker context; the rule enforces per-customer query scoping.
+    // Both rules share the 'local-cron' plugin namespace — plugin objects are merged.
     // Scoped to app/, worker/, shared/ production source (excludes tests/ and scripts/).
     // The SSoT module itself (shared/state/cron-state.js) is allowlisted inside the rule.
     files: ['app/**/*.js', 'worker/**/*.js', 'shared/**/*.js'],
-    plugins: { 'local-cron': noRawCronStateUpdate },
+    plugins: {
+      'local-cron': {
+        rules: {
+          'no-raw-cron-state-update': noRawCronStateUpdate.rules['no-raw-cron-state-update'],
+          'worker-must-filter-by-customer': workerMustFilterByCustomer.rules['worker-must-filter-by-customer'],
+        },
+      },
+    },
     rules: {
       'local-cron/no-raw-cron-state-update': 'error',
+      'local-cron/worker-must-filter-by-customer': 'error',
     },
   },
   {
