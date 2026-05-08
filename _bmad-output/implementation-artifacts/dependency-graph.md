@@ -1,5 +1,5 @@
 # Story Dependency Graph
-_Last updated: 2026-05-08T14:00:00Z_
+_Last updated: 2026-05-08T15:30:00Z_
 
 ## Stories
 
@@ -129,7 +129,7 @@ _Last updated: 2026-05-08T14:00:00Z_
 
 ## Notes
 
-### Current State (Phase 0 reconciliation 2026-05-08 pass 9)
+### Current State (Phase 0 reconciliation 2026-05-08 pass 10)
 - Epic 1 complete (5/5 stories done — pre-BAD direct commits to main, no PRs).
 - Epic 1 retrospective complete (2026-05-03).
 - Epic 2 complete (2/2 stories done).
