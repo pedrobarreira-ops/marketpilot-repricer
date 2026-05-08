@@ -9,7 +9,7 @@
 //   AC#4 — ESLint no-raw-CSV-building rule: violation detection, allowlist, CSV-read false-positive guard
 //   AC#5 — PC01 capture completeness: null delimiter / null offerPricesDecimals → clear error with customer_id
 
-import { describe, it, before, after, mock } from 'node:test';
+import { describe, it, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -176,6 +176,35 @@ describe('buildPri01Csv', () => {
     const bodyLine = csvBody.split('\n')[1];
     const parts = bodyLine.split(';');
     assert.strictEqual(parts[2], 'WRT_PT_ONLINE', `channels column should be 'WRT_PT_ONLINE', got: ${parts[2]}`);
+  });
+
+  it('build_pri01_csv_returns_line_map_mapping_1_based_body_lines_to_shop_skus', () => {
+    // Story 6.3's PRI03 parser depends on this contract: the writer must return
+    // a lineMap that maps 1-based body row numbers (excluding header) → shopSku
+    // so failed CSV lines from Mirakl's error report can be correlated back to
+    // the SKU. Without this the AC#1 return-shape contract regresses silently
+    // and Story 6.3 breaks. Per Notes-for-Amelia #8 in epic-6-test-plan.md.
+    const channels = [
+      { shopSku: 'EZ-SKU-A', channelCode: 'WRT_PT_ONLINE', newPriceCents: 1000, lastSetPriceCents: 1000 },
+      { shopSku: 'EZ-SKU-A', channelCode: 'WRT_ES_ONLINE', newPriceCents: null, lastSetPriceCents: 2000 },
+      { shopSku: 'EZ-SKU-A', channelCode: 'WRT_FR_ONLINE', newPriceCents: 3000, lastSetPriceCents: 3500 },
+    ];
+    const result = buildPri01Csv({
+      skuChannels: channels,
+      operatorCsvDelimiter: 'SEMICOLON',
+      offerPricesDecimals: 2,
+      customerMarketplaceId: 'cm-test-line-map',
+    });
+    // Result must include lineMap as an object on the return value
+    assert.ok(Object.prototype.hasOwnProperty.call(result, 'lineMap'), 'Return value must include lineMap');
+    assert.strictEqual(typeof result.lineMap, 'object', 'lineMap must be an object');
+    // lineMap is 1-based, body rows only (header excluded)
+    // Three body lines → keys 1, 2, 3 → all three map to 'EZ-SKU-A'
+    assert.strictEqual(result.lineMap[1], 'EZ-SKU-A', 'Line 1 must map to first body row shopSku');
+    assert.strictEqual(result.lineMap[2], 'EZ-SKU-A', 'Line 2 must map to second body row shopSku');
+    assert.strictEqual(result.lineMap[3], 'EZ-SKU-A', 'Line 3 must map to third body row shopSku');
+    // Header is not part of lineMap (no key 0)
+    assert.strictEqual(result.lineMap[0], undefined, 'lineMap must not include header line (1-based, body only)');
   });
 
   it('build_pri01_csv_matches_single_channel_undercut_golden_fixture', () => {
@@ -365,6 +394,34 @@ describe('submitPriceImport', () => {
       const result = await submitPriceImport('https://worten.mirakl.net', 'test-key', 'csv-body');
       assert.deepStrictEqual(result, { importId: 'retry-5xx-id' });
       assert.strictEqual(callCount, 3, 'fetch should have been called 3 times (2 fails + 1 success)');
+    } finally {
+      globalThis.fetch = originalFetch;
+      globalThis.setTimeout = originalSetTimeout;
+    }
+  });
+
+  it('submit_price_import_retries_on_transport_error', async () => {
+    // AC#2 retry behavior: transport-level fetch failures (DNS, ECONNRESET,
+    // socket hang-up) are treated as status 0 and retried with exponential backoff.
+    // Without this test the transport-error branch in submitPriceImport (the
+    // try/catch around fetch) is uncovered.
+    let callCount = 0;
+    const mockFetch = mock.fn(async () => {
+      callCount++;
+      if (callCount === 1) {
+        throw new Error('ECONNRESET');
+      }
+      return new Response(JSON.stringify({ import_id: 'transport-retry-id' }), { status: 200 });
+    });
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = mockFetch;
+
+    const originalSetTimeout = globalThis.setTimeout;
+    globalThis.setTimeout = (fn, _ms) => originalSetTimeout(fn, 0);
+    try {
+      const result = await submitPriceImport('https://worten.mirakl.net', 'test-key', 'csv-body');
+      assert.deepStrictEqual(result, { importId: 'transport-retry-id' });
+      assert.strictEqual(callCount, 2, 'fetch should retry once after transport error');
     } finally {
       globalThis.fetch = originalFetch;
       globalThis.setTimeout = originalSetTimeout;
