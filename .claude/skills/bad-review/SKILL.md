@@ -572,8 +572,8 @@ Run these in main context:
    git log --diff-filter=M --name-only origin/main -- 'supabase/migrations/*.sql' | sort -u
    ```
    Expected: empty (no modified migrations in main's history).
-4. **Run `npm test`** — report pass/fail counts. If a new test file landed in this PR that's not in `npm test`'s allowlist, note it and offer to add it (until the `skipUnlessImplExists()` helper is in place).
-5. **CI state on main** — `gh run list --branch main --limit 1 --json conclusion,displayTitle`. Should be `success` or in_progress. If failure, show the user the link.
+4. **Run `npm run test:unit`** — report pass/fail counts. We use `test:unit` (~1m38s) rather than full `npm test` (~20m) because step 5 below confirms CI on main, which runs the full integration suite. The local check exists to catch issues from the merge itself, and unit-level coverage is sufficient for that. If a new test file landed in this PR that's not in `npm test`'s allowlist, note it and offer to add it (until the `skipUnlessImplExists()` helper is in place).
+5. **CI state on main** — `gh run list --branch main --limit 1 --json conclusion,displayTitle`. Should be `success` or in_progress. If failure, show the user the link. This is the integration-test safety net for the post-merge state.
 6. **Final report** — a compact status:
 
 ```
@@ -583,7 +583,7 @@ Run these in main context:
 - Local commits preserved: {N rebased / none}
 - sprint-status: ✓ {story} = done
 - MCP alignment: ✓ intact
-- npm test: ✓ {passed/total} pass
+- npm run test:unit: ✓ {passed/total} pass
 - CI on main: ✓ {conclusion}
 - Deferred findings: ✓ {N} appended to deferred-work.md  ← when Phase 4.5 ran with [Y]
                      OR  ⚠ {N} flagged but NOT captured (user skipped)  ← [N]
