@@ -73,7 +73,7 @@
 # by design; pre-dates the rule).
 
 generated: 2026-05-01
-last_updated: 2026-05-08  # Phase 0 reconciliation 2026-05-08 pass 12: PR #81 still OPEN (Story 5.1 stays review); review-shipped exclusion fires for Story 5.1 (merge_blocks + review + open PR → ❌ No — BAD pipeline done for this story, awaiting bundle gate 7.8); atomicity-bundle exception still fires for Story 5.2 (bundle-stacked: story-5.1-master-cron-dispatcher); sprint-status rows unchanged; graph Story 5.1 Ready cell corrected pass 12
+last_updated: 2026-05-08  # bmad-create-story: Story 5.2 sharded 2026-05-08 (Bob); 5-2-pri01-staging-schema-cycle-assembly-skeleton → ready-for-dev; worktree forks from story-5.1-master-cron-dispatcher (atomicity-bundle exception)
 project: marketpilot-repricer  # updated by bmad-create-story: Story 1.1 sharded 2026-05-01; Story 1.2 sharded 2026-05-01; Story 1.3 sharded 2026-05-02; Story 1.4 sharded 2026-05-02; Story 1.5 sharded 2026-05-03; Story 1.5 → review 2026-05-03; Story 1.5 → done 2026-05-03 (post-review); Story 2.1 sharded 2026-05-03 (Bob) → ready-for-dev
 project_key: NOKEY
 tracking_system: file-system
@@ -136,7 +136,7 @@ development_status:
   # =========================================================================
   epic-5: in-progress
   5-1-master-cron-dispatcher-sql-per-customer-advisory-locks-worker-must-filter-by-customer-eslint-rule: review  # ESLint: worker-must-filter-by-customer ships here; BAD subagent must retrofit `// safe: cross-customer cron` to Story 9.1's monthly-partition-create.js; bmad-create-story: Story 5.1 sharded 2026-05-08 (Bob); PR #81 OPEN — rolled back done→review by Phase 0 reconciliation 2026-05-08 (push-race: sprint-status flipped done on local but PR not yet merged)
-  5-2-pri01-staging-schema-cycle-assembly-skeleton: backlog
+  5-2-pri01-staging-schema-cycle-assembly-skeleton: atdd-done  # bmad-create-story: Story 5.2 sharded 2026-05-08 (Bob); worktree forks from story-5.1-master-cron-dispatcher; atdd-done 2026-05-08 (BAD coordinator)
   epic-5-retrospective: optional
 
   # =========================================================================
