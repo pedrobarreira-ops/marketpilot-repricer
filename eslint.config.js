@@ -12,6 +12,7 @@ import noRawInsertAuditLog from './eslint-rules/no-raw-INSERT-audit-log.js';
 import noDirectFetch from './eslint-rules/no-direct-fetch.js';
 import noRawCronStateUpdate from './eslint-rules/no-raw-cron-state-update.js';
 import workerMustFilterByCustomer from './eslint-rules/worker-must-filter-by-customer.js';
+import noRawCsvBuilding from './eslint-rules/no-raw-CSV-building.js';
 
 export default [
   {
@@ -78,12 +79,14 @@ export default [
         rules: {
           'no-raw-cron-state-update': noRawCronStateUpdate.rules['no-raw-cron-state-update'],
           'worker-must-filter-by-customer': workerMustFilterByCustomer.rules['worker-must-filter-by-customer'],
+          'no-raw-CSV-building': noRawCsvBuilding.rules['no-raw-CSV-building'],
         },
       },
     },
     rules: {
       'local-cron/no-raw-cron-state-update': 'error',
       'local-cron/worker-must-filter-by-customer': 'error',
+      'local-cron/no-raw-CSV-building': 'error',
     },
   },
   {

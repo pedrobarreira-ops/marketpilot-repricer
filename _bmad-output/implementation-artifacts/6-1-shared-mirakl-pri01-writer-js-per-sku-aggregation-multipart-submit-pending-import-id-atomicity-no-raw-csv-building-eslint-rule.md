@@ -3,7 +3,7 @@
 > Endpoints verified against architecture-distillate empirical facts (2026-05-08). PRI01 endpoint `POST /api/offers/pricing/imports` is empirically confirmed via AD7 + architecture Cross-Cutting Empirically-Verified Mirakl Facts. Mirakl MCP OAuth flow was initiated but browser authentication is required — all critical endpoint details are covered by the existing empirical verification (2026-04-30).
 
 **Sprint-status key:** `6-1-shared-mirakl-pri01-writer-js-per-sku-aggregation-multipart-submit-pending-import-id-atomicity-no-raw-csv-building-eslint-rule`
-**Status:** ready-for-dev
+**Status:** review
 **Size:** L
 **Epic:** Epic 6 — PRI01 Writer Plumbing (architecture S-I phase 6)
 **Atomicity:** Bundle C — AD7 ships in this story; the integration-test gate sits at Story 7.8. This story is a Bundle C participant (merge blocked until Story 7.8 lands per sprint-status `merge_blocks`).
@@ -420,27 +420,27 @@ Story 6.1 is NOT tagged `integration_test_required: true` in sprint-status. The 
 
 ## Story Completion Checklist
 
-- [ ] `shared/mirakl/pri01-writer.js` created with three exports: `buildPri01Csv`, `submitPriceImport`, `markStagingPending`
-- [ ] `buildPri01Csv` returns `{ csvBody, lineMap }` (not just `csvBody`)
-- [ ] `buildPri01Csv` throws on null `operatorCsvDelimiter` or `offerPricesDecimals` with clear error including `customerMarketplaceId`
-- [ ] `buildPri01Csv` includes passthrough lines for all channels (PRI01 delete-and-replace safety)
-- [ ] `submitPriceImport` uses raw `Authorization: <apiKey>` header (NO Bearer prefix)
-- [ ] `submitPriceImport` uses multipart POST to `<baseUrl>/api/offers/pricing/imports`
-- [ ] `submitPriceImport` implements 5-retry exponential backoff matching `mirAklGet` schedule
-- [ ] `submitPriceImport` never leaks apiKey in errors or logs
-- [ ] `markStagingPending` sets `pending_import_id` on ALL participating `sku_channel` rows (including passthroughs)
-- [ ] `markStagingPending` sets `flushed_at` and `import_id` on `pri01_staging` rows
-- [ ] All SQL in `markStagingPending` includes `customer_marketplace_id` filter (ESLint compliance)
-- [ ] `eslint-rules/no-raw-CSV-building.js` created and registered in `eslint.config.js`
-- [ ] Golden CSV fixtures created in `tests/fixtures/pri01-csv/` (3 files, LF endings, no BOM)
-- [ ] All unit tests pass: `node --test tests/shared/mirakl/pri01-writer.test.js`
-- [ ] ESLint passes: `npx eslint shared/mirakl/pri01-writer.js`
-- [ ] `npm run test:unit` passes (full unit suite, no new regressions introduced)
-- [ ] No OF24 calls anywhere in the codebase (grep verify: `POST /api/offers` must not appear)
-- [ ] No hardcoded delimiter (`;` never hardcoded as CSV delimiter default)
-- [ ] Named exports only — no default export
-- [ ] pino logger used, not `console.log`
-- [ ] No `.then()` chains — async/await only
+- [x] `shared/mirakl/pri01-writer.js` created with three exports: `buildPri01Csv`, `submitPriceImport`, `markStagingPending`
+- [x] `buildPri01Csv` returns `{ csvBody, lineMap }` (not just `csvBody`)
+- [x] `buildPri01Csv` throws on null `operatorCsvDelimiter` or `offerPricesDecimals` with clear error including `customerMarketplaceId`
+- [x] `buildPri01Csv` includes passthrough lines for all channels (PRI01 delete-and-replace safety)
+- [x] `submitPriceImport` uses raw `Authorization: <apiKey>` header (NO Bearer prefix)
+- [x] `submitPriceImport` uses multipart POST to `<baseUrl>/api/offers/pricing/imports`
+- [x] `submitPriceImport` implements 5-retry exponential backoff matching `mirAklGet` schedule
+- [x] `submitPriceImport` never leaks apiKey in errors or logs
+- [x] `markStagingPending` sets `pending_import_id` on ALL participating `sku_channel` rows (including passthroughs)
+- [x] `markStagingPending` sets `flushed_at` and `import_id` on `pri01_staging` rows
+- [x] All SQL in `markStagingPending` includes `customer_marketplace_id` filter (ESLint compliance)
+- [x] `eslint-rules/no-raw-CSV-building.js` created and registered in `eslint.config.js`
+- [x] Golden CSV fixtures created in `tests/fixtures/pri01-csv/` (3 files, LF endings, no BOM)
+- [x] All unit tests pass: `node --test tests/shared/mirakl/pri01-writer.test.js`
+- [x] ESLint passes: `npx eslint shared/mirakl/pri01-writer.js`
+- [x] `npm run test:unit` passes (full unit suite, no new regressions introduced)
+- [x] No OF24 calls anywhere in the codebase (grep verify: `POST /api/offers` must not appear)
+- [x] No hardcoded delimiter (`;` never hardcoded as CSV delimiter default)
+- [x] Named exports only — no default export
+- [x] pino logger used, not `console.log`
+- [x] No `.then()` chains — async/await only
 
 ---
 
@@ -452,6 +452,22 @@ claude-sonnet-4-6
 
 ### Debug Log References
 
+None — implementation proceeded cleanly.
+
 ### Completion Notes List
 
+- Implemented `shared/mirakl/pri01-writer.js` with three named exports: `buildPri01Csv`, `submitPriceImport`, `markStagingPending`.
+- `buildPri01Csv` returns `{ csvBody, lineMap }` with 1-based line map for PRI03 parser correlation. Throws clear PC01-capture-incomplete error on null/undefined `operatorCsvDelimiter` or `offerPricesDecimals`. Passthrough channels (no staging row for their specific sku+channel) included via `lastSetPriceCents` (delete-and-replace safety).
+- `submitPriceImport` uses Node 22 `FormData` + `fetch` directly (allowed in `shared/mirakl/` per `no-direct-fetch` allowlist). Raw `Authorization: <apiKey>` header — NO Bearer prefix. 5-retry exponential backoff [1s,2s,4s,8s,16s] matching `mirAklGet`. Returns `{ importId }` mapped from snake_case `import_id`. API key never appears in errors or logs.
+- `markStagingPending` uses per-channel staging lookup (`sku_id:channel_code` composite key) — staging is per channel, not per SKU. Passthrough channels (sku_id in batch, but no staging row for their channel_code) get `pending_set_price_cents = last_set_price_cents`. All queries include `customer_marketplace_id` (ESLint worker-must-filter-by-customer compliance).
+- `eslint-rules/no-raw-CSV-building.js` created: fires on `csv-stringify`/`papaparse` imports and template literals with `;\\n` or `,\\n` CSV-building patterns. Allowlisted for `shared/mirakl/pri01-writer.js`. Does NOT fire on `readFileSync` calls. Registered under `local-cron/no-raw-CSV-building` in `eslint.config.js`.
+- Retry helpers (`RETRY_DELAYS_MS`, `isRetryable`, `backoffDelay`) duplicated from `api-client.js` — shared utility deferred to a future `shared/mirakl/retry.js` if a 3rd module needs them.
+- All 34 unit tests pass (5 suites: buildPri01Csv ×13, submitPriceImport ×8, markStagingPending ×7, ESLint ×4, PC01 guard ×2). 22 pre-existing failures in `test:unit` unrelated to Story 6.1 (dry-run-minimal + margin route tests need DB state).
+- ESLint: 0 violations on `shared/mirakl/pri01-writer.js` and `eslint-rules/no-raw-CSV-building.js`.
+
 ### File List
+
+- `shared/mirakl/pri01-writer.js` — CREATED (AD7 SSoT: buildPri01Csv, submitPriceImport, markStagingPending)
+- `eslint-rules/no-raw-CSV-building.js` — CREATED (no-raw-CSV-building ESLint rule; ships with SSoT per deferred-rule pattern)
+- `eslint.config.js` — MODIFIED (registered `no-raw-CSV-building` under `local-cron` plugin namespace)
+- `tests/shared/mirakl/pri01-writer.test.js` — MODIFIED (scaffold stubs replaced with full test implementations; import uncommented)
