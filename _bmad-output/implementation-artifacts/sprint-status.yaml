@@ -247,7 +247,7 @@ epic_test_design:
   2: done
   3: done  # test scaffolds committed 2026-05-06 (epic-start-test-design subagent)
   4: done  # test scaffolds committed 2026-05-06 (epic-start-test-design subagent); 9 scaffold files + epic-4-test-plan.md; 55 test cases across 9 stories; Atomicity Bundle B gate, RLS debt, SSoT negative assertions
-  5: pending
+  5: done  # test scaffolds committed 2026-05-08 (epic-start-test-design subagent); 3 scaffold files + epic-5-test-plan.md; ~34 test cases across 2 stories; dispatcher SQL verbatim, advisory lock bigint determinism, ESLint worker-must-filter-by-customer, Story 9.1 retrofit pragma, Bundle C partial invariant, pri01_staging RLS
   6: pending
   7: pending
   8: pending
