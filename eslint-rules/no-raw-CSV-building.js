@@ -31,6 +31,24 @@ const CSV_BUILDING_PATTERNS = [
   /,\s*\\n/,   // comma followed by escaped newline in string: ',\n'
 ];
 
+// SQL keyword patterns — template literals that start with these are SQL queries,
+// not CSV row constructions. Skip them to avoid false positives.
+const SQL_START_PATTERN = /^\s*(SELECT|INSERT|UPDATE|DELETE|WITH|CREATE|DROP|ALTER|TRUNCATE|EXPLAIN|BEGIN|COMMIT|ROLLBACK)\b/i;
+
+// Parameterised query placeholder pattern — $1, $2, ... are Postgres positional params
+const SQL_PLACEHOLDER_PATTERN = /\$\d+/;
+
+/**
+ * Return true if the template literal appears to be an SQL query (not a CSV row).
+ *
+ * @param {import('eslint').Rule.Node} node - TemplateLiteral
+ * @returns {boolean}
+ */
+function isSqlTemplateLiteral (node) {
+  const raw = node.quasis.map(q => q.value.raw).join('');
+  return SQL_START_PATTERN.test(raw) || SQL_PLACEHOLDER_PATTERN.test(raw);
+}
+
 /**
  * Check whether the current file is the allowlisted PRI01 writer SSoT.
  *
@@ -129,6 +147,9 @@ const rule = {
        */
       TemplateLiteral (node) {
         if (isAllowed(context)) return;
+
+        // Skip SQL queries — multi-line SQL strings with commas/semicolons are not CSV building
+        if (isSqlTemplateLiteral(node)) return;
 
         // Skip if this template is inside a readFileSync / readFile call
         // Walk up to find parent CallExpression
