@@ -1,5 +1,5 @@
 # Story Dependency Graph
-_Last updated: 2026-05-08T00:00:00Z_
+_Last updated: 2026-05-08T12:00:00Z_
 
 ## Stories
 
@@ -129,7 +129,7 @@ _Last updated: 2026-05-08T00:00:00Z_
 
 ## Notes
 
-### Current State (Phase 0 reconciliation 2026-05-08 pass 7)
+### Current State (Phase 0 reconciliation 2026-05-08 pass 8)
 - Epic 1 complete (5/5 stories done — pre-BAD direct commits to main, no PRs).
 - Epic 1 retrospective complete (2026-05-03).
 - Epic 2 complete (2/2 stories done).
@@ -154,13 +154,14 @@ _Last updated: 2026-05-08T00:00:00Z_
 - Story 4.8 merged (PR #78, 2026-05-07T17:30:15Z). sprint-status: done.
 - Story 4.9 merged (PR #79, 2026-05-07T19:44:06Z). sprint-status: done. **Epic 4 COMPLETE (9/9 stories done).**
 - epic-4 row: flipped in-progress → done (Phase 0 epic-row reconciliation 2026-05-08).
-- Open PR: #80 (epic-4-retro-p0-fixes) — retro P0 fixes branch, not a story PR.
+- PR #80 (epic-4-retro-p0-fixes) merged 2026-05-08T11:07:37Z — retro P0 fixes branch, not a story PR.
+- No open story PRs. No story worktrees to clean up.
 - Current Ready to Work: **5.1** — Epic 4 complete, unlocking Epic 5.
   - 5.1: Ready (depends on 4.1 + 9.1 — both done; epics 1-4 all complete). Status: backlog.
   - 5.2+: Blocked on 5.1 not yet done.
 
 ### Parallelization Opportunities
-- **Current batch (Epic 5 start):** Story **5.1** is the only ready story — first story in Epic 5. Sharding needed.
+- **Current batch (Epic 5 start):** Story **5.1** is the only ready story — first story in Epic 5. BAD pipeline next: Epic-Start Test Design for Epic 5 (epic_test_design.5 = pending), then shard + implement 5.1.
 - Epic 5 is sequential (5.1 → 5.2). No parallelism within Epic 5.
 - Bundle C (Epics 5-7): Stories 5.1, 5.2, 6.1, 6.2, 6.3, 7.2, 7.3, 7.6 can be developed in parallel but ALL must hold for merge until 7.8 gate passes.
 - Epic 8 has the most parallelism: stories 8.3-8.12 can mostly run in parallel after 8.1 ships.
@@ -170,5 +171,5 @@ _Last updated: 2026-05-08T00:00:00Z_
 - **Bundle C**: Stories 5.1, 5.2, 6.1, 6.2, 6.3, 7.2, 7.3, 7.6 PRs must not merge until Story 7.8 integration gate passes. Engine + writer + cooperative-absorption + circuit-breaker must be validated together against all 17 P11 fixtures before any participant ships to main.
 
 ### Integration Test Gate (Phase 4.5)
-- Stories 2.1, 2.2, 9.1, and 4.1 have `integration_test_required: true` — Pedro must run `npm run test:integration` locally after each of these stories completes and report pass/fail before BAD continues.
-- Story 4.1's gate is the next integration-test obligation (schema + F4 CHECK constraint + RLS isolation + transitionCronState audit emission).
+- Stories 2.1, 2.2, 9.1, 4.1, and 4.6 have `integration_test_required: true` — Pedro must run `npm run test:integration` locally after each of these stories completes and report pass/fail before BAD continues.
+- All Epic 1-4 integration gates passed. Next integration-test obligation: none for Epic 5 stories (5.1 and 5.2 not tagged). Epic 7-area stories may add gates during sharding.

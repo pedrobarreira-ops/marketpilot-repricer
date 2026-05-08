@@ -446,6 +446,11 @@ New secret-bearing field MUST land in both `architecture-distillate/03-decisions
 ### 14. `no-direct-fetch` scans comment text — `fetch(` in comments triggers the rule
 
 The `no-direct-fetch` ESLint rule scans source text including comments for the substring `fetch(`. Comments in `shared/mirakl/` files MUST NOT use `fetch(` — rephrase as "HTTP call" or "via api-client". Discovered Story 3.2 (dev agent had to rename comments mid-implementation). **Failure**: lint fails on comment text in otherwise-valid code.
+
+### 15. Supabase CLI `migration repair --status applied` requires purely numeric 12-digit versions
+
+`supabase migration repair --status applied <version>` rejects alphanumeric suffixes (e.g. `202604301207a`). Version must be exactly `\d{12}` — pure digits, no letters, no separators. Root cause: CLI parses 14-digit timestamps as `YYYYMMDDHHMMSS` and 12-digit as raw strings; the sorted-merge can never reconcile mixed formats across a rename. **Pattern**: when renaming a mis-versioned migration, pick a 12-digit numeric slot that sorts correctly (e.g. `202604301199` sorts before `202604301203` without ambiguity). **Failure**: `--status applied` command exits with parse error; repair cannot complete. Discovered Epic 4 retro Q2 (PR #80, 2026-05-08).
+
 ---
 
 ## F1-F13 Amendments — Quick Reference

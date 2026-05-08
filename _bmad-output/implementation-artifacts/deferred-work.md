@@ -311,6 +311,12 @@ Implementation when triggered: ~4-line change in `founder-admin-only.js` — app
 
 ---
 
+## Deferred from: PR #80 — Epic 4 retro prep (2026-05-08)
+
+- **`app/src/routes/onboarding/scan.js` contains bare `fetch()` call — triggers `no-direct-fetch` lint via `tests/shared/mirakl/a01-pc01-of21-p11.test.js`** [`app/src/routes/onboarding/scan.js`] — the scan route uses a raw `fetch()` for the status-polling endpoint path calculation, which the `no-direct-fetch` rule flags. Pre-existing issue surfaced during PR #80 test run. The HTTP call belongs in `shared/mirakl/`; the route should import from the SSoT module. Defer to Epic 7 / scan hardening or as a standalone chore before Epic 5 if lint is blocking CI.
+
+---
+
 ## Deferred from: Epic 4 live smoke (2026-05-07)
 
 - **Scan worker has no retry logic for transient Worten API failures** [`worker/src/jobs/onboarding-scan.js`] — live smoke showed the scan failing mid-pagination with "O Worten está temporariamente indisponível" at different SKU counts across attempts (3800, 14500). The worker fails the entire scan on any transient 5xx from P11 instead of retrying the failed page. Fix: add exponential backoff retry (3 attempts, 2s/4s/8s) around the P11 paginated fetch. Defer to Epic 7 / scan hardening.
