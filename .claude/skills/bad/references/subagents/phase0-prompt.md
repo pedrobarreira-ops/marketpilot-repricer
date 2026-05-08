@@ -7,8 +7,8 @@ DECIDE how much to run based on whether the graph already exists:
   | Situation                           | Action                                               |
   |-------------------------------------|------------------------------------------------------|
   | No graph (first run)                | Run all steps                                        |
-  | Graph exists, no new stories        | Skip steps 2–3; go to step 4. Preserve all chains.  |
-  | Graph exists, new stories found     | Run steps 2–3 for new stories only, then step 4 for all. |
+  | Graph exists, no new stories        | Skip steps 2–3; go to step 4. Preserve dependency chains (the Dependencies column + "Dependency Chains" section). RECOMPUTE Ready to Work cells in step 6 — they are rule-driven, not just state-driven. |
+  | Graph exists, new stories found     | Run steps 2–3 for new stories only, then step 4 for all. RECOMPUTE Ready to Work cells in step 6. |
 
 BRANCH SAFETY — before anything else, ensure the repo root is on main:
   git branch --show-current
@@ -26,6 +26,10 @@ STEPS:
 
 1. Read `_bmad-output/implementation-artifacts/sprint-status.yaml`. Note current story
    statuses. Compare against the existing graph (if any) to identify new stories.
+   Also read the top-level `merge_blocks:` block (sibling of `development_status:`,
+   NOT inside it). Save as MERGE_BLOCKS — a map of `story_key → {until_story,
+   bundle, reason}`. Used in step 6 for the atomicity-bundle exception. Stories
+   absent from `merge_blocks:` are unblocked — that's the common case.
 
 2. Read `_bmad-output/planning-artifacts/epics.md` for dependency relationships of
    new stories. (Skip if no new stories.)
@@ -82,12 +86,34 @@ STEPS:
    Follow the schema, Ready to Work rules, and example in
    `references/subagents/phase0-graph.md` exactly.
 
+   **CRITICAL — re-read `phase0-graph.md` FULLY before computing Ready cells.**
+   The "Ready to Work Rules" section has four cases that must be applied in
+   order: standard → calendar-early exception → atomicity-bundle exception →
+   ❌ No reasons. Do NOT rely on training-data intuition; the file contains
+   project-specific exceptions (e.g., the bundle exception added 2026-05-08).
+
+   **CRITICAL — recompute Ready cells on every run.** Do NOT preserve old
+   Ready values just because no sprint-status row changed since the last run.
+   Ready cells are RULE-DRIVEN not just state-driven; if the rule set in
+   phase0-graph.md evolves, old cells become wrong even when the underlying
+   data is identical. Always re-evaluate using the current rule text.
+
+   **For the atomicity-bundle exception specifically:** when MERGE_BLOCKS
+   indicates a story qualifies, the Ready cell suffix needs the actual GitHub
+   PR branch name of the highest-numbered unmerged bundle-sibling upstream.
+   Look it up with:
+       gh pr view <upstream-PR-number> --json headRefName -q .headRefName
+   The PR branch format (`story-5.1-master-cron-dispatcher`) differs from
+   the sprint-status story-key format (`5-1-master-cron-dispatcher-...-eslint-rule`)
+   — use the value `gh pr view` returns verbatim. Set `base_branch` in the
+   ready_stories report to that exact branch name.
+
 7. Pull latest main (if step 5 didn't already do so):
      git pull origin main
 
 REPORT BACK to the coordinator with this structured summary:
   - ready_stories: list of { number, short_description, status, test_design_epic,
-    calendar_early } for every story marked "Ready to Work: Yes" that is not done.
+    calendar_early, base_branch } for every story marked "Ready to Work: Yes" that is not done.
       * `test_design_epic` resolves to the story's numerical epic by default, or
         to `calendar_early_overrides.<story>.test_design_epic` when the story
         appears in that block of sprint-status.yaml.
@@ -95,6 +121,13 @@ REPORT BACK to the coordinator with this structured summary:
         `(calendar-early)` suffix (i.e. the override exception fired); `false`
         otherwise. Phase 1 uses both fields to drive its selection rule and
         Epic-Start trigger without re-reading sprint-status.yaml.
+      * `base_branch` defaults to `main`. When Phase 0 marked the Ready cell
+        with `(bundle-stacked: {upstream-branch})` (the atomicity-bundle
+        exception fired — see phase0-graph.md "Ready to Work Rules"), set
+        `base_branch` to `{upstream-branch}` exactly as it appears in the
+        suffix. Step 1 will fork the new worktree from this branch instead
+        of `main`, so the story builds on the upstream bundle sibling's
+        unmerged code.
   - epic_test_design_status: map of epic number → `pending` | `done`, read directly
     from the top-level `epic_test_design:` block in sprint-status.yaml (sibling
     of `calendar_early_overrides:`, NOT inside `development_status:` — the block

@@ -84,22 +84,13 @@ You also have access to two BAD config values from `.claude/settings.json`:
    Epic 5 retro (2026-04-20) because the specifics-only rule above doesn't
    catch counting semantics.
 
-5. CI:
-   - If RUN_CI_LOCALLY is true → skip GitHub Actions and run the Local CI Fallback below.
-   - Otherwise, if MONITOR_SUPPORT is true → use the Monitor tool to watch CI status:
-       Write a poller script:
-         while true; do gh run view --json status,conclusion 2>&1; sleep 30; done
-       Start it with Monitor. React to each output line as it arrives:
-       - conclusion=success → stop Monitor, report success
-       - conclusion=failure or cancelled → stop Monitor, diagnose, fix, push, restart Monitor
-       - Billing/spending limit error in output → stop Monitor, run Local CI Fallback
-       - gh TLS/auth error in output → stop Monitor, switch to curl poller from `references/coordinator/pattern-gh-curl-fallback.md`
-   - Otherwise → poll manually in a loop:
-       gh run view
-     (If `gh` fails, use `gh run view` curl equivalent from `references/coordinator/pattern-gh-curl-fallback.md`)
-     - Billing/spending limit error → exit loop, run Local CI Fallback
-     - CI failed for other reason, or Claude bot left PR comments → fix, push, loop
-     - CI green → report success
+5. CI — read `RUN_CI_LOCALLY` from `_bmad/config.yaml` BEFORE any other CI action (Q2, Epic 5 retro: Story 5.2 Step 6 hung Monitor on no-checks-reported because RUN_CI_LOCALLY=true skips GitHub Actions entirely; the Monitor branch must not even be considered when true).
+
+   **If `RUN_CI_LOCALLY` is true** → do NOT dispatch Monitor, do NOT poll `gh run view`. Read `references/subagents/step6-ci-fallback.md` and run the Local CI Fallback exactly. Report based on its exit. SKIP the rest of step 5 (the GitHub Actions branches below do not apply).
+
+   **If `RUN_CI_LOCALLY` is false** — branch on `MONITOR_SUPPORT`:
+   - `MONITOR_SUPPORT=true` → use the Monitor tool with poller `while true; do gh run view --json status,conclusion 2>&1; sleep 30; done`. React per line: success → stop+report; failure/cancelled → stop, diagnose, fix, push, restart Monitor; billing-limit error → stop, run Local CI Fallback; gh TLS/auth error → switch to curl poller (`references/coordinator/pattern-gh-curl-fallback.md`).
+   - Otherwise → poll manually with `gh run view` in a loop (or curl equivalent if `gh` fails). Billing-limit → exit loop, run Local CI Fallback. Other failure or Claude bot PR comments → fix, push, loop. Green → report success.
 
 LOCAL CI FALLBACK (when RUN_CI_LOCALLY=true or billing-limited):
   Read `references/subagents/step6-ci-fallback.md` and follow its instructions exactly.

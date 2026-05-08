@@ -12,6 +12,18 @@ The coordinator's dispatch prompt provides:
    Context7 MCP (use `resolve-library-id` then `get-library-docs`). If Context7
    is unavailable, proceed with training data and note which libraries you
    couldn't verify.
+
+0.5. **Test command policy** — when `/bmad-dev-story`'s workflow says "run tests"
+   during red-green-refactor (its Steps 5, 7, 8 — per-task green-phase checks
+   and per-task regression checks), use `npm run test:unit` (~1m38s). Use the
+   full `npm test` (~20m) **only** at workflow Step 9 ("Run the full regression
+   suite"), as the final pre-completion gate. Rationale: the full suite includes
+   DB-bound integration tests that CI on the PR re-runs anyway (Step 6 of BAD).
+   Running it 4–8× per story inside Step 3 burns 60–140 min per story for no
+   safety gain — `test:unit` covers all unit + worker + route tests fail-fast.
+   Story 5.1 timing showed Step 3 was 12m 16s with 91 tool uses; this policy
+   targets that.
+
 1. Run /bmad-dev-story {number}-{short_description}.
 2. **Before writing any integration test SQL query**, grep the relevant
    migration files to verify every column name exists:

@@ -293,17 +293,17 @@ Whichever path was taken, confirm main is in a good state:
    ```
    Expected: no matches in non-comment lines.
 
-3. **Run the full test suite:**
+3. **Run the unit test suite:**
    ```bash
-   npm test
+   npm run test:unit
    ```
-   Report pass/fail counts.
+   Report pass/fail counts. We use `test:unit` (~1m38s) rather than full `npm test` (~20m) because step 4 below already confirms CI on main, which runs the full integration suite. Running both locally and remotely is duplicate work — the local check exists only to catch issues from the merge itself, and unit-level coverage is sufficient for that. (Bundle-merge cases where DB state matters are still caught by CI on main.)
 
 4. **CI on main:**
    ```bash
    gh run list --branch main --limit 2 --json conclusion,displayTitle
    ```
-   Latest should be `success` or `in_progress`. If `failure`, investigate before declaring "clean."
+   Latest should be `success` or `in_progress`. If `failure`, investigate before declaring "clean." This is the integration-test safety net for the post-merge state.
 
 5. **New test file check:** If the PR introduced new test files (e.g. `tests/epic3-3.X.additional.test.js` or `tests/epic3-3.X.unit.test.js`), verify they're in the `npm test` script in `package.json`. If not, add them. Until the `skipUnlessImplExists()` helper ships, this is manual.
 

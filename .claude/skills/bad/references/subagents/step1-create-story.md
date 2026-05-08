@@ -6,15 +6,23 @@ The coordinator's dispatch prompt provides:
 - `{number}` and `{short_description}` (story identifiers)
 - `{repo_root}` (working directory at dispatch time)
 - `{WORKTREE_BASE_PATH}` (root for git worktrees, e.g. `.worktrees`)
+- `{base_branch}` (base branch to fork the worktree from — defaults to `main`;
+  set to an upstream bundle sibling's PR branch when Phase 0's atomicity-bundle
+  exception fires for stacked-worktree dispatch)
 
 ---
 
-1. Create (or reuse) the worktree:
+1. Create (or reuse) the worktree, forking from `{base_branch}`:
      git worktree add {WORKTREE_BASE_PATH}/story-{number}-{short_description} \
-       -b story-{number}-{short_description}
-   If the worktree/branch already exists, switch to it, run:
-     git merge main
-   and resolve any conflicts before continuing.
+       -b story-{number}-{short_description} {base_branch}
+   If the worktree/branch already exists, switch to it, then absorb upstream
+   changes by merging `{base_branch}`:
+     git merge {base_branch}
+   For the typical case `{base_branch}` is `main`. For bundle-stacked dispatch
+   it will be an upstream bundle sibling's branch (e.g.
+   `story-5.1-master-cron-dispatcher-...`); merging that branch absorbs any
+   commits the upstream subagent has pushed since dispatch began. Resolve any
+   conflicts before continuing.
 
 2. Change into the worktree directory:
      cd {repo_root}/{WORKTREE_BASE_PATH}/story-{number}-{short_description}
