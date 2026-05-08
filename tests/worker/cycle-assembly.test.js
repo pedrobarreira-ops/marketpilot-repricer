@@ -120,7 +120,7 @@ test('unit_tests_use_mock_engine_not_real_decide_js', async () => {
 test('cycle_assembly_inserts_staging_row_for_undercut_decision', async () => {
   const { assembleCycle } = await import('../../worker/src/cycle-assembly.js');
   const { tx, inserts } = buildMockTx();
-  const { calls: auditCalls, stub: mockWriteAuditEvent } = buildMockAuditWriter();
+  const { stub: mockWriteAuditEvent } = buildMockAuditWriter();
 
   const customerMarketplaceId = randomUUID();
   const cycleId = randomUUID();
@@ -136,6 +136,21 @@ test('cycle_assembly_inserts_staging_row_for_undercut_decision', async () => {
     stagingInserts.length,
     1,
     'UNDERCUT decision must produce exactly 1 pri01_staging INSERT',
+  );
+
+  // The INSERT must carry all 5 documented columns in the documented param order
+  // [customer_marketplace_id, sku_id, channel_code, new_price_cents, cycle_id]
+  const params = stagingInserts[0].params ?? [];
+  assert.deepEqual(
+    params,
+    [
+      customerMarketplaceId,
+      skuChannels[0].sku_id,
+      skuChannels[0].channel_code,
+      1799,
+      cycleId,
+    ],
+    'staging INSERT params must match the documented column order [cm_id, sku_id, channel_code, new_price_cents, cycle_id]',
   );
 });
 
@@ -258,9 +273,9 @@ test('cycle_assembly_calls_circuit_breaker_stub_at_batch_end', async () => {
     buildSkuChannel({ customer_marketplace_id: customerMarketplaceId }),
   ];
 
-  let circuitBreakerCalled = false;
-  const circuitBreakerStub = async (_stagedCount) => {
-    circuitBreakerCalled = true;
+  const cbCalls = [];
+  const circuitBreakerStub = async (stagedCount) => {
+    cbCalls.push(stagedCount);
   };
 
   await assembleCycle(tx, customerMarketplaceId, skuChannels, cycleId, {
@@ -269,10 +284,83 @@ test('cycle_assembly_calls_circuit_breaker_stub_at_batch_end', async () => {
     circuitBreakerCheck: circuitBreakerStub,
   });
 
-  assert.ok(
-    circuitBreakerCalled,
-    'cycle-assembly must call the circuit-breaker check stub at the end of each customer batch (Story 7.6 fills this in)',
+  assert.equal(
+    cbCalls.length,
+    1,
+    'cycle-assembly must call the circuit-breaker check stub exactly once at the end of each customer batch',
   );
+  // Both SKU-channels were UNDERCUT → 2 staged rows; the stub must receive that count
+  // so Story 7.6 can implement the >50% rate threshold check.
+  assert.equal(
+    cbCalls[0],
+    2,
+    'circuit-breaker stub must receive the actual stagedCount from the batch (2 UNDERCUTs → 2)',
+  );
+});
+
+test('cycle_assembly_returns_staged_and_held_counts', async () => {
+  const { assembleCycle } = await import('../../worker/src/cycle-assembly.js');
+  const { tx } = buildMockTx();
+  const { stub: mockWriteAuditEvent } = buildMockAuditWriter();
+
+  const customerMarketplaceId = randomUUID();
+  const cycleId = randomUUID();
+  const skuChannels = [
+    buildSkuChannel({ customer_marketplace_id: customerMarketplaceId }),
+    buildSkuChannel({ customer_marketplace_id: customerMarketplaceId }),
+    buildSkuChannel({ customer_marketplace_id: customerMarketplaceId }),
+    buildSkuChannel({ customer_marketplace_id: customerMarketplaceId }),
+  ];
+
+  // 4 SKUs: UNDERCUT + HOLD + CEILING_RAISE + HOLD → 2 staged, 2 held
+  let idx = 0;
+  const seq = ['UNDERCUT', 'HOLD', 'CEILING_RAISE', 'HOLD'];
+  const seqEngine = {
+    decideForSkuChannel: async () => {
+      const action = seq[idx++];
+      return { action, newPriceCents: action === 'HOLD' ? null : 1799, auditEvents: [action.toLowerCase()] };
+    },
+  };
+
+  const result = await assembleCycle(tx, customerMarketplaceId, skuChannels, cycleId, {
+    engine: seqEngine,
+    writeAuditEvent: mockWriteAuditEvent,
+  });
+
+  assert.deepEqual(
+    result,
+    { stagedCount: 2, heldCount: 2 },
+    'assembleCycle must return { stagedCount, heldCount } reflecting the batch outcome (documented contract)',
+  );
+});
+
+test('cycle_assembly_audit_event_payload_includes_documented_fields', async () => {
+  const { assembleCycle } = await import('../../worker/src/cycle-assembly.js');
+  const { tx } = buildMockTx();
+  const { calls: auditCalls, stub: mockWriteAuditEvent } = buildMockAuditWriter();
+
+  const customerMarketplaceId = randomUUID();
+  const cycleId = randomUUID();
+  const skuChannel = buildSkuChannel({ customer_marketplace_id: customerMarketplaceId });
+
+  await assembleCycle(tx, customerMarketplaceId, [skuChannel], cycleId, {
+    engine: mockEngine('UNDERCUT', 1799),
+    writeAuditEvent: mockWriteAuditEvent,
+  });
+
+  assert.equal(auditCalls.length, 1, 'one decision → one audit call');
+  const call = auditCalls[0];
+  assert.equal(call.customerMarketplaceId, customerMarketplaceId, 'audit must carry customerMarketplaceId');
+  assert.equal(call.skuId, skuChannel.sku_id, 'audit must carry skuId from sku_channel.sku_id');
+  assert.equal(call.skuChannelId, skuChannel.id, 'audit must carry skuChannelId from sku_channel.id');
+  assert.equal(call.cycleId, cycleId, 'audit must carry cycleId');
+  assert.equal(call.eventType, 'undercut-decision', 'audit eventType must come from engine auditEvents');
+  assert.deepEqual(
+    call.payload,
+    { action: 'UNDERCUT', newPriceCents: 1799 },
+    'audit payload must include action + newPriceCents (Story 7.6/Epic 9 will key on this)',
+  );
+  assert.ok(call.tx, 'audit call must include tx for transactional audit-event write');
 });
 
 test('cycle_assembly_test_covers_mixed_decisions', async () => {
@@ -440,7 +528,7 @@ if (process.env.SUPABASE_SERVICE_ROLE_DATABASE_URL) {
       return { userId: user.user.id, jwt: session.session.access_token };
     }
 
-    const { userId: userAId, jwt: jwtA } = await createUser('rls-staging-a@test.marketpilot.pt');
+    const { jwt: jwtA } = await createUser('rls-staging-a@test.marketpilot.pt');
     const { userId: userBId } = await createUser('rls-staging-b@test.marketpilot.pt');
 
     // Create customer_marketplace for customer B
