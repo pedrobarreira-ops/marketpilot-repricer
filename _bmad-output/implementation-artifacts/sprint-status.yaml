@@ -1,6 +1,6 @@
 # generated: 2026-05-01
-# last_updated: 2026-05-07  # bmad-create-story: Story 4.6 sharded 2026-05-07 (Bob); 4-6-scan-failed-email-scan-failed-interception → ready-for-dev
-# prev_updated: 2026-05-04  # bmad-retrospective: Epic 2 retro complete (epic-2: in-progress → done; epic-2-retrospective: optional → done); doc saved at epic-2-retro-2026-05-04.md; 6 sequenced action items + 1 watch-deferred (Items 1-2 P0 blocking Epic 3: distillate directory-tree fix + Cloud migrations push + MCP verify; Items 3-5 strongly-recommended pre-Epic-3: BAD Phase 4 worktree-cleanup investigation + Step 6 PR-body data-grounding + sprint-status main-only flips Option B; Item 6 calendar-ahead forward-debt note for Story 4.1; Item 7 deferred filename-convention watch); 5 decisions recorded (Q1-Q5); 1st confirmed slipped Epic-1-retro item (distillate db/migrations→supabase/migrations); systemic prediction confirmed empirically: Library Empirical Contract #12 (RLS JWT set_config pattern) surfaced through Phase 4.5 gate exactly as Epic 1 retro predicted; bmad-create-story: Story 9.0 sharded 2026-05-04 (Bob); 9-0-writeauditevent-ssot → ready-for-dev
+# last_updated: 2026-05-08  # bmad-retrospective: Epic 4 retro complete (epic-4: in-progress → done; epic-4-retrospective: optional → done); doc saved at epic-4-retro-2026-05-08.md; 9 sequenced action items + 3 watch (Items 1-3 P0 blocking Epic 5 sharding: Q1 sentinel fix max_discount_pct NULLABLE + drop key.js placeholder, Q2 migration drift repair via supabase migration repair for 20260430120730 + 202605062200, Q3 bypass-wrapper NODE_ENV=test guard in 3 routes; Items 4-6 strongly-recommended pre-Epic-5: BAD Step 5/7 node --check boot test + migration filename lint + unit-test shadow-logic guardrail; Items 7-9 watch (Q4 Context7 mandate at library-introduction points only — drop blanket Step 3 instruction, retry at Epic 11 Story 11.1; Item 8 PR-body hallucination accept-and-monitor 9 PRs in a row cosmetic only; Item 9 Bundle C atomicity gate Story 7.8 watch)); 4 decisions recorded (Q1-Q4); Epic 3 retro Item 4 watch trigger fired (zero Context7 references across all 9 Epic 4 story files); 5 Mirakl MCP schema-shape corrections caught in Story 4.4 (PC01 nested paths, P11 products[].offers[], OF21 EAN extraction, P11 channels-empty, P11 shop_id-null); Atomicity Bundle B held under merge-pressure (4.3 merge-blocked until 4.4 landed); forward-debt from Epic 2 retro Item 6 fully discharged in Story 4.1 PR #71
+# prev_updated: 2026-05-07  # bmad-create-story: Story 4.6 sharded 2026-05-07 (Bob); 4-6-scan-failed-email-scan-failed-interception → ready-for-dev
 # project: marketpilot-repricer
 # project_key: NOKEY
 # tracking_system: file-system
@@ -73,7 +73,7 @@
 # by design; pre-dates the rule).
 
 generated: 2026-05-01
-last_updated: 2026-05-07  # bmad-create-story: Story 4.9 sharded 2026-05-07 (BAD Step 1); 4-9-dashboard-root-in-dry-run-minimal-landing-only → ready-for-dev
+last_updated: 2026-05-08  # bmad-retrospective: Epic 4 retro complete; epic-4 → done; epic-4-retrospective → done; doc at epic-4-retro-2026-05-08.md
 project: marketpilot-repricer  # updated by bmad-create-story: Story 1.1 sharded 2026-05-01; Story 1.2 sharded 2026-05-01; Story 1.3 sharded 2026-05-02; Story 1.4 sharded 2026-05-02; Story 1.5 sharded 2026-05-03; Story 1.5 → review 2026-05-03; Story 1.5 → done 2026-05-03 (post-review); Story 2.1 sharded 2026-05-03 (Bob) → ready-for-dev
 project_key: NOKEY
 tracking_system: file-system
@@ -119,7 +119,7 @@ development_status:
   # =========================================================================
   # EPIC 4 -- Customer Onboarding  (architecture S-I phase 4)
   # =========================================================================
-  epic-4: in-progress
+  epic-4: done  # bmad-retrospective: flipped in-progress → done 2026-05-08; all 9 stories shipped end-to-end through BAD pipeline in 2 days; Atomicity Bundle B held; Mirakl MCP caught 5 schema corrections in Story 4.4; live smoke 2026-05-07 found 2 real scan-worker bugs deferred to Epic 7 hardening; retro saved at epic-4-retro-2026-05-08.md
   4-1-customer-marketplaces-schema-with-f4-provisioning-cron-state-machine-transitions-matrix: done  # ATOMICITY BUNDLE B (1/2); ESLint: no-raw-cron-state-update ships here; RLS regression debt from Story 2.2 — Bob's shard MUST extend db/seed/test/two-customers.sql + tests/integration/rls-regression.test.js CUSTOMER_SCOPED_TABLES registry + replace rls_isolation_shop_api_key_vault_deferred_awaiting_epic4 with row-level test (Epic 2 retro 2026-05-04 Item 6)
   4-2-skus-sku-channels-baseline-snapshots-scan-jobs-schemas-rls: done
   4-3-key-entry-form-onboarding-key-inline-5s-validation-encrypted-persistence-worten-key-one-page-guide-modal: done  # PR #73 merged 2026-05-07; import path fix applied post-review (commit 8eccdf6)
@@ -129,7 +129,7 @@ development_status:
   4-7-scan-ready-interstitial-onboarding-scan-ready-ux-dr33-34: done  # sharded 2026-05-07 (BAD Step 1); Pattern A UI — scan-ready.js route + onboarding-scan-ready.eta + <details> disclosure; 4 count queries (skus, sku_channels, scan_jobs); UX-DR33-34 verbatim copy; CRITICAL: skus_total semantics gap flagged in Dev Notes — verify against Story 4.4 impl before coding noEanCount
   4-8-margin-question-onboarding-margin-smart-default-mapping-5-warning: done  # bmad-create-story: Story 4.8 sharded 2026-05-07 (BAD Step 1)  # atdd-done 2026-05-07 (BAD Step 2)  → review 2026-05-07 (BAD Step 3) → done 2026-05-07 (BAD Step 7; PR #78)
   4-9-dashboard-root-in-dry-run-minimal-landing-only: done  # bmad-create-story: Story 4.9 sharded 2026-05-07 (BAD Step 1)  # atdd-done 2026-05-07 (BAD Step 2)
-  epic-4-retrospective: optional
+  epic-4-retrospective: done  # 2026-05-08 — Bob facilitated; saved at epic-4-retro-2026-05-08.md; 9 sequenced action items + 3 watch (Items 1-3 P0 blocking Epic 5: Q1 sentinel fix + Q2 migration drift repair + Q3 bypass-wrapper NODE_ENV=test guard; Items 4-6 strongly-recommended: BAD node --check boot test + migration filename lint + shadow-logic guardrail; Items 7-9 watch); 4 decisions Q1-Q4; Epic 3 retro Item 4 (Context7) watch trigger fired — verdict captured Q4 mandate library-introductions only; 5 Mirakl MCP corrections in Story 4.4; Bundle B atomicity held under merge-pressure; Epic 2 retro Item 6 forward-debt fully discharged in Story 4.1
 
   # =========================================================================
   # EPIC 5 -- Cron Dispatcher & State Machine  (architecture S-I phase 5)

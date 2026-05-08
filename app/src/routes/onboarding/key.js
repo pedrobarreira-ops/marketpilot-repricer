@@ -293,7 +293,9 @@ export async function keyRoutes (fastify, _opts) {
 
     try {
       // 1. Insert or find customer_marketplaces row in PROVISIONING state.
-      //    max_discount_pct: 0.0300 sentinel — overwritten by Story 4.8 /onboarding/margin POST.
+      //    max_discount_pct: NULL — Story 4.8 forward-only guard checks IS NOT NULL
+      //    to detect "customer has chosen a margin". Migration 202605081000 dropped
+      //    the NOT NULL constraint so this works (Epic 4 retro Q1).
       //    max_increase_pct: 0.0500 default top band.
       //    All A01/PC01 columns NULL → satisfies F4 CHECK constraint (PROVISIONING allowed).
       let cmId;
@@ -307,9 +309,9 @@ export async function keyRoutes (fastify, _opts) {
       } else {
         const cmInsert = await req.db.query(
           `INSERT INTO customer_marketplaces
-             (customer_id, operator, marketplace_instance_url, cron_state, max_discount_pct, max_increase_pct)
+             (customer_id, operator, marketplace_instance_url, cron_state, max_increase_pct)
            VALUES
-             ($1, 'WORTEN', 'https://marketplace.worten.pt', 'PROVISIONING', 0.0300, 0.0500)
+             ($1, 'WORTEN', 'https://marketplace.worten.pt', 'PROVISIONING', 0.0500)
            RETURNING id`,
           [customerId]
         );
