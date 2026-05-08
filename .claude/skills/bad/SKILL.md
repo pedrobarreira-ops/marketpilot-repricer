@@ -366,10 +366,18 @@ intermediate quality checks within the dev → review transition).
 
 ### Step 1: Create Story (`MODEL_STANDARD`)
 
-Spawn with model `MODEL_STANDARD` (yolo mode):
+Spawn with model `MODEL_STANDARD` (yolo mode). Substitute `{base_branch}` from the
+`base_branch` field of this story's `ready_stories` entry in the Phase 0 report
+(defaults to `main`; will be an upstream bundle sibling's PR branch when the
+atomicity-bundle exception fired in Phase 0):
 ```
 You are the Step 1 story creator for story {number}-{short_description}.
 Working directory: {repo_root}. WORKTREE_BASE_PATH is `{WORKTREE_BASE_PATH}` (used to construct the worktree path).
+The worktree base branch is `{base_branch}` — fork the new worktree from this
+branch. For non-bundle stories this is `main`; for bundle-stacked dispatch (per
+Phase 0's atomicity-bundle exception) it is the upstream bundle sibling's PR
+branch (e.g. `story-5.1-master-cron-dispatcher-...`), so the new story builds on
+the upstream's unmerged code.
 Auto-approve all tool calls (yolo mode).
 
 Read `references/subagents/step1-create-story.md` and follow its instructions exactly.

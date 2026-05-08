@@ -87,7 +87,7 @@ STEPS:
 
 REPORT BACK to the coordinator with this structured summary:
   - ready_stories: list of { number, short_description, status, test_design_epic,
-    calendar_early } for every story marked "Ready to Work: Yes" that is not done.
+    calendar_early, base_branch } for every story marked "Ready to Work: Yes" that is not done.
       * `test_design_epic` resolves to the story's numerical epic by default, or
         to `calendar_early_overrides.<story>.test_design_epic` when the story
         appears in that block of sprint-status.yaml.
@@ -95,6 +95,13 @@ REPORT BACK to the coordinator with this structured summary:
         `(calendar-early)` suffix (i.e. the override exception fired); `false`
         otherwise. Phase 1 uses both fields to drive its selection rule and
         Epic-Start trigger without re-reading sprint-status.yaml.
+      * `base_branch` defaults to `main`. When Phase 0 marked the Ready cell
+        with `(bundle-stacked: {upstream-branch})` (the atomicity-bundle
+        exception fired — see phase0-graph.md "Ready to Work Rules"), set
+        `base_branch` to `{upstream-branch}` exactly as it appears in the
+        suffix. Step 1 will fork the new worktree from this branch instead
+        of `main`, so the story builds on the upstream bundle sibling's
+        unmerged code.
   - epic_test_design_status: map of epic number → `pending` | `done`, read directly
     from the top-level `epic_test_design:` block in sprint-status.yaml (sibling
     of `calendar_early_overrides:`, NOT inside `development_status:` — the block
