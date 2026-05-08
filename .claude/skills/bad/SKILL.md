@@ -650,19 +650,25 @@ Using the assessment report from Step 2, follow the applicable branch:
 
    How do you want to proceed?
 
-   [R] Run /bad-review on the open PR(s) now (recommended)
-       Spawns bad-review as a fresh-context subagent. After it returns,
-       you'll see the verdict and decide whether to merge.
+   [R] Run /bad-review on the NEWEST open PR only (recommended)
+       Spawns bad-review on PR #{newest-PR-number} only — the one BAD just
+       shipped this batch. Older open PRs were already audited in prior
+       batches and have no new commits since, so re-auditing them costs
+       Opus tokens for no new findings.
+   [A] Audit ALL open PRs
+       Use only if prior audits are stale OR you want fresh cross-PR checks.
+       Iterates each open PR sequentially (~5-10 min Opus + ~100k tokens per PR).
    [S] Stop BAD
        Don't run bad-review. You can run it manually in a new session.
    ```
-   📣 **Notify:** `⏸ BAD halted — batch complete. [R] Run bad-review now, or [S] stop.`
+   📣 **Notify:** `⏸ BAD halted — batch complete. [R] audit newest, [A] audit all, or [S] stop.`
 
-   If no open PRs (`current_epic_merged = true` and no leftover PRs from earlier batches): omit the `[R]` option and just print `Run /bad in a new session to start the next batch.` Then stop BAD.
+   If no open PRs (`current_epic_merged = true` and no leftover PRs from earlier batches): omit the `[R]` and `[A]` options and just print `Run /bad in a new session to start the next batch.` Then stop BAD.
 
-3. **[R] handler — Inline bad-review with fresh context:**
+3. **[R] / [A] handler — Inline bad-review with fresh context:**
 
-   For each open PR (sequentially — wait for each to fully resolve before starting the next):
+   - **[R]**: target the NEWEST open PR ONLY (the one this batch just shipped — highest PR number among the open list, OR the one whose story key matches the just-completed Phase 2 batch). Run 3a + 3b + 3c on that one PR, then go to 3d. Do NOT loop to other open PRs even if [N] is chosen.
+   - **[A]**: iterate every open PR sequentially. Run 3a + 3b + 3c on the first, then [N] / [M]'s success path loops back to 3a for the next PR. After all open PRs processed, go to 3d.
 
    **3a. Spawn the audit subagent** (`general-purpose` type — needs `Agent` tool to spawn its own audit subagents):
    ```
