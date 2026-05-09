@@ -245,11 +245,13 @@ export async function clearPendingImport ({
       }
     }
 
-    // Forward dependency on Story 6.3 — stub until pri03-parser.js ships.
+    // PRI03 error-report parsing + per-SKU rebuild (AC#5 — course correction 2026-05-09).
     // fetchAndParseErrorReport is invoked only when has_error_report === true.
-    // This wires up the invocation contract without blocking Story 6.2 deployment.
-    // baseUrl + apiKey arrive as explicit params from pollImportStatus — they
-    // are never attached to tx (apiKey leak risk; tx-monkey-patching code smell).
+    // baseUrl + apiKey arrive as explicit params — never attached to tx (apiKey leak risk).
+    //
+    // The lineMap (lineNumber → shopSku) is persisted in pri01_staging.csv_line_number at
+    // PRI01 flush time (AC#6 in pri01-writer.js). We query it here so the parser can map
+    // PRI03 error-report line numbers back to shop_sku values without the transient in-memory CSV.
     if (hasErrorReport === true) {
       let fetchAndParseErrorReport;
       try {
@@ -258,7 +260,48 @@ export async function clearPendingImport ({
         fetchAndParseErrorReport = null; // Story 6.3 not yet deployed
       }
       if (fetchAndParseErrorReport) {
-        await fetchAndParseErrorReport(baseUrl, apiKey, importId, tx);
+        // Query csv_line_number and shop_sku from pri01_staging JOIN skus.
+        // customer_marketplace_id predicate is mandatory (worker-must-filter-by-customer ESLint rule).
+        // Only rows where csv_line_number IS NOT NULL have been flushed (post-AC#6 flush writes it).
+        let lineMap = {};
+        let cycleId = null;
+        try {
+          const { rows: lineMapRows } = await tx.query(
+            `SELECT ps.csv_line_number, s.shop_sku, ps.cycle_id
+               FROM pri01_staging ps
+               JOIN skus s ON s.id = ps.sku_id
+              WHERE ps.import_id = $1
+                AND ps.customer_marketplace_id = $2
+                AND ps.csv_line_number IS NOT NULL`,
+            [importId, customerMarketplaceId]
+          );
+          for (const row of lineMapRows) {
+            lineMap[row.csv_line_number] = row.shop_sku;
+          }
+          // cycleId is the same for all rows in one import — capture from first row
+          cycleId = lineMapRows[0]?.cycle_id ?? null;
+        } catch (lineMapErr) {
+          // csv_line_number column may not exist yet (pre-AC#6 migration) — graceful degradation.
+          // Parser will receive an empty lineMap and return all errors as failedSkus with shopSku: null.
+          logger.warn(
+            { importId, customerMarketplaceId, err_name: lineMapErr?.name },
+            'pri02-poller: failed to query csv_line_number lineMap from pri01_staging (pre-AC#6 schema?) — proceeding with empty lineMap'
+          );
+        }
+
+        // Invoke parser with the real lineMap as the 4th argument (NOT tx).
+        const { failedSkus } = await fetchAndParseErrorReport(baseUrl, apiKey, importId, lineMap);
+
+        // Schedule per-SKU rebuild for failed SKUs.
+        if (failedSkus && failedSkus.length > 0) {
+          const { scheduleRebuildForFailedSkus } = await import('./pri03-parser.js');
+          await scheduleRebuildForFailedSkus({
+            tx,
+            customerMarketplaceId,
+            failedSkus,
+            cycleId,
+          });
+        }
       }
     }
 

@@ -216,19 +216,27 @@ export async function submitPriceImport (baseUrl, apiKey, csvBody) {
  * Ensures Bundle C atomicity invariant: zero rows in the cycle batch have
  * pending_import_id IS NULL after this function returns.
  *
+ * AC#6 (course correction 2026-05-09): When `lineMap` is provided (as returned by
+ * buildPri01Csv), this function also persists csv_line_number in each pri01_staging
+ * row inside the same transaction. This allows pri02-poller.js to reconstruct the
+ * lineMap at PRI02 poll time without the transient in-memory CSV data.
+ *
  * @param {object} opts
  * @param {{ query: Function }} opts.tx - active transaction client (service-role)
  * @param {string} opts.cycleId - UUID of the current pricing cycle
  * @param {string} opts.importId - UUID returned by submitPriceImport
  * @param {string} opts.customerMarketplaceId - UUID (required; satisfies worker-must-filter-by-customer)
+ * @param {{ [lineNumber: number]: string } | null} [opts.lineMap] - Optional line-number → shopSku map
+ *   from buildPri01Csv. When provided, csv_line_number is persisted per pri01_staging row.
  * @returns {Promise<void>}
  */
-export async function markStagingPending ({ tx, cycleId, importId, customerMarketplaceId }) {
-  // Step 1: Fetch all staging rows for this cycle + customer
-  // Returns sku_id + channel_code + new_price_cents (staging is per-channel)
+export async function markStagingPending ({ tx, cycleId, importId, customerMarketplaceId, lineMap = null }) {
+  // Step 1: Fetch all staging rows for this cycle + customer.
+  // Also fetch id and join skus for shop_sku (needed for csv_line_number persistence via lineMap).
   const stagingResult = await tx.query(
-    `SELECT DISTINCT s.sku_id, s.channel_code, s.new_price_cents
+    `SELECT s.id, s.sku_id, s.channel_code, s.new_price_cents, sk.shop_sku
        FROM pri01_staging s
+       JOIN skus sk ON sk.id = s.sku_id
       WHERE s.cycle_id = $1
         AND s.customer_marketplace_id = $2`,
     [cycleId, customerMarketplaceId],
@@ -245,10 +253,16 @@ export async function markStagingPending ({ tx, cycleId, importId, customerMarke
   const stagedBySkuChannel = new Map();
   /** @type {Set<string>} */
   const allSkuIds = new Set();
+  // Build `shop_sku:channel_code` → staging.id for csv_line_number persistence
+  /** @type {Map<string, string>} */
+  const stagingIdByShopSkuChannel = new Map();
 
   for (const row of stagedRows) {
     stagedBySkuChannel.set(`${row.sku_id}:${row.channel_code}`, row.new_price_cents);
     allSkuIds.add(row.sku_id);
+    if (row.shop_sku) {
+      stagingIdByShopSkuChannel.set(`${row.shop_sku}:${row.channel_code}`, row.id);
+    }
   }
 
   // Step 2: Load ALL sku_channel rows for every SKU in the batch
@@ -282,7 +296,7 @@ export async function markStagingPending ({ tx, cycleId, importId, customerMarke
     );
   }
 
-  // Step 4: Mark all staging rows as flushed
+  // Step 4: Mark all staging rows as flushed (bulk update for the cycle)
   await tx.query(
     `UPDATE pri01_staging
         SET flushed_at = NOW(),
@@ -291,4 +305,65 @@ export async function markStagingPending ({ tx, cycleId, importId, customerMarke
         AND customer_marketplace_id = $3`,
     [importId, cycleId, customerMarketplaceId],
   );
+
+  // Step 5: Persist csv_line_number per staging row (AC#6 — course correction 2026-05-09).
+  // lineMap is { [lineNumber]: shopSku } from buildPri01Csv (one entry per CSV body row).
+  // Each lineNumber corresponds to one (shopSku, channelCode) pair in the staging rows.
+  // Multiple line numbers can share the same shopSku (one per channel).
+  // We need the (shopSku, channelCode) → staging.id mapping to target the correct row.
+  // Since lineMap only has shopSku (not channelCode), we iterate stagedRows to match
+  // line numbers by tracking which shopSku lines have been assigned (in CSV body row order).
+  if (lineMap && Object.keys(lineMap).length > 0) {
+    // Build shopSku → ordered list of staging IDs (preserving channel iteration order)
+    // Note: stagedRows ordering reflects the order the writer built the CSV (same skuChannels order).
+    // Map line number → staging.id by tracking which staging row each CSV line corresponds to.
+    // Since lineMap is { lineNumber: shopSku } and multiple lines can share a shopSku (different channels),
+    // we track per-shopSku how many lines have been assigned so far to advance through the channel list.
+    /** @type {Map<string, string[]>} */
+    const stagingIdsByShopSku = new Map();
+    for (const row of stagedRows) {
+      if (!row.shop_sku) continue;
+      if (!stagingIdsByShopSku.has(row.shop_sku)) {
+        stagingIdsByShopSku.set(row.shop_sku, []);
+      }
+      stagingIdsByShopSku.get(row.shop_sku).push(row.id);
+    }
+
+    /** @type {Map<string, number>} shopSku → index of next staging id to assign */
+    const shopSkuAssignIdx = new Map();
+
+    // Sort line numbers numerically so we assign staging IDs in CSV body order
+    const sortedLineNumbers = Object.keys(lineMap)
+      .map(n => parseInt(n, 10))
+      .sort((a, b) => a - b);
+
+    for (const lineNumber of sortedLineNumbers) {
+      const shopSku = lineMap[lineNumber];
+      const stagingIds = stagingIdsByShopSku.get(shopSku);
+      if (!stagingIds || stagingIds.length === 0) {
+        logger.warn(
+          { cycleId, lineNumber, shopSku },
+          'pri01-writer: no staging row found for shopSku in lineMap — csv_line_number not persisted for this line'
+        );
+        continue;
+      }
+
+      const idx = shopSkuAssignIdx.get(shopSku) ?? 0;
+      const stagingId = stagingIds[idx];
+      if (!stagingId) {
+        logger.warn(
+          { cycleId, lineNumber, shopSku, idx },
+          'pri01-writer: staging ID index out of bounds for shopSku — csv_line_number not persisted for this line'
+        );
+        continue;
+      }
+
+      shopSkuAssignIdx.set(shopSku, idx + 1);
+
+      await tx.query(
+        'UPDATE pri01_staging SET csv_line_number = $1 WHERE id = $2',
+        [lineNumber, stagingId]
+      );
+    }
+  }
 }

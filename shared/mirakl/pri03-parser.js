@@ -7,8 +7,16 @@
 //
 // Two exports:
 //   fetchAndParseErrorReport — GET /api/offers/pricing/imports/{import_id}/error_report
-//   scheduleRebuildForFailedSkus — inserts pri01_staging rows + increments failure counter
-//                                   + 3-strike escalation (freeze + Atenção + critical alert)
+//   scheduleRebuildForFailedSkus — inserts pri01_staging rows + 3-strike escalation
+//                                   (freeze + Atenção + critical alert)
+//
+// Counter ownership (course correction 2026-05-09):
+//   pri02-poller.js owns the pri01_consecutive_failures increment.
+//   It observes the FAILED status before the parser fetches the error
+//   report; transport errors during the parser's PRI03 fetch must NOT
+//   cause the failure count to skip — those are still failed imports.
+//   The parser reads the counter value to drive 3-strike escalation
+//   but does NOT increment. See Story 6.3 AC#7 + Dev Note 15.
 //
 // PRI03 endpoint (MCP-verified 2026-05-08):
 //   GET /api/offers/pricing/imports/{import_id}/error_report
@@ -325,24 +333,32 @@ export async function scheduleRebuildForFailedSkus ({
       continue;
     }
 
-    // Step-7 fix (counter divergence sanity): the per-SKU counter is updated
-    // in two places (this module + pri02-poller.js). pri02-poller targets
-    // affected rows by `id = ANY(...)` which can leave channels of the same
-    // SKU at different counts in edge cases (only one channel had a pending
-    // import). Use MAX across all channels of the SKU so the escalation
-    // decision reflects the highest observed counter rather than the first
-    // row Postgres happened to return (the SELECT has no ORDER BY and is not
-    // guaranteed stable).
+    // Counter ownership (course correction 2026-05-09):
+    //   pri02-poller.js owns the pri01_consecutive_failures increment.
+    //   It observes the FAILED status before the parser fetches the error
+    //   report; transport errors during the parser's PRI03 fetch must NOT
+    //   cause the failure count to skip — those are still failed imports.
+    //   The parser reads the counter value (already incremented by the poller
+    //   in the same tx) to drive 3-strike escalation but does NOT increment.
+    //   See Story 6.3 AC#7 + Dev Note 15.
+    //
+    // Use MAX across all channels of the SKU so the escalation decision reflects
+    // the highest observed counter. The poller increments by `id = ANY(...)` which
+    // can leave channels at different counts in edge cases (only one channel had
+    // a pending import). MAX prevents a stale-read from suppressing the freeze.
     const currentFailures = channelRows.reduce(
       (max, r) => Math.max(max, r.pri01_consecutive_failures ?? 0),
       0
     );
-    const newFailureCount = currentFailures + 1;
-    // Step-7 fix (re-fire suppression): if the SKU is already frozen for
-    // PRI01 persistent failure, the escalation side-effects (audit row +
-    // critical alert email) must NOT re-emit on subsequent cycles past the
-    // threshold. The dispatcher excludes frozen SKUs, so this can only
-    // happen for in-flight imports queued before the freeze landed.
+    // The poller already incremented this counter. `currentFailures` is the
+    // post-increment value. Use it directly as newFailureCount for the 3-strike
+    // escalation threshold comparison.
+    const newFailureCount = currentFailures;
+    // Re-fire suppression: if the SKU is already frozen for PRI01 persistent
+    // failure, the escalation side-effects (audit row + critical alert email)
+    // must NOT re-emit on subsequent cycles past the threshold. The dispatcher
+    // excludes frozen SKUs, so this can only happen for in-flight imports
+    // queued before the freeze landed.
     const alreadyFrozen = channelRows.some(r => r.frozen_for_pri01_persistent === true);
 
     // Step 2: Insert fresh pri01_staging rows for ALL channels of this SKU
@@ -358,26 +374,19 @@ export async function scheduleRebuildForFailedSkus ({
       );
     }
 
-    // Step 3: Increment pri01_consecutive_failures for all channels of this SKU
-    // Target by sku_id + customer_marketplace_id (all channels of the SKU).
-    await tx.query(
-      `UPDATE sku_channels
-          SET pri01_consecutive_failures = pri01_consecutive_failures + 1,
-              updated_at = NOW()
-        WHERE customer_marketplace_id = $1
-          AND sku_id = $2`,
-      [customerMarketplaceId, channelRows[0].sku_id]
-    );
+    // NOTE: The pri01_consecutive_failures increment is deliberately ABSENT here.
+    // The increment lives in pri02-poller.js (SOLE site). See counter ownership
+    // comment above and AC#7. The parser only READS the counter to gate escalation.
 
     logger.info(
       {
         customerMarketplaceId,
         shopSku,
         errorCode,
-        newFailureCount,
+        currentFailures: newFailureCount,
         channelCount: channelRows.length,
       },
-      'pri03-parser: rebuild staging rows inserted, failure counter incremented'
+      'pri03-parser: rebuild staging rows inserted'
     );
 
     // Step 4: 3-strike escalation — fire side-effects once, not on every

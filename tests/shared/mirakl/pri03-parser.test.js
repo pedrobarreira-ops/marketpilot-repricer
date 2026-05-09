@@ -446,7 +446,13 @@ describe('scheduleRebuildForFailedSkus', () => {
       'FAILED import: prices were never applied by Mirakl — last_set_price_cents must NOT be updated');
   });
 
-  it('schedule_rebuild_increments_pri01_consecutive_failures_counter', async () => {
+  it('parser_does_not_increment_counter', async () => {
+    // AC#7 (course correction 2026-05-09): counter ownership moved to poller.
+    // scheduleRebuildForFailedSkus must NOT issue any UPDATE sku_channels SET
+    // pri01_consecutive_failures = ... + 1 query. The increment is done BEFORE
+    // the parser is called (in pri02-poller.js FAILED path). The parser reads
+    // the already-incremented counter value to gate 3-strike escalation but
+    // does NOT write to it. Repurposed from schedule_rebuild_increments_pri01_consecutive_failures_counter.
     let scheduleRebuildForFailedSkus;
     try {
       ({ scheduleRebuildForFailedSkus } = await import('../../../shared/mirakl/pri03-parser.js'));
@@ -468,8 +474,9 @@ describe('scheduleRebuildForFailedSkus', () => {
       const sql = c.sql.toLowerCase();
       return sql.includes('update') && sql.includes('pri01_consecutive_failures') && sql.includes('+ 1');
     });
-    assert.ok(counterUpdateCalls.length >= 1,
-      'Expected UPDATE sku_channels SET pri01_consecutive_failures = pri01_consecutive_failures + 1');
+    assert.equal(counterUpdateCalls.length, 0,
+      'parser must NOT issue UPDATE sku_channels SET pri01_consecutive_failures = pri01_consecutive_failures + 1 — ' +
+      'counter ownership belongs to pri02-poller.js (AC#7). Parser reads counter; poller writes it.');
   });
 
   it('schedule_rebuild_resets_failure_counter_on_pri02_complete', async () => {
@@ -486,6 +493,10 @@ describe('scheduleRebuildForFailedSkus', () => {
   });
 
   it('schedule_rebuild_operates_in_single_transaction', async () => {
+    // AC#7 (course correction 2026-05-09): Parser no longer issues a counter increment UPDATE.
+    // Normal path (counter < 3): SELECT + INSERT only.
+    // 3-strike path (counter >= 3): SELECT + INSERT + UPDATE (freeze). This test uses the
+    // 3-strike path so UPDATE is present and the single-tx invariant can be verified.
     let scheduleRebuildForFailedSkus;
     try {
       ({ scheduleRebuildForFailedSkus } = await import('../../../shared/mirakl/pri03-parser.js'));
@@ -493,27 +504,32 @@ describe('scheduleRebuildForFailedSkus', () => {
       assert.fail('Module shared/mirakl/pri03-parser.js does not exist yet — implement it first');
     }
 
-    const skuRow = makeSkuChannelRow({ consecutiveFailures: 0 });
+    // Use consecutiveFailures: 3 (poller already incremented) to trigger the freeze UPDATE
+    const skuRow = makeSkuChannelRow({ consecutiveFailures: 3 });
     const tx = makeMockTx([{ rows: [skuRow], rowCount: 1 }]);
     // Use a second tx to prove all calls go to the same one
     const tx2 = makeMockTx([]);
 
-    await scheduleRebuildForFailedSkus({
-      tx,
-      customerMarketplaceId: 'cm-uuid-1',
-      failedSkus: [{ shopSku: 'EZ8809606851663', errorCode: 'ERR', errorMessage: 'Erro.' }],
-      cycleId: 'cycle-1',
-    });
+    try {
+      await scheduleRebuildForFailedSkus({
+        tx,
+        customerMarketplaceId: 'cm-uuid-1',
+        failedSkus: [{ shopSku: 'EZ8809606851663', errorCode: 'ERR', errorMessage: 'Erro.' }],
+        cycleId: 'cycle-1',
+      });
+    } catch {
+      // writeAuditEvent may throw without real DB — check tx calls
+    }
 
     // All DB operations must have gone to `tx`, not `tx2`
     assert.ok(tx.calls.length > 0, 'tx must have been used for DB writes');
     assert.equal(tx2.calls.length, 0, 'tx2 (alternative tx) must not have been used — single transaction invariant');
 
-    // SELECT + at least one INSERT + at least one UPDATE = all in same tx
+    // SELECT + at least one INSERT + at least one UPDATE (freeze) = all in same tx
     const hasSelect = tx.calls.some(c => c.sql.trim().toUpperCase().startsWith('SELECT'));
     const hasInsert = tx.calls.some(c => c.sql.trim().toUpperCase().startsWith('INSERT'));
     const hasUpdate = tx.calls.some(c => c.sql.trim().toUpperCase().startsWith('UPDATE'));
-    assert.ok(hasSelect && hasInsert && hasUpdate, 'SELECT, INSERT, and UPDATE must all flow through the single injected tx');
+    assert.ok(hasSelect && hasInsert && hasUpdate, 'SELECT, INSERT, and UPDATE (freeze) must all flow through the single injected tx');
   });
 
   it('schedule_rebuild_three_strikes_escalation_freezes_sku', async () => {
@@ -524,8 +540,9 @@ describe('scheduleRebuildForFailedSkus', () => {
       assert.fail('Module shared/mirakl/pri03-parser.js does not exist yet — implement it first');
     }
 
-    // Counter is at 2 — increment to 3 triggers escalation
-    const skuRow = makeSkuChannelRow({ id: 'sc-freeze', consecutiveFailures: 2 });
+    // AC#7: The poller already incremented the counter to 3 before calling the parser.
+    // The parser reads consecutiveFailures = 3 from the DB and triggers the 3-strike escalation.
+    const skuRow = makeSkuChannelRow({ id: 'sc-freeze', consecutiveFailures: 3 });
     const tx = makeMockTx([{ rows: [skuRow], rowCount: 1 }]);
 
     // Mock writeAuditEvent to prevent real DB call
@@ -558,7 +575,8 @@ describe('scheduleRebuildForFailedSkus', () => {
       assert.fail('Module shared/mirakl/pri03-parser.js does not exist yet — implement it first');
     }
 
-    const skuRow = makeSkuChannelRow({ id: 'sc-event', consecutiveFailures: 2 });
+    // AC#7: Poller already incremented counter to 3 — parser reads 3 and triggers escalation.
+    const skuRow = makeSkuChannelRow({ id: 'sc-event', consecutiveFailures: 3 });
     // tx.query must also handle the audit INSERT call from writeAuditEvent
     const tx = makeMockTx([{ rows: [skuRow], rowCount: 1 }]);
 
@@ -701,6 +719,12 @@ describe('PRI03 parser integration scenarios', () => {
   });
 
   it('pri03_parser_failure_counter_increments_correctly_across_cycles', async () => {
+    // AC#7 (course correction 2026-05-09): The poller owns the counter increment.
+    // The parser reads the counter value (already incremented by the poller in the same tx)
+    // to gate the 3-strike escalation. This test verifies:
+    //   - The parser does NOT issue a counter increment UPDATE on any cycle
+    //   - The 3-strike freeze triggers when the poller-incremented counter reaches 3
+    //   - Before cycle 3, no freeze is triggered
     let scheduleRebuildForFailedSkus;
     try {
       ({ scheduleRebuildForFailedSkus } = await import('../../../shared/mirakl/pri03-parser.js'));
@@ -710,11 +734,17 @@ describe('PRI03 parser integration scenarios', () => {
 
     const shopSku = 'EZ8809606851663';
     const customerMarketplaceId = 'cm-uuid-cycle';
-    let currentFailureCount = 0;
 
-    // Simulate 3 consecutive FAILED cycles
+    // Simulate 3 consecutive FAILED cycles.
+    // The poller increments the counter BEFORE calling the parser, so the
+    // consecutiveFailures value in the DB row is already post-increment.
+    // Cycle 1: poller set counter to 1; parser sees 1 → no freeze
+    // Cycle 2: poller set counter to 2; parser sees 2 → no freeze
+    // Cycle 3: poller set counter to 3; parser sees 3 → freeze + Atenção
     for (let cycle = 1; cycle <= 3; cycle++) {
-      const skuRow = makeSkuChannelRow({ id: 'sc-cycle', consecutiveFailures: currentFailureCount });
+      // The poller already incremented — pass the POST-increment value as consecutiveFailures
+      const pollerIncrementedCount = cycle;
+      const skuRow = makeSkuChannelRow({ id: 'sc-cycle', consecutiveFailures: pollerIncrementedCount });
       const tx = makeMockTx([{ rows: [skuRow], rowCount: 1 }]);
 
       try {
@@ -728,17 +758,16 @@ describe('PRI03 parser integration scenarios', () => {
         // writeAuditEvent may throw without real DB at cycle 3 — check tx calls
       }
 
-      // Assert counter increment happened
+      // Assert parser does NOT increment the counter (AC#7 invariant)
       const counterUpdate = tx.calls.find(c => {
         const sql = c.sql.toLowerCase();
         return sql.includes('update') && sql.includes('pri01_consecutive_failures') && sql.includes('+ 1');
       });
-      assert.ok(counterUpdate, `Cycle ${cycle}: counter increment UPDATE must have been issued`);
-
-      currentFailureCount++;
+      assert.equal(counterUpdate, undefined,
+        `Cycle ${cycle}: parser must NOT issue pri01_consecutive_failures + 1 UPDATE (AC#7: poller owns increment)`);
 
       if (cycle === 3) {
-        // At cycle 3: counter reaches 3 → freeze + Atenção
+        // At cycle 3: counter is at 3 (set by poller) → parser sees 3 → freeze + Atenção
         const freezeUpdate = tx.calls.find(c => {
           const sql = c.sql.toLowerCase();
           return sql.includes('update') && sql.includes('frozen_for_pri01_persistent');
@@ -756,7 +785,7 @@ describe('PRI03 parser integration scenarios', () => {
             "Cycle 3: audit event must use eventType 'pri01-fail-persistent'");
         }
       } else {
-        // Cycles 1 and 2: no freeze
+        // Cycles 1 and 2: counter is below 3 → no freeze
         const freezeUpdate = tx.calls.find(c => {
           const sql = c.sql.toLowerCase();
           return sql.includes('update') && sql.includes('frozen_for_pri01_persistent');

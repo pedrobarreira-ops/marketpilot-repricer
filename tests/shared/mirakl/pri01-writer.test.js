@@ -756,6 +756,104 @@ const data = readFileSync('tests/fixtures/pri01-csv/single-channel-undercut.csv'
 });
 
 // ---------------------------------------------------------------------------
+// AC#6 — csv_line_number persisted at flush (course correction 2026-05-09)
+// ---------------------------------------------------------------------------
+
+describe('csv_line_number persistence (AC#6)', () => {
+  // Helper: build a mock tx that records all .query() calls
+  function makeMockTxWithLineNum(responses = []) {
+    let callIndex = 0;
+    const calls = [];
+    return {
+      calls,
+      query: async (sql, params) => {
+        calls.push({ sql, params });
+        const response = responses[callIndex++];
+        return response ?? { rows: [] };
+      },
+    };
+  }
+
+  it('csv_line_number_persisted_after_flush', async () => {
+    // Arrange: a 2-line CSV — line 1 = WRT_PT_ONLINE, line 2 = WRT_ES_ONLINE (same SKU)
+    const cycleId = randomUUID();
+    const importId = randomUUID();
+    const customerMarketplaceId = randomUUID();
+    const skuId = randomUUID();
+    const channelId1 = randomUUID();
+    const channelId2 = randomUUID();
+    const stagingId1 = randomUUID();
+    const stagingId2 = randomUUID();
+    const shopSku = 'EZ8809606851663';
+
+    // lineMap from buildPri01Csv: line 1 = WRT_PT_ONLINE, line 2 = WRT_ES_ONLINE
+    const lineMap = { 1: shopSku, 2: shopSku };
+
+    const tx = makeMockTxWithLineNum([
+      // Query 1: pri01_staging SELECT (now includes id + shop_sku via JOIN skus)
+      {
+        rows: [
+          { id: stagingId1, sku_id: skuId, channel_code: 'WRT_PT_ONLINE', new_price_cents: 1799, shop_sku: shopSku },
+          { id: stagingId2, sku_id: skuId, channel_code: 'WRT_ES_ONLINE', new_price_cents: 1850, shop_sku: shopSku },
+        ]
+      },
+      // Query 2: sku_channels SELECT
+      {
+        rows: [
+          { id: channelId1, sku_id: skuId, channel_code: 'WRT_PT_ONLINE', last_set_price_cents: 1799 },
+          { id: channelId2, sku_id: skuId, channel_code: 'WRT_ES_ONLINE', last_set_price_cents: 1850 },
+        ]
+      },
+      // Query 3: UPDATE sku_channels channelId1
+      { rows: [] },
+      // Query 4: UPDATE sku_channels channelId2
+      { rows: [] },
+      // Query 5: UPDATE pri01_staging (bulk flushed_at + import_id)
+      { rows: [] },
+      // Query 6: UPDATE pri01_staging SET csv_line_number = 1 WHERE id = stagingId1
+      { rows: [] },
+      // Query 7: UPDATE pri01_staging SET csv_line_number = 2 WHERE id = stagingId2
+      { rows: [] },
+    ]);
+
+    await markStagingPending({ tx, cycleId, importId, customerMarketplaceId, lineMap });
+
+    // Assert csv_line_number UPDATE calls were issued
+    const csvLineNumberUpdates = tx.calls.filter(c => {
+      const sql = c.sql.toLowerCase();
+      return sql.includes('update pri01_staging') && sql.includes('csv_line_number');
+    });
+
+    assert.equal(
+      csvLineNumberUpdates.length,
+      2,
+      `Expected exactly 2 csv_line_number UPDATE queries (one per lineMap entry), got ${csvLineNumberUpdates.length}. ` +
+      `Calls: ${JSON.stringify(tx.calls.map(c => c.sql.slice(0, 60)))}`
+    );
+
+    // Assert the csv_line_number values match the lineMap integer keys
+    const lineNumbers = csvLineNumberUpdates.map(c => c.params[0]).sort((a, b) => a - b);
+    assert.deepEqual(lineNumbers, [1, 2],
+      'csv_line_number UPDATE must persist the integer lineMap keys (1 and 2)');
+
+    // Assert the staging IDs are targeted correctly (per-row targeting — not bulk)
+    const targetedIds = csvLineNumberUpdates.map(c => c.params[1]);
+    assert.ok(
+      targetedIds.includes(stagingId1) || targetedIds.includes(stagingId2),
+      'csv_line_number updates must target specific staging row IDs (not bulk cycle_id predicate)'
+    );
+
+    // Assert these are in the same tx as the import_id update (single transaction invariant)
+    const importIdUpdate = tx.calls.find(c =>
+      c.sql.toLowerCase().includes('update pri01_staging') &&
+      c.sql.toLowerCase().includes('import_id') &&
+      !c.sql.toLowerCase().includes('csv_line_number')
+    );
+    assert.ok(importIdUpdate, 'import_id UPDATE must also be in the same tx');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // AC#5 — PC01 capture completeness
 // ---------------------------------------------------------------------------
 
