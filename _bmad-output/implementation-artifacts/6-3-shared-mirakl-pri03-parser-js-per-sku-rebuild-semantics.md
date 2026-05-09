@@ -760,3 +760,31 @@ PR #85 passed all 7 BAD steps (atdd → dev → ATDD review → Test review → 
 ### File List
 
 (to be filled)
+
+### Review Findings (Step 5 Code Review — course-correction commits, 2026-05-09)
+
+**Scope:** Diff `451e06b~1..HEAD` (additive course-correction commits 451e06b + 8b92259 only). Critical-path classes matched (`shared/mirakl/`, `worker/src/`, `supabase/migrations/`) — Opus model active. Three adversarial layers run: Blind Hunter, Edge Case Hunter, Acceptance Auditor (against amended AC#5/AC#6/AC#7).
+
+**Verification gates passed:**
+
+- All 22 `pri03-parser` tests pass (incl. `parser_does_not_increment_counter`, `pri03_parser_failure_counter_increments_correctly_across_cycles`, `schedule_rebuild_three_strikes_*`)
+- All 23 `pri02-poller` tests pass (incl. AC#5 wire-up tests `pri02_failed_invokes_parser_and_rebuild_with_real_lineMap` + `pri02_failed_invokes_rebuild_with_queried_cycleId_when_failedSkus_present` + `poll_import_status_failed_increments_pri01_consecutive_failures_in_poller_sole_site`)
+- All 38 `pri01-writer` tests pass (incl. AC#6 `csv_line_number_persisted_after_flush` + `csv_line_number_persisted_for_multi_shopSku_lineMap_targets_correct_staging_ids`)
+- ESLint clean on all 4 modified critical-path files
+- Migration `202605091000_add_csv_line_number_to_pri01_staging.sql` is correctly additive (does NOT modify `202604301214_create_pri01_staging.sql`); 12-digit numeric version per Contract #15
+- `cycle_id NULL` defect path traced and verified impossible (parser cannot return non-empty `failedSkus` from an empty `lineMap`, so `INSERT pri01_staging (cycle_id NOT NULL)` never receives null)
+
+**AC compliance (course-correction):**
+
+- AC#5 — Production wire-up: VERIFIED. Poller queries `lineMap` from `pri01_staging` JOIN `skus` (both `import_id` AND `customer_marketplace_id` predicates), passes real `lineMap` as 4th arg (NOT `tx`), invokes `scheduleRebuildForFailedSkus` with queried `cycleId` (not synthesized `randomUUID`).
+- AC#6 — `csv_line_number` persistence: VERIFIED. New nullable column + writer per-row UPDATE inside same `tx` as the bulk `import_id` UPDATE.
+- AC#7 — Counter ownership flip: VERIFIED. Parser `UPDATE sku_channels SET pri01_consecutive_failures + 1` block removed; counter ownership comment block present (3 places); 3-strike escalation reads (not writes) the counter; poller retains sole-site increment.
+
+**Findings:**
+
+- [x] [Review][Defer] AC#1 graceful-degradation deviation — empty-`lineMap` path returns `failedSkus: []` instead of `failedSkus: [{shopSku: null, ...}]` per spec line 165 [shared/mirakl/pri03-parser.js:236] — deferred, functionally equivalent for current callers (rebuild scheduler skips when `failedSkus.length === 0`); no production code path exercises the spec's degraded-mode return shape
+- [x] [Review][Defer] Order-coupling fragility in writer's `lineMap` persistence — `markStagingPending` SELECT lacks `ORDER BY`; per-shopSku staging-ID list assembled in undefined Postgres row order, so multi-channel SKUs may receive `csv_line_number` values that don't match their original CSV body row [shared/mirakl/pri01-writer.js:236-243, 322-330] — deferred, latent fragility but not currently a defect; the only consumer (`pri02-poller.js` lineMap query) reads back `shop_sku` (not channel), and all channels of one SKU share the same `shop_sku`, so the assignment ambiguity is invisible downstream
+
+**Dismissed as noise (6):** dead `stagingIdByShopSkuChannel` Map (cosmetic); misleading `newFailureCount` naming (well-commented); 3× counter-ownership comment block duplication (project convention favours over-documenting course corrections); `let lineMap` could be `const` (cosmetic); two dynamic imports of `pri03-parser.js` (module cache makes second free); per-channel `pri01-fail-persistent` audit emit vs spec's singular phrasing (consistent with poller's existing per-channel pattern).
+
+**Outcome:** No `patch` findings. No `decision_needed` findings. 2 deferred (logged below + in `deferred-work.md`). 6 dismissed. Story 6.3 course-correction implementation is APPROVED for Step 6 (PR + CI). Bundle C merge gate to Story 7.8 unchanged.
