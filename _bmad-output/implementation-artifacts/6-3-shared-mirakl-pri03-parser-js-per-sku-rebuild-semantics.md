@@ -28,6 +28,29 @@
 
 ---
 
+## ⚠ COURSE CORRECTION (2026-05-09) — READ BEFORE IMPLEMENTING
+
+This spec was **updated post-merge-review** (PR #85) by `/bmad-correct-course`. The original ship passed all 7 BAD steps but `/bad-review` caught a **production wire-up gap** and a latent **counter double-count** bug. **AC#5, AC#6, AC#7** below are NEW requirements. Story status was rolled `review → atdd-done` so BAD re-dispatches Step 3 (Develop) onto this branch.
+
+**Three new acceptance criteria added (full text in Acceptance Criteria section):**
+- **AC#5** — Production wire-up of `pri02-poller → pri03-parser → scheduleRebuildForFailedSkus`
+- **AC#6** — `csv_line_number` persistence in `pri01_staging` (new migration `202605091000`)
+- **AC#7** — Counter ownership: **poller owns** `pri01_consecutive_failures`; parser drops its increment
+
+**Counter ownership decision is LOCKED** — see new Dev Note 15 below for rationale. **Do not re-litigate.**
+
+**Cross-story files modified in this PR (Bundle C stacked-branch composition):**
+- `shared/mirakl/pri01-writer.js` (Story 6.1's file) — persist `csv_line_number` per row at flush
+- `shared/mirakl/pri02-poller.js` (Story 6.2's file) — query `lineMap`, pass to parser, invoke rebuild, own counter increment
+- `supabase/migrations/202605091000_add_csv_line_number_to_pri01_staging.sql` — NEW migration
+- `shared/mirakl/pri03-parser.js` — drop counter increment
+
+PR #85 stays **merge-blocked until Story 7.8** (no change to Bundle C gate). PR #85 stays open as a stacked branch on PR #84. Course-correction commits land on the existing branch as additive commits — **no reset, no force-push**.
+
+Full audit trail and supersession map: see **Course-Correction Notes (2026-05-09)** at the top of `## Dev Agent Record`.
+
+---
+
 ## Narrative
 
 **As a** background worker process,
@@ -85,12 +108,17 @@ Test names that must pass (from `epic-6-test-plan.md`):
 
 | File | Action | Description |
 |---|---|---|
-| `shared/mirakl/pri03-parser.js` | CREATE | Two exports: `fetchAndParseErrorReport`, `scheduleRebuildForFailedSkus` |
+| `shared/mirakl/pri03-parser.js` | CREATE | Two exports: `fetchAndParseErrorReport`, `scheduleRebuildForFailedSkus`. **Course correction:** drop the `pri01_consecutive_failures` increment query (now owned by the poller — see AC#7 + Dev Note 15). |
 | `supabase/migrations/202604301215_add_pri01_consecutive_failures_to_sku_channels.sql` | CREATE | Adds `pri01_consecutive_failures smallint NOT NULL DEFAULT 0` AND `frozen_for_pri01_persistent boolean NOT NULL DEFAULT false` to `sku_channels` |
+| `supabase/migrations/202605091000_add_csv_line_number_to_pri01_staging.sql` | **CREATE (course correction 2026-05-09)** | Adds `csv_line_number INTEGER` (nullable) to `pri01_staging` per AC#6. Does NOT modify the existing `202604301214_create_pri01_staging.sql` migration. |
 
 **Update (minor):**
 - `worker/src/dispatcher.js` — add `AND sc.frozen_for_pri01_persistent = false` to the `DISPATCH_SQL` WHERE clause (after the `AND sc.frozen_for_anomaly_review = false` line — keep both)
 - `scripts/rls-regression-suite.js` — extend `CUSTOMER_SCOPED_TABLES` (or equivalent) to cover the new `sku_channels` columns; the suite must assert `frozen_for_pri01_persistent` cannot be read cross-tenant
+
+**Update (course correction 2026-05-09 — Bundle C cross-story files; PR #85 stacked diff naturally absorbs them):**
+- `shared/mirakl/pri01-writer.js` (Story 6.1's file) — at PRI01 flush, persist `csv_line_number` per `pri01_staging` row inside the same `tx` as the `import_id` update. Reuse the writer's existing `skuChannels` mapping to resolve `shopSku` → staging row `id`. See AC#6.
+- `shared/mirakl/pri02-poller.js` (Story 6.2's file) — in the FAILED path of `clearPendingImport`: query the `lineMap` and `cycleId` from `pri01_staging` JOIN `skus`, pass the `lineMap` (NOT `tx`) as the 4th arg to `fetchAndParseErrorReport`, and invoke `scheduleRebuildForFailedSkus({tx, customerMarketplaceId, failedSkus, cycleId})` when `failedSkus.length > 0`. Keep the existing `pri01_consecutive_failures` increment in this file (per AC#7 + Dev Note 15). See AC#5.
 
 **Do NOT create:**
 - Any cron job files (no new cron in this story)
@@ -247,6 +275,120 @@ Test names that must pass (from `epic-6-test-plan.md`):
 4. **Test `frozen_reason_discriminator_chosen_and_documented`:** Implemented as a grep on the migration file for `frozen_for_pri01_persistent` — if the column name is present, the design choice has been materialized.
 
 5. **Test `dispatcher_predicate_updated_for_chosen_freeze_representation`:** Reads `worker/src/dispatcher.js` source and asserts the string `frozen_for_pri01_persistent = false` appears in the `DISPATCH_SQL` constant.
+
+### AC#5 — Production wire-up of `pri02-poller` → `pri03-parser` → `scheduleRebuildForFailedSkus` *(NEW — course correction 2026-05-09)*
+
+**Given** the original PR #85 ship left `scheduleRebuildForFailedSkus` as **dead code** (parser early-exited on undefined `lineMap` because Story 6.2 passed `tx` as the 4th arg instead of `lineMap`):
+
+**When** a PRI02 poll observes `import_status = FAILED` with `has_error_report = true`:
+
+**Then** in `clearPendingImport`'s FAILED path inside `shared/mirakl/pri02-poller.js`, the poller MUST:
+
+1. **Query `lineMap` and `cycleId` from `pri01_staging`** before calling the parser:
+   ```sql
+   SELECT ps.csv_line_number, s.shop_sku, ps.cycle_id
+     FROM pri01_staging ps
+     JOIN skus s ON s.id = ps.sku_id
+    WHERE ps.import_id = $1
+      AND ps.customer_marketplace_id = $2
+      AND ps.csv_line_number IS NOT NULL
+   ```
+   `customer_marketplace_id` predicate is mandatory for `worker-must-filter-by-customer` ESLint compliance.
+
+2. **Build the `lineMap` object** from query results: `{ [csv_line_number]: shop_sku }`. All rows for one import share the same `cycle_id` — capture it from any returned row (e.g., the first).
+
+3. **Invoke the parser with the real `lineMap` as the 4th argument** (NOT `tx`):
+   ```js
+   const { failedSkus } = await fetchAndParseErrorReport(baseUrl, apiKey, importId, lineMap);
+   ```
+
+4. **Invoke the rebuild scheduler** when `failedSkus.length > 0`:
+   ```js
+   if (failedSkus && failedSkus.length > 0) {
+     const { scheduleRebuildForFailedSkus } = await import('./pri03-parser.js');
+     await scheduleRebuildForFailedSkus({
+       tx,
+       customerMarketplaceId,
+       failedSkus,
+       cycleId,    // queried above from pri01_staging
+     });
+   }
+   ```
+   All work runs inside the SAME `tx` opened by `clearPendingImport`.
+
+5. **Behavioral test (`pri02-poller.test.js`)** — extend or add `pri02_failed_invokes_parser_and_rebuild_with_real_lineMap`:
+   - Assert the `lineMap` SELECT against `pri01_staging` JOIN `skus` is issued (with both `import_id` and `customer_marketplace_id` predicates).
+   - Assert `fetchAndParseErrorReport` is called with the **queried `lineMap` object** (NOT `tx`) as the 4th argument.
+   - Assert `scheduleRebuildForFailedSkus` is called with `{ tx, customerMarketplaceId, failedSkus, cycleId }` where `failedSkus` matches the parser's return value and `cycleId` matches the queried row's `cycle_id`.
+
+**Supersedes:** Dev Note 4's `randomUUID()`-based `cycleId` synthesis (the queried `cycle_id` from `pri01_staging` is the source of truth).
+
+### AC#6 — `csv_line_number` persistence in `pri01_staging` *(NEW — course correction 2026-05-09)*
+
+**Given** `pri01_staging` rows are written by Story 5.2's writer pre-flush (no line number known yet) and the CSV `lineMap` is generated transiently by `buildPri01Csv` inside `shared/mirakl/pri01-writer.js` and discarded after the multipart POST:
+
+**When** PRI01 flush succeeds and the writer updates `import_id` per row in the same transaction:
+
+**Then:**
+
+1. **New migration file:** `supabase/migrations/202605091000_add_csv_line_number_to_pri01_staging.sql`:
+   ```sql
+   ALTER TABLE pri01_staging
+     ADD COLUMN csv_line_number INTEGER;
+   COMMENT ON COLUMN pri01_staging.csv_line_number IS
+     'CSV body row number (1-based) assigned at PRI01 flush. NULL pre-flush. Set by shared/mirakl/pri01-writer.js inside the same transaction as the import_id update. Used by pri02-poller.js FAILED path to reconstruct lineMap for pri03-parser.';
+   ```
+   - Column is **nullable** (pre-flush rows have no line number).
+   - Filename uses 12-digit numeric version `202605091000` per CLAUDE.md Contract #15 (Supabase CLI requirement).
+   - **Do NOT modify the existing `202604301214_create_pri01_staging.sql` migration** — migrations are immutable; the new column ships in a NEW file only.
+
+2. **Writer change:** `shared/mirakl/pri01-writer.js` — when `buildPri01Csv` returns `{ csvBody, lineMap }`, persist `csv_line_number` for each entry inside the **same transaction** as the existing `import_id` update:
+   ```js
+   for (const [lineNumber, shopSku] of Object.entries(lineMap)) {
+     const stagingRowId = skuIdByShopSku[shopSku];   // already in writer's scope via skuChannels
+     await tx.query(
+       'UPDATE pri01_staging SET csv_line_number = $1 WHERE id = $2',
+       [parseInt(lineNumber, 10), stagingRowId]
+     );
+   }
+   ```
+   The writer already maps `shopSku` → `sku_id` in its `skuChannels` data structure; reuse that mapping to resolve each `lineNumber` → `pri01_staging.id`.
+
+3. **Behavioral test (`pri01-writer.test.js`)** — add `csv_line_number_persisted_after_flush`:
+   - Assert exactly one `UPDATE pri01_staging SET csv_line_number = $1 WHERE id = $2` is issued per `lineMap` entry, in the same `tx` as the `import_id` update.
+   - Assert the persisted column values match the `lineMap` integer keys.
+
+### AC#7 — Counter ownership: poller owns, parser drops *(NEW — course correction 2026-05-09)*
+
+**Given** today both `pri02-poller.js` (lines 225-246) AND `pri03-parser.js` (lines 361-370) increment `pri01_consecutive_failures` in the same FAILED transaction (the parser increment is currently dead because `lineMap` is undefined; once AC#5 lands the lineMap, both fire and the counter double-counts):
+
+**When** a FAILED PRI02 cycle is observed:
+
+**Then:**
+
+1. **`shared/mirakl/pri03-parser.js`** — `scheduleRebuildForFailedSkus` MUST NOT issue any `UPDATE sku_channels SET pri01_consecutive_failures = ... + 1` query. The increment block at lines 361-370 is removed. The 3-strike escalation (freeze + Atenção emit + critical alert) **stays in the parser** and reads the counter value the poller already incremented (the read happens after the poller's UPDATE flushes inside the shared `tx`).
+
+2. **Comment block in `pri03-parser.js`** explains the ownership split:
+   ```js
+   // Counter ownership (course correction 2026-05-09):
+   //   pri02-poller.js owns the pri01_consecutive_failures increment.
+   //   It observes the FAILED status before the parser fetches the error
+   //   report; transport errors during the parser's PRI03 fetch must NOT
+   //   cause the failure count to skip — those are still failed imports.
+   //   The parser reads the counter value to drive 3-strike escalation
+   //   but does NOT increment. See Story 6.3 AC#7 + Dev Note 15.
+   ```
+
+3. **`shared/mirakl/pri02-poller.js`** — keep the existing `pri01_consecutive_failures` increment in the FAILED path (lines 225-246). This is the SOLE site of the increment.
+
+4. **Behavioral test (`pri03-parser.test.js`)** — add `parser_does_not_increment_counter`:
+   - Mock `tx.query` and assert NO query containing `UPDATE sku_channels SET pri01_consecutive_failures` is issued from any code path inside `scheduleRebuildForFailedSkus`.
+   - **Modify** the existing `schedule_rebuild_increments_pri01_consecutive_failures_counter` test (currently in the scaffold) — invert it to assert the parser does NOT issue the increment. The poller-side test in `pri02-poller.test.js` continues to assert the increment fires there. Do not delete the test — repurpose it.
+
+**Supersedes:**
+- AC#2 point 3 ("Failure counter increment") — strike the entire UPDATE block from the parser implementation. The behavior moves to AC#5 / poller.
+- Story Completion Checklist line "[ ] `scheduleRebuildForFailedSkus` increments `pri01_consecutive_failures` per affected row" — replaced by the new course-correction checklist below.
+- Test name `schedule_rebuild_increments_pri01_consecutive_failures_counter` → repurpose as `parser_does_not_increment_counter` (negative assertion).
 
 ---
 
@@ -437,6 +579,18 @@ CREATE INDEX idx_sku_channels_dispatch
     AND frozen_for_pri01_persistent = false;
 ```
 
+### 15. Counter ownership decision — poller owns (LOCKED, do not re-litigate)
+
+*(Course correction 2026-05-09 — supersedes AC#2 point 3.)*
+
+**Decision:** `shared/mirakl/pri02-poller.js` owns the `pri01_consecutive_failures` increment exclusively. `shared/mirakl/pri03-parser.js`'s `scheduleRebuildForFailedSkus` does NOT issue any `UPDATE sku_channels SET pri01_consecutive_failures = ... + 1` query.
+
+**Rationale:** The poller observes the `FAILED` status from PRI02 *before* attempting to fetch and parse the error report. Transport errors during the parser's PRI03 fetch (network failure, 5xx, timeout, malformed CSV) must NOT cause a failed import to skip the counter — those are still failed imports for circuit-breaker purposes. Putting the increment in the poller guarantees every observed `FAILED` gets counted regardless of whether the downstream parser/rebuild succeeds. Putting it in the parser would silently undercount under intermittent PRI03 failure modes — exactly the regime the 3-strike escalation is designed to detect.
+
+**3-strike escalation stays in the parser.** The parser reads the counter value (post-poller-increment, same `tx`) to decide whether to freeze + emit Atenção + send critical alert. Read, don't write. The freeze UPDATE (`frozen_for_pri01_persistent = true`), the `pri01-fail-persistent` audit event, and the Resend critical alert all stay where AC#2 point 4 placed them.
+
+**Status:** LOCKED. Pedro made this decision; do not re-open it. If a future story needs to revisit ownership (e.g., to support a non-PRI02-driven failure path), open a new story — do not amend this one.
+
 ---
 
 ## Architecture Constraints — Negative Assertions
@@ -524,9 +678,72 @@ This story completes the Bundle C writer chain (Stories 5.1 → 5.2 → 6.1 → 
 - [ ] ESLint passes: `npx eslint shared/mirakl/pri03-parser.js`
 - [ ] `npm run test:unit` passes (full unit suite, no new regressions)
 
+### Course-Correction Tasks (2026-05-09) — Additive to original checklist
+
+**Migration (AC#6):**
+- [ ] `supabase/migrations/202605091000_add_csv_line_number_to_pri01_staging.sql` created with `ALTER TABLE pri01_staging ADD COLUMN csv_line_number INTEGER;` + descriptive `COMMENT ON COLUMN`
+- [ ] Existing migration `202604301214_create_pri01_staging.sql` is NOT modified (immutability invariant)
+
+**Writer wiring (AC#6) — `shared/mirakl/pri01-writer.js`:**
+- [ ] At flush, `csv_line_number` is persisted for each `lineMap` entry via per-row `UPDATE pri01_staging SET csv_line_number = $1 WHERE id = $2` inside the same `tx` as the `import_id` update
+- [ ] New test in `tests/shared/mirakl/pri01-writer.test.js`: `csv_line_number_persisted_after_flush` — passes
+
+**Poller wiring (AC#5) — `shared/mirakl/pri02-poller.js`:**
+- [ ] FAILED path queries `lineMap` from `pri01_staging` JOIN `skus` with both `import_id` AND `customer_marketplace_id` predicates
+- [ ] FAILED path captures `cycleId` from any returned row
+- [ ] FAILED path calls `fetchAndParseErrorReport(baseUrl, apiKey, importId, lineMap)` — `lineMap` (NOT `tx`) as the 4th argument
+- [ ] FAILED path calls `scheduleRebuildForFailedSkus({tx, customerMarketplaceId, failedSkus, cycleId})` when `failedSkus.length > 0`, inside the same `tx`
+- [ ] FAILED path retains the existing `pri01_consecutive_failures` increment (counter ownership = poller per AC#7)
+- [ ] New behavioral test in `tests/shared/mirakl/pri02-poller.test.js`: `pri02_failed_invokes_parser_and_rebuild_with_real_lineMap` — passes
+
+**Parser change (AC#7) — `shared/mirakl/pri03-parser.js`:**
+- [ ] `scheduleRebuildForFailedSkus` issues NO `UPDATE sku_channels SET pri01_consecutive_failures` query — the increment block is removed
+- [ ] Counter-ownership comment block (per AC#7 point 2 verbatim) is present in `pri03-parser.js`
+- [ ] 3-strike escalation (freeze + Atenção + critical alert) STAYS in the parser and reads the counter value the poller incremented
+- [ ] Repurposed test in `tests/shared/mirakl/pri03-parser.test.js`: `parser_does_not_increment_counter` — asserts negative; replaces `schedule_rebuild_increments_pri01_consecutive_failures_counter`
+
+**Branch hygiene:**
+- [ ] No reset, no force-push — course-correction commits are additive on top of `5653abe` (existing PR #85 HEAD)
+- [ ] PR #85 stays open and merge-blocked (`merge_blocks: 6-3 → until_story: 7-8` is unchanged)
+
 ---
 
 ## Dev Agent Record
+
+### Course-Correction Notes (2026-05-09)
+
+**What was missed in the original ship of PR #85:**
+
+PR #85 passed all 7 BAD steps (atdd → dev → ATDD review → Test review → Code review → PR-body review → PR review) and `/bad-review` issued no Phase-2 verdict blockers. However, the spec-grounded audit caught:
+
+1. **`scheduleRebuildForFailedSkus` is dead code in production.** Story 6.3 spec Dev Note 4 explicitly required this PR to update `shared/mirakl/pri02-poller.js` (Story 6.2's file) so the FAILED path of `clearPendingImport` invokes `scheduleRebuildForFailedSkus` after parsing the error report. The original PR did not modify `pri02-poller.js`; the poller still calls `fetchAndParseErrorReport(baseUrl, apiKey, importId, tx)` — passing `tx` as the 4th argument. The parser's signature is `(baseUrl, apiKey, importId, lineMap)` so `lineMap[lineNumber]` evaluates against `tx` (a `PoolClient` with no numeric keys), the parser's loop returns `failedSkus: []`, and `scheduleRebuildForFailedSkus` is never invoked. Net effect: the per-SKU rebuild semantics implemented and unit-tested in this PR have **never run in production**.
+
+2. **Counter double-count latent bug.** Both `pri02-poller.js:225-246` AND `pri03-parser.js:361-370` increment `pri01_consecutive_failures` in the same FAILED `tx`. Today only the poller fires (parser early-exits on undefined `lineMap`). Fixing the wire-up without addressing the counter would cause the failure counter to double per cycle, which would falsely trigger the 3-strike freeze on cycle 2 instead of cycle 3 — silent corruption of the circuit-breaker semantics.
+
+3. **Structural fix, not hotfix.** The `lineMap` is generated transiently by `buildPri01Csv` at PRI01 submission time and discarded after the multipart POST. The `pri01_staging` schema has no `csv_line_number` column, and the writer builds the CSV via `SELECT DISTINCT ... FROM pri01_staging` with no `ORDER BY` (Postgres row order is non-deterministic). The poller therefore cannot reconstruct `lineMap` at PRI02 poll time without persisted state. The fix requires schema work (new migration) + writer change + poller change + parser change + 3 new tests.
+
+**What's being added in the course correction:**
+
+- **AC#5** — Production wire-up of `pri02-poller → pri03-parser → scheduleRebuildForFailedSkus`. Poller queries `lineMap` from `pri01_staging`, passes it correctly, invokes the rebuild scheduler.
+- **AC#6** — `csv_line_number` persistence in `pri01_staging` via new migration `202605091000_add_csv_line_number_to_pri01_staging.sql` + writer change to populate it at flush time.
+- **AC#7** — Counter ownership: poller owns `pri01_consecutive_failures`; parser drops its increment to eliminate the double-count latent bug. Decision is LOCKED — see Dev Note 15.
+
+**Supersession map:**
+
+| Original spec element | Status after course correction |
+|---|---|
+| AC#2 point 3 (parser increments counter) | **Superseded by AC#7** — parser does NOT increment; poller owns. |
+| Dev Note 4 (`cycleId = randomUUID()` in poller) | **Superseded by AC#5** — `cycleId` is queried from `pri01_staging.cycle_id`, not synthesized. |
+| Test `schedule_rebuild_increments_pri01_consecutive_failures_counter` | **Repurposed** as `parser_does_not_increment_counter` (negative assertion). |
+| Story Completion Checklist line "increments `pri01_consecutive_failures`" | Replaced by Course-Correction Tasks subsection above. |
+
+**Branch state at course-correction time:**
+
+- Branch: `story-6.3-pri03-parser-per-sku-rebuild`
+- HEAD: `5653abe` (BAD Step 7 commit)
+- PR #85: open, Bundle C member, merge-blocked until Story 7.8 lands (`merge_blocks` entry unchanged)
+- Worktree: `.worktrees/story-6.3-pri03-parser-per-sku-rebuild/`
+- Status flip on `main`'s `sprint-status.yaml`: `review` → `atdd-done` (Phase 0's bundle-stacked exception will pick it up; `/bad` will dispatch Step 3 onto the existing branch as additive commits — no reset, no force-push).
 
 ### Agent Model Used
 
