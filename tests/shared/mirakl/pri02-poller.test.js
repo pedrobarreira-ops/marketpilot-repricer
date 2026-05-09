@@ -412,6 +412,43 @@ describe('pollImportStatus — FAILED', () => {
     );
   });
 
+  it('poll_import_status_failed_increments_pri01_consecutive_failures_in_poller_sole_site', async () => {
+    // Step 4 review addition (Gap 3 — AC#7 ownership): The parser-side test
+    // `parser_does_not_increment_counter` proves the parser does NOT issue the
+    // increment, but no test positively asserts the poller IS the sole site
+    // that issues the `pri01_consecutive_failures = pri01_consecutive_failures + 1`
+    // UPDATE. Without this, a regression that drops the increment from the
+    // poller would only surface as a downstream 3-strike-never-fires bug.
+    const tx = makeMockTx();
+    await clearPendingImport({
+      tx,
+      importId: IMPORT_ID,
+      customerMarketplaceId: CUSTOMER_MARKETPLACE_ID,
+      outcome: 'FAILED',
+    });
+
+    const counterIncrementCalls = tx.calls.filter(c => {
+      const sql = c.sql.toLowerCase();
+      return sql.includes('update sku_channels') &&
+             sql.includes('pri01_consecutive_failures') &&
+             sql.includes('+ 1');
+    });
+
+    assert.equal(
+      counterIncrementCalls.length,
+      1,
+      'pri02-poller FAILED path MUST issue exactly one ' +
+      '`UPDATE sku_channels SET pri01_consecutive_failures = pri01_consecutive_failures + 1` query — ' +
+      'this is the SOLE site of the increment per AC#7. The parser does not increment.'
+    );
+
+    // The increment must be customer-scoped (worker-must-filter-by-customer ESLint rule + tenant safety)
+    assert.ok(
+      counterIncrementCalls[0].params.includes(CUSTOMER_MARKETPLACE_ID),
+      'counter increment UPDATE must filter by customer_marketplace_id (tenant-safety + ESLint rule)'
+    );
+  });
+
   it('poll_import_status_failed_three_consecutive_failures_emits_atencao', async () => {
     // When pri01_consecutive_failures reaches 3 after increment, emit Atenção event.
     // Simulate: mock tx returns rows with pri01_consecutive_failures = 3 after increment.
@@ -567,6 +604,110 @@ describe('AC#5 — pri02-poller FAILED path real lineMap wire-up', () => {
     assert.ok(
       pollerSrc.includes('scheduleRebuildForFailedSkus'),
       'pri02-poller.js FAILED path must invoke scheduleRebuildForFailedSkus'
+    );
+  });
+
+  it('pri02_failed_invokes_rebuild_with_queried_cycleId_when_failedSkus_present', async () => {
+    // Step 4 review addition (Gap 1): The prior AC#5 test stubs an empty PRI03 CSV
+    // body which makes failedSkus.length === 0 — so scheduleRebuildForFailedSkus is
+    // never actually invoked behaviorally, leaving the queried cycleId → rebuild
+    // call wire-up unverified. This test exercises the failed-path with a non-empty
+    // PRI03 error report so the rebuild scheduler IS called, then asserts the
+    // queried cycle_id (NOT a synthesized randomUUID per superseded Dev Note 4)
+    // flows into the INSERT INTO pri01_staging cycle_id parameter.
+    const queriedCycleId = 'cycle-uuid-from-staging-row';
+    const shopSku = 'EZ_REBUILD_TARGET';
+    const skuId = 'sku-id-rebuild';
+
+    const callLog = [];
+    let callIndex = 0;
+    // Sequence the mock returns to let the full FAILED path run end-to-end:
+    //   1: poller UPDATE sku_channels (clear pending)         → 1 cleared row
+    //   2: poller writeAuditEvent (pri02-failed-transient)    → audit insert
+    //   3: poller UPDATE sku_channels (consecutive_failures+1)
+    //   4: poller SELECT pri01_staging JOIN skus (lineMap) → 1 row with cycle_id
+    //   5: parser SELECT sku_channels (full per-SKU rebuild) → 2 channel rows
+    //   6: parser INSERT INTO pri01_staging (channel 1)
+    //   7: parser INSERT INTO pri01_staging (channel 2)
+    const responses = [
+      { rows: [{ id: SKU_CHANNEL_ID }], rowCount: 1 },
+      { rows: [{ id: 'audit-1' }], rowCount: 1 },
+      { rows: [], rowCount: 1 },
+      { rows: [{ csv_line_number: 1, shop_sku: shopSku, cycle_id: queriedCycleId }], rowCount: 1 },
+      {
+        rows: [
+          {
+            id: 'sc-pt', sku_id: skuId, channel_code: 'WRT_PT_ONLINE',
+            list_price_cents: 1799, last_set_price_cents: 1799,
+            pri01_consecutive_failures: 1, frozen_for_pri01_persistent: false,
+          },
+          {
+            id: 'sc-es', sku_id: skuId, channel_code: 'WRT_ES_ONLINE',
+            list_price_cents: 1850, last_set_price_cents: 1850,
+            pri01_consecutive_failures: 1, frozen_for_pri01_persistent: false,
+          },
+        ],
+        rowCount: 2,
+      },
+      { rows: [], rowCount: 1 },  // INSERT pri01_staging PT
+      { rows: [], rowCount: 1 },  // INSERT pri01_staging ES
+    ];
+
+    const tx = {
+      calls: callLog,
+      query: async (sql, params) => {
+        callLog.push({ sql, params });
+        return responses[callIndex++] ?? { rows: [], rowCount: 0 };
+      },
+    };
+
+    // Non-empty PRI03 CSV: line 1 failed → failedSkus.length === 1 → triggers rebuild
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({
+      ok: true,
+      status: 200,
+      text: async () => '1,SKU_NOT_FOUND\n',
+      json: async () => { throw new Error('not JSON'); },
+    });
+
+    try {
+      await clearPendingImport({
+        tx,
+        importId: IMPORT_ID,
+        customerMarketplaceId: CUSTOMER_MARKETPLACE_ID,
+        outcome: 'FAILED',
+        hasErrorReport: true,
+        baseUrl: 'https://worten.mirakl.net',
+        apiKey: 'test-api-key',
+      });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+
+    // Behavioral assertion: at least one INSERT INTO pri01_staging was issued
+    // by scheduleRebuildForFailedSkus (proves the rebuild scheduler ran, not
+    // just that the source contains the identifier).
+    const stagingInserts = callLog.filter(c =>
+      c.sql.toUpperCase().includes('INSERT INTO PRI01_STAGING')
+    );
+    assert.ok(
+      stagingInserts.length >= 1,
+      `scheduleRebuildForFailedSkus must INSERT INTO pri01_staging when failedSkus.length > 0; got ${stagingInserts.length} inserts. ` +
+      `The static-grep assertion in the prior test does not behaviorally exercise the rebuild call — this one does.`
+    );
+
+    // Critical AC#5 invariant: the cycle_id flowed through from the queried
+    // pri01_staging row (NOT a synthesized randomUUID per superseded Dev Note 4).
+    // Each INSERT carries cycle_id as one of the params; assert the queried value
+    // appears in at least one INSERT's params list.
+    const insertWithQueriedCycleId = stagingInserts.find(c =>
+      Array.isArray(c.params) && c.params.includes(queriedCycleId)
+    );
+    assert.ok(
+      insertWithQueriedCycleId,
+      `INSERT INTO pri01_staging must carry the queried cycle_id "${queriedCycleId}" from pri01_staging. ` +
+      `Supersedes Dev Note 4 randomUUID() synthesis (AC#5). ` +
+      `Found inserts with params: ${JSON.stringify(stagingInserts.map(c => c.params))}`
     );
   });
 });

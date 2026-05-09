@@ -851,6 +851,93 @@ describe('csv_line_number persistence (AC#6)', () => {
     );
     assert.ok(importIdUpdate, 'import_id UPDATE must also be in the same tx');
   });
+
+  it('csv_line_number_persisted_for_multi_shopSku_lineMap_targets_correct_staging_ids', async () => {
+    // Step 4 review addition (Gap 2 — AC#6): The base test uses a degenerate
+    // lineMap `{1: shopSku, 2: shopSku}` (same shopSku, two channels). That
+    // path doesn't exercise the writer's per-shopSku assignment-index logic
+    // (lines ~316-368 in pri01-writer.js) where multiple distinct shopSkus
+    // each maintain an independent index. A bug in cross-SKU index tracking
+    // (e.g., shared counter, off-by-one when iterating distinct shopSkus)
+    // would silently corrupt the line→staging mapping for the multi-SKU
+    // case but pass the single-SKU test. This test locks the multi-SKU
+    // invariant so the per-shopSku index tracking stays correct.
+    const cycleId = randomUUID();
+    const importId = randomUUID();
+    const customerMarketplaceId = randomUUID();
+    const skuIdA = randomUUID();
+    const skuIdB = randomUUID();
+    const channelIdA = randomUUID();
+    const channelIdB = randomUUID();
+    const stagingIdA = randomUUID();
+    const stagingIdB = randomUUID();
+    const shopSkuA = 'EZ_SKU_A';
+    const shopSkuB = 'EZ_SKU_B';
+
+    // lineMap: line 1 → shopSkuA, line 2 → shopSkuB (distinct shopSkus, distinct staging IDs)
+    const lineMap = { 1: shopSkuA, 2: shopSkuB };
+
+    const tx = makeMockTxWithLineNum([
+      // Q1: pri01_staging SELECT — two rows for two distinct SKUs
+      {
+        rows: [
+          { id: stagingIdA, sku_id: skuIdA, channel_code: 'WRT_PT_ONLINE', new_price_cents: 1000, shop_sku: shopSkuA },
+          { id: stagingIdB, sku_id: skuIdB, channel_code: 'WRT_PT_ONLINE', new_price_cents: 2000, shop_sku: shopSkuB },
+        ],
+      },
+      // Q2: sku_channels SELECT
+      {
+        rows: [
+          { id: channelIdA, sku_id: skuIdA, channel_code: 'WRT_PT_ONLINE', last_set_price_cents: 1000 },
+          { id: channelIdB, sku_id: skuIdB, channel_code: 'WRT_PT_ONLINE', last_set_price_cents: 2000 },
+        ],
+      },
+      // Q3 + Q4: per-channel UPDATE sku_channels
+      { rows: [] },
+      { rows: [] },
+      // Q5: bulk UPDATE pri01_staging (flushed_at + import_id)
+      { rows: [] },
+      // Q6 + Q7: per-row UPDATE pri01_staging SET csv_line_number
+      { rows: [] },
+      { rows: [] },
+    ]);
+
+    await markStagingPending({ tx, cycleId, importId, customerMarketplaceId, lineMap });
+
+    // Locate the two csv_line_number UPDATEs
+    const csvLineNumberUpdates = tx.calls.filter(c => {
+      const sql = c.sql.toLowerCase();
+      return sql.includes('update pri01_staging') && sql.includes('csv_line_number');
+    });
+
+    assert.equal(
+      csvLineNumberUpdates.length,
+      2,
+      `Multi-shopSku lineMap: expected exactly 2 csv_line_number UPDATEs (one per lineMap entry), got ${csvLineNumberUpdates.length}`
+    );
+
+    // Build a map of {lineNumber → stagingId} from the UPDATE params and assert
+    // each line targets the CORRECT staging ID for its shopSku.
+    // Per-row UPDATE param shape from writer: [lineNumber, stagingId]
+    const lineToStagingId = new Map();
+    for (const c of csvLineNumberUpdates) {
+      const [lineNumber, stagingId] = c.params;
+      lineToStagingId.set(lineNumber, stagingId);
+    }
+
+    assert.equal(
+      lineToStagingId.get(1),
+      stagingIdA,
+      `line 1 (shopSkuA) must target stagingIdA. Got: ${lineToStagingId.get(1)} (expected ${stagingIdA}). ` +
+      `A swap here means cross-SKU index tracking is broken.`
+    );
+    assert.equal(
+      lineToStagingId.get(2),
+      stagingIdB,
+      `line 2 (shopSkuB) must target stagingIdB. Got: ${lineToStagingId.get(2)} (expected ${stagingIdB}). ` +
+      `A swap here means cross-SKU index tracking is broken.`
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
