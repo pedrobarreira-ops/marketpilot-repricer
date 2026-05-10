@@ -486,26 +486,8 @@ Read `references/subagents/step6-pr-ci.md` and follow its instructions exactly.
 
 ### Step 7: PR Code Review (`MODEL_STANDARD` default, `MODEL_QUALITY` on critical-path)
 
-**Before spawning Step 7 — Worker/Critical-Path Opus Gate (mirrors Step 5):**
-Run `git -C {worktree_path} diff main --name-only`. If any output line starts
-with any of:
-  - `worker/src/`              (worker code: cron, engine, safety, jobs)
-  - `app/src/routes/`          (Fastify routes — public + admin surfaces)
-  - `app/src/middleware/`      (auth, RLS, error handling)
-  - `shared/mirakl/`           (Mirakl API client, request/response shaping)
-  - `shared/audit/`            (audit-log writer SSoT)
-  - `shared/state/`            (cron_state machine SSoT)
-  - `shared/money/`            (price math SSoT — float-math footgun zone)
-  - `shared/crypto/`           (envelope encryption + master-key loader)
-  - `supabase/migrations/`     (schema changes — multi-env divergence risk)
-then promote Step 7 to `MODEL_QUALITY` (Opus) for this story. Otherwise use
-`MODEL_STANDARD` (Sonnet) — non-critical PR reviews don't need Opus.
-
-Rationale: Step 7 reviews the PR diff (via `gh pr diff`) and applies fixes.
-The same critical-path classes that warrant Opus at Step 5 also warrant Opus
-at Step 7 — review depth is review depth, regardless of which step does it.
-The gate is per-story, not configuration-time, so an off-path PR runs Sonnet
-even when MODEL_QUALITY is set.
+**Before spawning Step 7 — Worker/Critical-Path Opus Gate (same path list as Step 5 above):**
+Run `git -C {worktree_path} diff main --name-only`. If any output line starts with any of the Step 5 critical-path prefixes (`worker/src/`, `app/src/routes/`, `app/src/middleware/`, `shared/mirakl/`, `shared/audit/`, `shared/state/`, `shared/money/`, `shared/crypto/`, `supabase/migrations/`), promote Step 7 to `MODEL_QUALITY` (Opus). Otherwise use `MODEL_STANDARD` (Sonnet). Rationale: review depth is review depth — same critical-path classes warrant Opus at both Step 5 and Step 7.
 
 Spawn with model `MODEL_STANDARD` (or `MODEL_QUALITY` per the gate above), yolo mode:
 ```
@@ -515,6 +497,12 @@ Auto-approve all tool calls (yolo mode).
 
 Read `references/subagents/step7-pr-review.md` and follow its instructions exactly.
 ```
+
+**After Step 7 — Sub-step Completeness Check (Q1, Epic 6 retro):**
+Step 7's `bmad-code-review` skill has 4 sub-steps (gather → review → triage → present). On Story 6.3's course-correction (2026-05-09), the skill emitted sub-steps 1-2 (63 raw findings) and stopped silently before triage — no automated gate caught it. Parse the Step 7 subagent's returned output for the literal string `# Step 3: Triage` (the heading from `_bmad/bmm/4-implementation/bmad-code-review/steps/step-03-triage.md`):
+- **If `# Step 2: Review` is ALSO absent** (no bmad-code-review section markers found at all): skill format may have drifted OR subagent never invoked the skill. HALT: `❌ Story {N}: Step 7 output has no expected bmad-code-review section markers. Manually verify all 4 sub-steps ran (gather → review → triage → present) before continuing.`
+- **If `# Step 2: Review` present but `# Step 3: Triage` missing**: subagent ran sub-steps 1-2 but stopped pre-triage (Story 6.3 silent-skip pattern). HALT with recovery menu: `⚠ Story {N}: Step 7 truncated after sub-step 2 — raw findings produced but no triage / patch / verdict. [R] Re-spawn with smaller-diff scope; [A] Accept un-triaged findings verbatim and continue; [S] Stop BAD.`
+- **Both markers present** → proceed to coordinator's done-flip merge gate.
 
 ---
 
