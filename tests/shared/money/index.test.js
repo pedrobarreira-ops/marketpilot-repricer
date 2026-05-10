@@ -17,7 +17,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { writeFileSync, mkdirSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ESLint } from 'eslint';
@@ -215,10 +214,12 @@ describe('formatEur', () => {
 // ---------------------------------------------------------------------------
 
 // Helper: create a temp file, run ESLint on it, return messages, clean up.
-// Uses a directory inside os.tmpdir() so ESLint can resolve flat config from
-// the repo root when we pass `cwd: repoRoot`.
+// Writes the temp file inside the repo root (under tmp/) so ESLint's flat-config
+// upward search finds eslint.config.js regardless of OS or drive letters.
+// Using os.tmpdir() would fail when tmpdir is on a different drive (Windows) or
+// filesystem from the repo — ESLint 10 treats such files as "outside base path".
 async function lintCode (code, filename = 'tmp-violation.js') {
-  const tmpDir = join(tmpdir(), `mp-eslint-test-${process.pid}`);
+  const tmpDir = join(repoRoot, 'tmp', `mp-eslint-test-${process.pid}`);
   mkdirSync(tmpDir, { recursive: true });
   const filepath = join(tmpDir, filename);
   writeFileSync(filepath, code, 'utf8');

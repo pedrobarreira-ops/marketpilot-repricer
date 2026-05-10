@@ -1,7 +1,7 @@
 # Story 7.1: `shared/money/index.js` + `no-float-price` ESLint Rule
 
 **Sprint-status key:** `7-1-shared-money-index-js-no-float-price-eslint-rule`
-**Status:** ready-for-dev
+**Status:** review
 **Size:** S
 **Calendar position:** CALENDAR-EARLY — ships between Epic 1 and Epic 2. Unblocks Bundle C dispatch deadlock: Story 7.2 (and the full 7.2→7.3→7.6→7.8 chain) depends on this module.
 
@@ -347,20 +347,31 @@ Do NOT change the test structure, describe block names, or test case names — t
 
 ### Agent Model Used
 
-_to be filled by dev agent_
+claude-sonnet-4-6
 
 ### Debug Log References
 
-_to be filled by dev agent_
+- ESLint 10 flat config "outside of base path" issue on Windows (different drives) — resolved by:
+  1. Removing `files` restriction from `no-float-price` rule registration in `eslint.config.js` (rule applies globally, allowlist enforced via `context.filename` inside the rule)
+  2. Fixing `lintCode` helper in tests to write temp files inside the repo root (`tmp/` subdir) instead of `os.tmpdir()` — ensures ESLint upward config search finds `eslint.config.js` on any OS
 
 ### Completion Notes List
 
-_to be filled by dev agent_
+- `shared/money/index.js` created: exports `toCents`, `fromCents`, `roundFloorCents`, `roundCeilingCents`, `formatEur`. `fromCents` uses manual string build (`'€' + (cents/100).toFixed(2).replace('.', ',')`) to guarantee PT-locale format without non-breaking space risk from `Intl.NumberFormat`. `formatEur` is `const formatEur = fromCents` (alias).
+- `eslint-rules/no-float-price.js` created: detects `.toFixed(2)`, `parseFloat(...)`, `* 100`, `/ 100` patterns. Allowlists `shared/money/index.js` via `context.filename` with backslash normalization. Same pattern as `no-raw-INSERT-audit-log.js`.
+- `eslint.config.js` modified: added `import noFloatPrice` and registered `local-money/no-float-price` rule. No `files` restriction to ensure ESLint unit tests work cross-platform (file-based allowlist handles the scope).
+- `tests/shared/money/index.test.js` modified: removed `tmpdir` import, changed `lintCode` helper to write temp files inside `join(repoRoot, 'tmp', ...)` instead of `os.tmpdir()` to fix ESLint config discovery on Windows (different drive letters).
+- `.gitignore` modified: added `tmp/` to exclude ESLint test temp files from git tracking.
+- All 33 tests pass (27 test cases across 7 describe blocks for AC#1–AC#7). Pre-existing violations in `worker/src/jobs/onboarding-scan.js` and `worker/src/lib/tier-classify.js` are correctly detected by the new rule (confirms rule is working; those files will be migrated in story 7.2+).
 
 ### File List
 
-_to be filled by dev agent_
+- `shared/money/index.js` (new)
+- `eslint-rules/no-float-price.js` (new)
+- `eslint.config.js` (modified)
+- `tests/shared/money/index.test.js` (modified)
+- `.gitignore` (modified)
 
 ### Change Log
 
-_to be filled by dev agent_
+- 2026-05-10: Story 7.1 implementation — `shared/money/index.js` SSoT money module + `eslint-rules/no-float-price.js` custom ESLint rule. All 33 unit tests pass. Closes AC#1–AC#7.

@@ -50,6 +50,7 @@ verification-stderr.log
 dist/
 coverage/
 .env.test
+tmp/
 
 # Transient diagnostic / debug output (e.g. supabase CLI --debug captures)
 supabase-debug*.log

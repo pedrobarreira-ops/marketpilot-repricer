@@ -11,6 +11,7 @@ import noDirPgInApp from './eslint-rules/no-direct-pg-in-app.js';
 import noRawInsertAuditLog from './eslint-rules/no-raw-INSERT-audit-log.js';
 import noDirectFetch from './eslint-rules/no-direct-fetch.js';
 import noRawCronStateUpdate from './eslint-rules/no-raw-cron-state-update.js';
+import noFloatPrice from './eslint-rules/no-float-price.js';
 
 export default [
   {
@@ -71,6 +72,24 @@ export default [
     plugins: { 'local-cron': noRawCronStateUpdate },
     rules: {
       'local-cron/no-raw-cron-state-update': 'error',
+    },
+  },
+  {
+    // Story 7.1: no-float-price rule — forbids float-price math patterns outside
+    // shared/money/index.js (the SSoT for all price arithmetic).
+    // Forbidden: .toFixed(2), parseFloat(), * 100, / 100 — use toCents/fromCents/
+    // roundFloorCents/roundCeilingCents instead.
+    // Architectural Constraint #22 (AD8 STEP 3).
+    //
+    // No `files` restriction — the rule applies globally to all .js files.
+    // The SSoT allowlist (shared/money/index.js) is enforced inside the rule itself
+    // via context.filename, not via ESLint glob scoping. This is intentional:
+    // scoping by glob would prevent the rule from firing on temp files used by the
+    // ESLint unit tests (tests/shared/money/index.test.js AC#6), which write temp
+    // fixtures to os.tmpdir() — outside the app/worker/shared/ glob scope.
+    plugins: { 'local-money': noFloatPrice },
+    rules: {
+      'local-money/no-float-price': 'error',
     },
   },
   {
