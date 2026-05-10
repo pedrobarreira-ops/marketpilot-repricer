@@ -313,6 +313,48 @@ During Story 1.1's code review pass, the CR subagent **edited an already-applied
 
 ---
 
+## Validated Mid-Pipeline Patterns
+
+Patterns surfaced and validated during BAD's autonomous run that are worth capturing as reusable conventions. Each entry includes the validating event, the pattern, and how to apply it next time.
+
+### `/bmad-correct-course` for spec-amendment-driven mid-pipeline corrections (validated Story 6.3, 2026-05-09)
+
+**Trigger:** a story shipped through BAD into `review` state, then `/bad-review` (or any post-merge audit) caught a spec-vs-code gap that requires AC amendments + re-running BAD's review chain on the fix.
+
+**Validating event:** Story 6.3 first ship (PR #85) passed BAD Steps 1-7 and `bmad-code-review`'s adversarial layers, but `/bad-review`'s spec-grounded `code-vs-spec` subagent caught a production wire-up gap (`scheduleRebuildForFailedSkus` implemented + tested but never invoked) plus a counter double-count latent bug. `/bmad-correct-course` was used (first time in this project) to amend the spec with new ACs and re-dispatch through BAD on the existing PR branch.
+
+**The pattern:**
+1. Run `/bmad-correct-course` with a detailed prompt covering: story key + path, what went wrong (with concrete code/spec citations), why the fix is structural vs hotfix, the recommended scope, the locked decisions (e.g., counter ownership), constraints (Bundle C invariants, migration immutability, cross-story file modifications expected via stacked PR), and explicit "what NOT to do" boundaries.
+2. The skill produces: amended story spec (NEW ACs as additive section, course-correction banner at top, supersession map for any superseded ACs/Dev Notes/test names, Dev Notes documenting locked decisions), sprint-status flip from `review` → `atdd-done`, and a Sprint Change Proposal artifact at `_bmad-output/planning-artifacts/sprint-change-proposal-YYYY-MM-DD.md`.
+3. The skill MUST NOT implement the code fix itself. Code work is handed off to BAD's Step 3 dev agent on the next `/bad` run (Phase 0's bundle-stacked exception picks the story up at `atdd-done`; commits land additively on the existing PR branch — no reset, no force-push).
+4. After approval: commit the spec edits in the worktree + the sprint-status flip + sprint-change-proposal on main BEFORE running `/bad`. Phase 0's reconciliation against GitHub state can otherwise revert the local flip.
+
+**What it explicitly avoided (positive design):** never implements the code fix inside the correction skill; never re-writes the story from scratch (additive AC pattern preserves prior passing tests + work); never touches `merge_blocks` or atomicity-bundle invariants.
+
+**Worked example:** Story 6.3 course-correction at `_bmad-output/planning-artifacts/sprint-change-proposal-2026-05-09.md`. Spec amendments at commit `d0bb844` on the PR #85 branch. Sprint-status flip + proposal at commit `be22bfc` on main.
+
+### `[WIRE-UP]:` marker convention for spec authors (companion to Step 5 spec-wire-up check, Q3 of Epic 6 retro)
+
+**When to use:** any story whose ACs or Dev Notes mandate cross-file integration ("X must call Y" / "the route must invoke Z") — i.e., spec assertions that diff-grounded review (Step 5 + Step 7) cannot detect if MISSING.
+
+**Marker syntax:** `[WIRE-UP]: <callsite-file> MUST call <function-name>` — exactly that shape, one assertion per line. The callsite file is repo-relative; the function name is bare (no parens, no module prefix). Examples:
+```
+[WIRE-UP]: shared/mirakl/pri02-poller.js MUST call scheduleRebuildForFailedSkus
+[WIRE-UP]: worker/src/jobs/master-cron.js MUST call dispatchCycle
+```
+
+**Where to place markers:** in the story spec, ideally inside the relevant AC's "Then" clause OR in a Dev Note for the wire-up obligation. The Step 5 coordinator pre-spawn check greps the entire spec file for the regex pattern.
+
+**What the check does:** `git grep` the worktree for `<function-name>\s*\(` in `<callsite-file>`. If any match → assertion satisfied. If zero matches → HALT before spawning Step 5 with: `❌ Story {N}: spec [WIRE-UP] assertion not realized in code`.
+
+**When NOT to use:** stories with no cross-file integration (pure utility modules, schema-only migrations, doc-only changes). The check is opt-in — absence of markers means "no wire-up assertions to validate."
+
+**False-positive avoidance:** the function name match is `<name>\s*\(` so `scheduleRebuildForFailedSkus` won't match a comment that mentions the function without calling it. If a callsite uses the function via a renamed import (`import { scheduleRebuildForFailedSkus as scheduleRebuild }`) the check would miss it — author should mark with the imported alias name in the marker, OR avoid renamed imports for assertions that need the wire-up check.
+
+**Validating event:** Story 6.3 wire-up gap survived 4 review layers; the structural check would have caught it at Step 5 dispatch time. Q3 lands the check; this convention captures the spec-author side.
+
+---
+
 ## Maintenance
 
 - Update after each story's full pipeline lands (Bob → Amelia → CR → review).

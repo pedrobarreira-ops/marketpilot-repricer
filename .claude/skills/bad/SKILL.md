@@ -425,9 +425,7 @@ this story's pipeline with error:
 agent may have truncated mid-implementation. Resolution: commit the changes,
 stash them explicitly, or dismiss with SKIP_CLEAN_TREE_GATE=true if intended.
 Do NOT spawn Step 4 against a dirty tree.`
-Rationale: dev agents have previously truncated mid-implementation, leaving
-changes only on disk. Without this gate, Step 4 reviews a partial tree and
-the truncation ships silently.
+Rationale: dev agents have truncated mid-implementation with changes on disk only — without the gate, Step 4 reviews a partial tree and the truncation ships silently.
 
 ### Step 4: Test Review (`MODEL_QUALITY`)
 
@@ -460,9 +458,14 @@ then `MODEL_QUALITY` MUST resolve to `claude-opus-4-7` (Opus). If it resolves
 to anything else, HALT this story's pipeline with error:
 `❌ Story {number}: Critical-path PR requires Opus at Step 5 — MODEL_QUALITY
 is configured as {value}. Override with MODEL_QUALITY=opus and re-run.`
-Rationale: prior worker-path runs caught 3/3 defects Sonnet missed at Step 5.
-The path list above covers our atomicity bundles, the 11 SSoT modules, and
-the migration-immutability surface — each is a multi-day-incident class.
+Rationale: prior worker-path runs caught 3/3 defects Sonnet missed; path list covers atomicity bundles + 11 SSoT modules + migration-immutability surface — multi-day-incident class.
+
+**Before spawning Step 5 — Spec Wire-Up Check (Q3, Epic 6 retro):**
+Diff-grounded review (Step 5 + Step 7) cannot detect MISSING code — it only audits what's in the diff. Story 6.3's wire-up gap (`scheduleRebuildForFailedSkus` was implemented + tested but never invoked from production code) survived all 4 inline review layers; only `/bad-review`'s spec-grounded `code-vs-spec` subagent caught it. This check brings a narrow structural guarantee into BAD: the spec author marks cross-file wire-up assertions with the literal `[WIRE-UP]:` prefix; the coordinator greps the worktree for the asserted call sites and halts if any are missing.
+
+**Marker syntax (opt-in, in story spec Acceptance Criteria or Dev Notes):** `[WIRE-UP]: <callsite-file> MUST call <function-name>` — exactly that shape, one assertion per line. Example: `[WIRE-UP]: shared/mirakl/pri02-poller.js MUST call scheduleRebuildForFailedSkus`.
+
+**Check:** grep the story spec for lines matching `\[WIRE-UP\]:\s*(\S+)\s+MUST\s+call\s+(\S+)`. For each match, run `git -C {worktree_path} grep -nE "<function-name>\s*\(" <callsite-file>`. If any assertion returns zero matches, HALT before spawning Step 5: `❌ Story {N}: spec [WIRE-UP] assertion not realized in code — <callsite-file> does not call <function-name>. Resolve before Step 5 dispatch.` Stories without `[WIRE-UP]:` markers skip this check (opt-in). See `_bmad-output/implementation-artifacts/bad-customization-notes.md` for the spec-author convention guide.
 
 Spawn with model `MODEL_QUALITY` (yolo mode):
 ```
