@@ -1,0 +1,48 @@
+{
+  "_fixture": "p11-tier2a-recently-won-stays-watched",
+  "_story": "7.5",
+  "_description": "T2a SKU with last_won_at < 4h ago and still in 1st place → stays T2a, no tier-transition emitted",
+  "_expected": {
+    "tier": "2a",
+    "cadence_minutes": 15,
+    "tierTransition": false,
+    "note": "T2a→T2b threshold is last_won_at >= 4h ago; recently won stays at 15-min cadence"
+  },
+  "_preconditions": {
+    "skuChannel": {
+      "tier": "2a",
+      "current_price_cents": 1900,
+      "last_set_price_cents": 1900,
+      "list_price_cents": 2500,
+      "max_discount_pct": 0.20,
+      "max_increase_pct": 0.10,
+      "edge_step_cents": 1,
+      "min_shipping_price_cents": 0,
+      "pending_import_id": null,
+      "frozen_for_anomaly_review": false,
+      "excluded_at": null,
+      "tier_cadence_minutes": 15,
+      "last_won_at": "DYNAMIC_2H_AGO"
+    },
+    "customerMarketplace": {
+      "cron_state": "ACTIVE",
+      "own_shop_name": "EasyStore"
+    }
+  },
+  "products": [
+    {
+      "product_sku": "EAN-TEST-015",
+      "offers": [
+        {
+          "shop_id": "WORTEN",
+          "shop_name": "CompetitorA",
+          "price": 20.00,
+          "total_price": 20.00,
+          "active": true,
+          "channel_code": "WRT_PT_ONLINE"
+        }
+      ]
+    }
+  ],
+  "_note": "last_won_at = 2h ago (< 4h threshold); own is still in 1st (1900 < 2000). applyTierClassification: T2a → no transition (stays T2a). Cadence stays 15 min. No tier-transition event. TODO (Amelia): inject dynamic last_won_at = new Date(Date.now() - 2*60*60*1000) in test setup."
+}

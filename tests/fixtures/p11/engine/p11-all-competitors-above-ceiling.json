@@ -1,0 +1,52 @@
+{
+  "_fixture": "p11-all-competitors-above-ceiling",
+  "_story": "7.2",
+  "_description": "All competitors are priced above the ceiling; own price may be raised but never above ceiling",
+  "_expected": {
+    "action": "CEILING_RAISE_OR_HOLD",
+    "constraint": "new_price <= ceiling_price_cents"
+  },
+  "_preconditions": {
+    "skuChannel": {
+      "tier": "1",
+      "current_price_cents": 2000,
+      "last_set_price_cents": 2000,
+      "list_price_cents": 2500,
+      "max_discount_pct": 0.20,
+      "max_increase_pct": 0.10,
+      "edge_step_cents": 1,
+      "min_shipping_price_cents": 0,
+      "pending_import_id": null,
+      "frozen_for_anomaly_review": false,
+      "excluded_at": null
+    },
+    "customerMarketplace": {
+      "cron_state": "ACTIVE",
+      "own_shop_name": "EasyStore"
+    }
+  },
+  "products": [
+    {
+      "product_sku": "EAN-TEST-006",
+      "offers": [
+        {
+          "shop_id": "WORTEN",
+          "shop_name": "CompetitorA",
+          "price": 30.00,
+          "total_price": 30.00,
+          "active": true,
+          "channel_code": "WRT_PT_ONLINE"
+        },
+        {
+          "shop_id": "WORTEN",
+          "shop_name": "CompetitorB",
+          "price": 35.00,
+          "total_price": 35.00,
+          "active": true,
+          "channel_code": "WRT_PT_ONLINE"
+        }
+      ]
+    }
+  ],
+  "_note": "ceiling=2750 (10% above 2500); own is in 1st at 2000 (competitors at 3000+); competitor_2nd=3500; target_ceiling=3499; new_ceiling=MIN(3499,2750)=2750; 2750>2000 → CEILING_RAISE to 2750. Ceiling constraint always respected."
+}

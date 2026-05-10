@@ -1,0 +1,45 @@
+{
+  "_fixture": "p11-tier1-floor-bound-hold",
+  "_story": "7.2",
+  "_description": "Tier 1 SKU — competitor price below floor; cannot undercut profitably → HOLD (hold-floor-bound)",
+  "_expected": {
+    "action": "HOLD",
+    "auditEvent": "hold-floor-bound",
+    "priority": "rotina"
+  },
+  "_preconditions": {
+    "skuChannel": {
+      "tier": "1",
+      "current_price_cents": 2000,
+      "last_set_price_cents": 2000,
+      "list_price_cents": 2500,
+      "max_discount_pct": 0.20,
+      "max_increase_pct": 0.10,
+      "edge_step_cents": 1,
+      "min_shipping_price_cents": 0,
+      "pending_import_id": null,
+      "frozen_for_anomaly_review": false,
+      "excluded_at": null
+    },
+    "customerMarketplace": {
+      "cron_state": "ACTIVE",
+      "own_shop_name": "EasyStore"
+    }
+  },
+  "products": [
+    {
+      "product_sku": "EAN-TEST-002",
+      "offers": [
+        {
+          "shop_id": "WORTEN",
+          "shop_name": "CompetitorA",
+          "price": 18.00,
+          "total_price": 18.00,
+          "active": true,
+          "channel_code": "WRT_PT_ONLINE"
+        }
+      ]
+    }
+  ],
+  "_note": "competitor_lowest=1800; floor=2000 (20% off 2500); target_undercut=1799 < floor=2000 → candidate=MAX(1799,2000)=2000 → 2000 is NOT < 1800 → HOLD hold-floor-bound. TODO (Amelia): verify prices align with configured floor math"
+}

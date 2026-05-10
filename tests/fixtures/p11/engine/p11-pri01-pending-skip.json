@@ -1,0 +1,45 @@
+{
+  "_fixture": "p11-pri01-pending-skip",
+  "_story": "7.2",
+  "_description": "sku_channel.pending_import_id IS NOT NULL → engine STEP 1 precondition fails → SKIP (Bundle C invariant)",
+  "_expected": {
+    "action": "SKIP",
+    "reason": "pending_import_id_set",
+    "note": "Bundle C skip-on-pending invariant: engine must not queue a second price write while first is in flight"
+  },
+  "_preconditions": {
+    "skuChannel": {
+      "tier": "1",
+      "current_price_cents": 2100,
+      "last_set_price_cents": 2100,
+      "list_price_cents": 2500,
+      "max_discount_pct": 0.20,
+      "max_increase_pct": 0.10,
+      "edge_step_cents": 1,
+      "min_shipping_price_cents": 0,
+      "pending_import_id": "in-flight-import-uuid-123",
+      "frozen_for_anomaly_review": false,
+      "excluded_at": null
+    },
+    "customerMarketplace": {
+      "cron_state": "ACTIVE",
+      "own_shop_name": "EasyStore"
+    }
+  },
+  "products": [
+    {
+      "product_sku": "EAN-TEST-012",
+      "offers": [
+        {
+          "shop_id": "WORTEN",
+          "shop_name": "CompetitorA",
+          "price": 20.00,
+          "total_price": 20.00,
+          "active": true,
+          "channel_code": "WRT_PT_ONLINE"
+        }
+      ]
+    }
+  ],
+  "_note": "pending_import_id set → STEP 1 precondition check fails immediately → SKIP. P11 response is irrelevant (engine exits before reading offers)."
+}

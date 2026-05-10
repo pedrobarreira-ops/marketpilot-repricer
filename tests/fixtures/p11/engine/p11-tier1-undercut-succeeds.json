@@ -1,0 +1,54 @@
+{
+  "_fixture": "p11-tier1-undercut-succeeds",
+  "_story": "7.2",
+  "_description": "Tier 1 SKU — competitor price above floor + edge_step → UNDERCUT succeeds",
+  "_expected": {
+    "action": "UNDERCUT",
+    "auditEvent": "undercut-decision",
+    "priority": "rotina",
+    "newPriceCents": "competitor_lowest - edge_step_cents"
+  },
+  "_preconditions": {
+    "skuChannel": {
+      "tier": "1",
+      "current_price_cents": 2200,
+      "last_set_price_cents": 2200,
+      "list_price_cents": 2500,
+      "max_discount_pct": 0.20,
+      "max_increase_pct": 0.10,
+      "edge_step_cents": 1,
+      "min_shipping_price_cents": 0,
+      "pending_import_id": null,
+      "frozen_for_anomaly_review": false,
+      "excluded_at": null
+    },
+    "customerMarketplace": {
+      "cron_state": "ACTIVE",
+      "own_shop_name": "EasyStore"
+    }
+  },
+  "products": [
+    {
+      "product_sku": "EAN-TEST-001",
+      "offers": [
+        {
+          "shop_id": "WORTEN",
+          "shop_name": "CompetitorA",
+          "price": 20.00,
+          "total_price": 20.00,
+          "active": true,
+          "channel_code": "WRT_PT_ONLINE"
+        },
+        {
+          "shop_id": "WORTEN",
+          "shop_name": "CompetitorB",
+          "price": 21.00,
+          "total_price": 21.00,
+          "active": true,
+          "channel_code": "WRT_PT_ONLINE"
+        }
+      ]
+    }
+  ],
+  "_note": "TODO (Amelia): replace product_sku with real EAN when wiring integration test; adjust prices to create UNDERCUT scenario with configured margin bands"
+}

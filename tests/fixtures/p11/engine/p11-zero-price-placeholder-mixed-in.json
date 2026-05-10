@@ -1,0 +1,53 @@
+{
+  "_fixture": "p11-zero-price-placeholder-mixed-in",
+  "_story": "7.2",
+  "_description": "P11 response includes a zero-price placeholder offer (Strawberrynet-style); AD14 total_price>0 filter removes it",
+  "_expected": {
+    "action": "UNDERCUT_OR_HOLD",
+    "zeroPriceFiltered": true,
+    "note": "Zero-price offer removed by AD14 total_price>0 filter; remaining valid offers determine ranking"
+  },
+  "_preconditions": {
+    "skuChannel": {
+      "tier": "1",
+      "current_price_cents": 2200,
+      "last_set_price_cents": 2200,
+      "list_price_cents": 2500,
+      "max_discount_pct": 0.20,
+      "max_increase_pct": 0.10,
+      "edge_step_cents": 1,
+      "min_shipping_price_cents": 0,
+      "pending_import_id": null,
+      "frozen_for_anomaly_review": false,
+      "excluded_at": null
+    },
+    "customerMarketplace": {
+      "cron_state": "ACTIVE",
+      "own_shop_name": "EasyStore"
+    }
+  },
+  "products": [
+    {
+      "product_sku": "EAN-TEST-010",
+      "offers": [
+        {
+          "shop_id": "WORTEN",
+          "shop_name": "Strawberrynet",
+          "price": 0.00,
+          "total_price": 0.00,
+          "active": true,
+          "channel_code": "WRT_PT_ONLINE"
+        },
+        {
+          "shop_id": "WORTEN",
+          "shop_name": "CompetitorA",
+          "price": 21.00,
+          "total_price": 21.00,
+          "active": true,
+          "channel_code": "WRT_PT_ONLINE"
+        }
+      ]
+    }
+  ],
+  "_note": "Strawberrynet's zero-price offer is a catalog placeholder, not a real price. AD14 total_price>0 filter removes it. CompetitorA (€21.00) remains as the sole competitor."
+}
