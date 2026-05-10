@@ -81,12 +81,20 @@ export default [
     // roundFloorCents/roundCeilingCents instead.
     // Architectural Constraint #22 (AD8 STEP 3).
     //
-    // No `files` restriction — the rule applies globally to all .js files.
-    // The SSoT allowlist (shared/money/index.js) is enforced inside the rule itself
-    // via context.filename, not via ESLint glob scoping. This is intentional:
-    // scoping by glob would prevent the rule from firing on temp files used by the
-    // ESLint unit tests (tests/shared/money/index.test.js AC#6), which write temp
-    // fixtures to os.tmpdir() — outside the app/worker/shared/ glob scope.
+    // Scoped to server-side source (app/**, worker/**, shared/**) plus tmp/** so
+    // AC#6 ESLint unit-test fixtures (tests write to <repoRoot>/tmp/...) still get
+    // linted. Without `tmp/**` the AC#6 tests "rule fires on .toFixed in app code"
+    // would fail because the temp fixture path wouldn't match any rule scope.
+    //
+    // Browser-side public/js/** is intentionally excluded — those scripts perform
+    // percentage / progress arithmetic (e.g. (processed / total) * 100) that is
+    // syntactically identical to the forbidden price patterns but semantically
+    // unrelated to money. The syntactic detector cannot disambiguate, so the rule
+    // is scoped to the directories that actually own price math.
+    //
+    // The SSoT allowlist (shared/money/index.js) remains enforced inside the rule
+    // itself via context.filename — defence-in-depth on top of the glob scope.
+    files: ['app/**/*.js', 'worker/**/*.js', 'shared/**/*.js', 'tmp/**/*.js'],
     plugins: { 'local-money': noFloatPrice },
     rules: {
       'local-money/no-float-price': 'error',

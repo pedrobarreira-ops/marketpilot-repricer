@@ -87,7 +87,7 @@ describe('fromCents', () => {
     const { fromCents } = await money();
     // PT locale: comma as decimal separator, € prefix, NO space between € and digits
     // Manual string build is required — Intl.NumberFormat('pt-PT') may produce
-    // a non-breaking space ( ) between the € symbol and the digits on some
+    // a non-breaking space (U+00A0) between the € symbol and the digits on some
     // Node.js ICU builds, which would break strict string equality.
     assert.strictEqual(fromCents(1799), '€17,99');
   });
