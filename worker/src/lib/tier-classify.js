@@ -40,7 +40,7 @@ export function classifyInitialTier (ownCurrentPriceCents, competitorOffers) {
 
   // competitorOffers is sorted ascending by total_price (self-filter.js guarantees this)
   // Cheapest competitor is first
-  const lowestCompetitorCents = Math.round(competitorOffers[0].total_price * 100);
+  const lowestCompetitorCents = Math.round(competitorOffers[0].total_price * 100); // eslint-disable-line local-money/no-float-price -- TODO Story 7.2+: migrate to toCents()
 
   if (ownCurrentPriceCents <= lowestCompetitorCents) {
     // We're winning or tied at 1st — Tier 2a
