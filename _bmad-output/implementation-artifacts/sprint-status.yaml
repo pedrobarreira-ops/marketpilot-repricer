@@ -159,7 +159,7 @@ development_status:
   # EPIC 7 -- Engine Decision & Safety  (architecture S-I phase 5, ships after Epic 6)
   # =========================================================================
   epic-7: in-progress
-  7-1-shared-money-index-js-no-float-price-eslint-rule: review  # ESLint: no-float-price ships here
+  7-1-shared-money-index-js-no-float-price-eslint-rule: done  # ESLint: no-float-price ships here
   7-2-worker-src-engine-decide-js-full-ad8-decision-flow-with-filter-chain-via-self-filter: backlog  # ATOMICITY BUNDLE C (2/4 -- AD8)
   7-3-worker-src-engine-cooperative-absorb-js-step-2-absorption-skip-on-pending: backlog  # ATOMICITY BUNDLE C (3/4 -- AD9)
   7-4-worker-src-safety-anomaly-freeze-js-audit-anomaly-sku-accept-reject-endpoints: backlog
