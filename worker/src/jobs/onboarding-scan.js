@@ -448,8 +448,8 @@ async function runScan (db, scanJob, cm) {
       // shop_sku is NOT NULL in skus table — use ean as fallback if missing
       const shopSku = offer.shop_sku ?? ean;
 
-      const listPriceCents = Math.round(parseFloat(offer.price ?? 0) * 100);
-      const currentPriceCents = Math.round(parseFloat(offer.total_price ?? 0) * 100);
+      const listPriceCents = Math.round(parseFloat(offer.price ?? 0) * 100); // eslint-disable-line local-money/no-float-price -- TODO Story 7.2+: migrate to toCents()
+      const currentPriceCents = Math.round(parseFloat(offer.total_price ?? 0) * 100); // eslint-disable-line local-money/no-float-price -- TODO Story 7.2+: migrate to toCents()
 
       // Upsert skus row (unique on customer_marketplace_id, ean)
       let skuId;
