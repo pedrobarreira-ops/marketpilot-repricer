@@ -141,12 +141,10 @@ export async function absorbExternalChange ({ tx, skuChannel, customerMarketplac
     [currentPriceCents, skuChannelId],
   );
 
-  // 2. Mutate the in-memory object so decide.js STEP 3 uses the new baseline
-  //    when computing floor/ceiling (skuChannel.list_price_cents * (1 ± pct)).
-  //    Safe: skuChannel is a local object constructed per-cycle by cycle-assembly.js.
-  skuChannel.list_price_cents = currentPriceCents;
-
-  // 3. Emit the Notável audit event (priority derived by Story 9.1 DB trigger).
+  // 2. Emit the Notável audit event (priority derived by Story 9.1 DB trigger).
+  //    Emitted BEFORE the in-memory mutation so that if the audit INSERT throws,
+  //    the tx rolls back AND we leave skuChannel.list_price_cents unchanged —
+  //    defence-in-depth against a caller that swallows the error and continues.
   await writeAuditEvent({
     tx,
     customerMarketplaceId,
@@ -159,6 +157,13 @@ export async function absorbExternalChange ({ tx, skuChannel, customerMarketplac
       deviationPct,
     },
   });
+
+  // 3. Mutate the in-memory object so decide.js STEP 3 uses the new baseline
+  //    when computing floor/ceiling (skuChannel.list_price_cents * (1 ± pct)).
+  //    Safe: skuChannel is a local object constructed per-cycle by cycle-assembly.js.
+  //    Done AFTER the audit INSERT so a tx-rolling-back failure leaves the
+  //    in-memory object consistent with the DB state.
+  skuChannel.list_price_cents = currentPriceCents;
 
   logger.info(
     { skuChannelId, previousListPriceCents, newListPriceCents: currentPriceCents, deviationPct },
