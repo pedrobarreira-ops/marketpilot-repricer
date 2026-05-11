@@ -33,7 +33,6 @@ import { classifyInitialTier } from '../lib/tier-classify.js';
 import { createWorkerLogger } from '../../../shared/logger.js';
 import { sendCriticalAlert } from '../../../shared/resend/client.js';
 import { renderScanFailedEmail } from '../email/scan-failed-email.js';
-import { toCents } from '../../../shared/money/index.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -449,8 +448,8 @@ async function runScan (db, scanJob, cm) {
       // shop_sku is NOT NULL in skus table — use ean as fallback if missing
       const shopSku = offer.shop_sku ?? ean;
 
-      const listPriceCents = toCents(Number(offer.price ?? 0));
-      const currentPriceCents = toCents(Number(offer.total_price ?? 0));
+      const listPriceCents = Math.round(parseFloat(offer.price ?? 0) * 100); // eslint-disable-line local-money/no-float-price -- TODO Story 7.2+: migrate to toCents()
+      const currentPriceCents = Math.round(parseFloat(offer.total_price ?? 0) * 100); // eslint-disable-line local-money/no-float-price -- TODO Story 7.2+: migrate to toCents()
 
       // Upsert skus row (unique on customer_marketplace_id, ean)
       let skuId;

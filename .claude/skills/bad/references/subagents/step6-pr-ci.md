@@ -84,6 +84,20 @@ You also have access to two BAD config values from `.claude/settings.json`:
    Epic 5 retro (2026-04-20) because the specifics-only rule above doesn't
    catch counting semantics.
 
+   AUTO-INJECT SKIP-LIVE-SMOKE MARKER FOR BUNDLE-STACKED PRs — read
+   `_bmad-output/implementation-artifacts/sprint-status.yaml` and check whether
+   this story's key (e.g. `6-1-shared-mirakl-pri01-writer-...`) appears in the
+   top-level `merge_blocks:` block. If yes, the PR diff vs `main` will include
+   inherited Mirakl-touching files from upstream bundle siblings, which would
+   trigger bad-review's Live Smoke guard with a false positive. Append this
+   exact line as the LAST line of the PR body before submission:
+       [Skip-Live-Smoke: bundle-stacked (Bundle {bundle}) — bundle gate at story {until_story_short}; live smoke evidence is owned by upstream PR chain and the gate's integration test]
+   where `{bundle}` is `merge_blocks:<story-key>:bundle` (e.g. `C`) and
+   `{until_story_short}` is the dotted short form of `merge_blocks:<story-key>:until_story`
+   (e.g. `7-8-end-to-end-...` → `7.8`). Stories absent from `merge_blocks:`
+   skip this step. Eliminates the manual `gh pr edit` workaround for stacked
+   PRs (Q3 demoted to W4 watch at Epic 5 retro 2026-05-08).
+
 5. CI — read `RUN_CI_LOCALLY` from `_bmad/config.yaml` BEFORE any other CI action (Q2, Epic 5 retro: Story 5.2 Step 6 hung Monitor on no-checks-reported because RUN_CI_LOCALLY=true skips GitHub Actions entirely; the Monitor branch must not even be considered when true).
 
    **If `RUN_CI_LOCALLY` is true** → do NOT dispatch Monitor, do NOT poll `gh run view`. Read `references/subagents/step6-ci-fallback.md` and run the Local CI Fallback exactly. Report based on its exit. SKIP the rest of step 5 (the GitHub Actions branches below do not apply).

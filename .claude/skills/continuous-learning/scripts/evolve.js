@@ -37,7 +37,11 @@ const CL_SKILL_ROOT = resolve(SCRIPT_DIR, '..');
 // Min new observations to trigger /evolve. Below this, prepare bails.
 const MIN_NEW_OBSERVATIONS = 20;
 // Cap on observations sent to Haiku per run (token cost cap).
-const MAX_OBS_PER_BUNDLE = 200;
+// Raised from 200 → 1000 on 2026-05-08 (Pedro). At 3-4 stories/day
+// the original cap meant ~4% coverage of the unanalyzed window;
+// 1000 gives ~20% coverage and stays comfortably inside Haiku 4.5's
+// 200K context (slimmed obs ≈ 125 tokens × 1000 ≈ 125K + prompt/context).
+const MAX_OBS_PER_BUNDLE = 1000;
 
 // Mirror of detectCurrentProject in instincts.js — same hash strategy.
 function detectProject() {

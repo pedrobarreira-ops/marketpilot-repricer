@@ -392,20 +392,21 @@ Read `references/subagents/step2-atdd.md` and follow its instructions exactly.
 Check if this story touches Mirakl: look for "mirakl" (case-insensitive) in `{short_description}`, or verify the story spec file references `shared/mirakl/`.
 
 If the story touches Mirakl:
-1. Use ToolSearch with query `"mcp__mirakl"` to probe availability. If ToolSearch returns at least one result, the Mirakl MCP is active — proceed to dispatch Step 3 normally.
-2. If ToolSearch returns no results (MCP disconnected), print:
+1. Use ToolSearch with query `"mcp__mirakl"` to probe availability. **Filter out tool names matching `/authenticate/i`** — `mcp__mirakl__authenticate` and `mcp__mirakl__complete_authentication` exist as deferred tools even before the MCP is authenticated (they ARE the auth handshake) so unfiltered counts produce false positives. If the filtered count is > 0 (i.e., at least one non-auth Mirakl data tool exists), the MCP is authenticated and active — proceed to dispatch Step 3 normally. If filtered count == 0 (only auth tools present, OR no results at all), the MCP is disabled or pending authentication — halt as below. Story 6.1 dispatch on 2026-05-08 hit this false positive: gate said "active ✅" while MCP was pending auth, Step 3 began writing training-data-guessed PRI01 endpoint code before it was caught and reset.
+2. On halt, print:
    ```
-   ⚠️  Mirakl MCP is disabled.
+   ⚠️  Mirakl MCP is unavailable (disabled OR pending authentication).
    Story {number} ({short_description}) requires live Mirakl MCP verification during development.
    Without it, Step 3 will guess endpoint behaviour from training data — exactly the failure mode CLAUDE.md forbids.
 
-   Enable it: in Claude Code go to Settings → MCP → mirakl → toggle on.
+   Enable it: Claude Code Settings → MCP → mirakl → toggle on. If toggled but pending auth, complete the OAuth flow via `mcp__mirakl__authenticate` first.
+   Verify: ToolSearch for "mcp__mirakl" should return data tools (e.g. mcp__mirakl__list_offers) beyond just the two authenticate tools.
 
    [C] Retry — re-test MCP and dispatch Step 3
    [S] Stop BAD
    ```
-   📣 **Notify:** `⚠️ Mirakl MCP disabled — story {number} needs it. Enable and type [C].`
-3. On **[C]**: re-run ToolSearch for `"mcp__mirakl"`. If available, dispatch Step 3. If still unavailable, re-print the message and wait again.
+   📣 **Notify:** `⚠️ Mirakl MCP unavailable — story {number} needs it. Enable/authenticate and type [C].`
+3. On **[C]**: re-run the ToolSearch + filter check. If filtered count > 0, dispatch Step 3. If still 0, re-print the message and wait again.
 4. On **[S]**: halt BAD. Print `BAD stopped — enable Mirakl MCP and re-run /bad.` 📣 **Notify:** `🛑 BAD stopped — Mirakl MCP required.`
 
 Spawn with model `MODEL_STANDARD` (yolo mode):
@@ -424,9 +425,7 @@ this story's pipeline with error:
 agent may have truncated mid-implementation. Resolution: commit the changes,
 stash them explicitly, or dismiss with SKIP_CLEAN_TREE_GATE=true if intended.
 Do NOT spawn Step 4 against a dirty tree.`
-Rationale: dev agents have previously truncated mid-implementation, leaving
-changes only on disk. Without this gate, Step 4 reviews a partial tree and
-the truncation ships silently.
+Rationale: dev agents have truncated mid-implementation with changes on disk only — without the gate, Step 4 reviews a partial tree and the truncation ships silently.
 
 ### Step 4: Test Review (`MODEL_QUALITY`)
 
@@ -459,9 +458,14 @@ then `MODEL_QUALITY` MUST resolve to `claude-opus-4-7` (Opus). If it resolves
 to anything else, HALT this story's pipeline with error:
 `❌ Story {number}: Critical-path PR requires Opus at Step 5 — MODEL_QUALITY
 is configured as {value}. Override with MODEL_QUALITY=opus and re-run.`
-Rationale: prior worker-path runs caught 3/3 defects Sonnet missed at Step 5.
-The path list above covers our atomicity bundles, the 11 SSoT modules, and
-the migration-immutability surface — each is a multi-day-incident class.
+Rationale: prior worker-path runs caught 3/3 defects Sonnet missed; path list covers atomicity bundles + 11 SSoT modules + migration-immutability surface — multi-day-incident class.
+
+**Before spawning Step 5 — Spec Wire-Up Check (Q3, Epic 6 retro):**
+Diff-grounded review (Step 5 + Step 7) cannot detect MISSING code — it only audits what's in the diff. Story 6.3's wire-up gap (`scheduleRebuildForFailedSkus` was implemented + tested but never invoked from production code) survived all 4 inline review layers; only `/bad-review`'s spec-grounded `code-vs-spec` subagent caught it. This check brings a narrow structural guarantee into BAD: the spec author marks cross-file wire-up assertions with the literal `[WIRE-UP]:` prefix; the coordinator greps the worktree for the asserted call sites and halts if any are missing.
+
+**Marker syntax (opt-in, in story spec Acceptance Criteria or Dev Notes):** `[WIRE-UP]: <callsite-file> MUST call <function-name>` — exactly that shape, one assertion per line. Example: `[WIRE-UP]: shared/mirakl/pri02-poller.js MUST call scheduleRebuildForFailedSkus`.
+
+**Check:** grep the story spec for lines matching `\[WIRE-UP\]:\s*(\S+)\s+MUST\s+call\s+(\S+)`. For each match, run `git -C {worktree_path} grep -nE "<function-name>\s*\(" <callsite-file>`. If any assertion returns zero matches, HALT before spawning Step 5: `❌ Story {N}: spec [WIRE-UP] assertion not realized in code — <callsite-file> does not call <function-name>. Resolve before Step 5 dispatch.` Stories without `[WIRE-UP]:` markers skip this check (opt-in). See `_bmad-output/implementation-artifacts/bad-customization-notes.md` for the spec-author convention guide.
 
 Spawn with model `MODEL_QUALITY` (yolo mode):
 ```
@@ -485,26 +489,8 @@ Read `references/subagents/step6-pr-ci.md` and follow its instructions exactly.
 
 ### Step 7: PR Code Review (`MODEL_STANDARD` default, `MODEL_QUALITY` on critical-path)
 
-**Before spawning Step 7 — Worker/Critical-Path Opus Gate (mirrors Step 5):**
-Run `git -C {worktree_path} diff main --name-only`. If any output line starts
-with any of:
-  - `worker/src/`              (worker code: cron, engine, safety, jobs)
-  - `app/src/routes/`          (Fastify routes — public + admin surfaces)
-  - `app/src/middleware/`      (auth, RLS, error handling)
-  - `shared/mirakl/`           (Mirakl API client, request/response shaping)
-  - `shared/audit/`            (audit-log writer SSoT)
-  - `shared/state/`            (cron_state machine SSoT)
-  - `shared/money/`            (price math SSoT — float-math footgun zone)
-  - `shared/crypto/`           (envelope encryption + master-key loader)
-  - `supabase/migrations/`     (schema changes — multi-env divergence risk)
-then promote Step 7 to `MODEL_QUALITY` (Opus) for this story. Otherwise use
-`MODEL_STANDARD` (Sonnet) — non-critical PR reviews don't need Opus.
-
-Rationale: Step 7 reviews the PR diff (via `gh pr diff`) and applies fixes.
-The same critical-path classes that warrant Opus at Step 5 also warrant Opus
-at Step 7 — review depth is review depth, regardless of which step does it.
-The gate is per-story, not configuration-time, so an off-path PR runs Sonnet
-even when MODEL_QUALITY is set.
+**Before spawning Step 7 — Worker/Critical-Path Opus Gate (same path list as Step 5 above):**
+Run `git -C {worktree_path} diff main --name-only`. If any output line starts with any of the Step 5 critical-path prefixes (`worker/src/`, `app/src/routes/`, `app/src/middleware/`, `shared/mirakl/`, `shared/audit/`, `shared/state/`, `shared/money/`, `shared/crypto/`, `supabase/migrations/`), promote Step 7 to `MODEL_QUALITY` (Opus). Otherwise use `MODEL_STANDARD` (Sonnet). Rationale: review depth is review depth — same critical-path classes warrant Opus at both Step 5 and Step 7.
 
 Spawn with model `MODEL_STANDARD` (or `MODEL_QUALITY` per the gate above), yolo mode:
 ```
@@ -514,6 +500,12 @@ Auto-approve all tool calls (yolo mode).
 
 Read `references/subagents/step7-pr-review.md` and follow its instructions exactly.
 ```
+
+**After Step 7 — Sub-step Completeness Check (Q1, Epic 6 retro):**
+Step 7's `bmad-code-review` skill has 4 sub-steps (gather → review → triage → present). On Story 6.3's course-correction (2026-05-09), the skill emitted sub-steps 1-2 (63 raw findings) and stopped silently before triage — no automated gate caught it. Parse the Step 7 subagent's returned output for the literal string `# Step 3: Triage` (the heading from `_bmad/bmm/4-implementation/bmad-code-review/steps/step-03-triage.md`):
+- **If `# Step 2: Review` is ALSO absent** (no bmad-code-review section markers found at all): skill format may have drifted OR subagent never invoked the skill. HALT: `❌ Story {N}: Step 7 output has no expected bmad-code-review section markers. Manually verify all 4 sub-steps ran (gather → review → triage → present) before continuing.`
+- **If `# Step 2: Review` present but `# Step 3: Triage` missing**: subagent ran sub-steps 1-2 but stopped pre-triage (Story 6.3 silent-skip pattern). HALT with recovery menu: `⚠ Story {N}: Step 7 truncated after sub-step 2 — raw findings produced but no triage / patch / verdict. [R] Re-spawn with smaller-diff scope; [A] Accept un-triaged findings verbatim and continue; [S] Stop BAD.`
+- **Both markers present** → proceed to coordinator's done-flip merge gate.
 
 ---
 
@@ -649,23 +641,30 @@ Using the assessment report from Step 2, follow the applicable branch:
 
    How do you want to proceed?
 
-   [R] Run /bad-review on the open PR(s) now (recommended)
-       Spawns bad-review as a fresh-context subagent. After it returns,
-       you'll see the verdict and decide whether to merge.
+   [R] Run /bad-review on the NEWEST open PR only (recommended)
+       Spawns bad-review on PR #{newest-PR-number} only — the one BAD just
+       shipped this batch. Older open PRs were already audited in prior
+       batches and have no new commits since, so re-auditing them costs
+       Opus tokens for no new findings.
+   [A] Audit ALL open PRs
+       Use only if prior audits are stale OR you want fresh cross-PR checks.
+       Iterates each open PR sequentially (~5-10 min Opus + ~100k tokens per PR).
    [S] Stop BAD
        Don't run bad-review. You can run it manually in a new session.
    ```
-   📣 **Notify:** `⏸ BAD halted — batch complete. [R] Run bad-review now, or [S] stop.`
+   📣 **Notify:** `⏸ BAD halted — batch complete. [R] audit newest, [A] audit all, or [S] stop.`
 
-   If no open PRs (`current_epic_merged = true` and no leftover PRs from earlier batches): omit the `[R]` option and just print `Run /bad in a new session to start the next batch.` Then stop BAD.
+   If no open PRs (`current_epic_merged = true` and no leftover PRs from earlier batches): omit the `[R]` and `[A]` options and just print `Run /bad in a new session to start the next batch.` Then stop BAD.
 
-3. **[R] handler — Inline bad-review with fresh context:**
+3. **[R] / [A] handler — Inline bad-review with fresh context:**
 
-   For each open PR (sequentially — wait for each to fully resolve before starting the next):
+   - **[R]**: target the NEWEST open PR ONLY (the one this batch just shipped — highest PR number among the open list, OR the one whose story key matches the just-completed Phase 2 batch). Run 3a + 3b + 3c on that one PR, then go to 3d. Do NOT loop to other open PRs even if [N] is chosen.
+   - **[A]**: iterate every open PR sequentially. Run 3a + 3b + 3c on the first, then [N] / [M]'s success path loops back to 3a for the next PR. After all open PRs processed, go to 3d.
 
    **3a. Spawn the audit subagent** (`general-purpose` type — needs `Agent` tool to spawn its own audit subagents):
    ```
    Agent type: general-purpose
+   Model: opus
    Description: bad-review audit on PR #{N}
 
    Prompt:
@@ -676,6 +675,8 @@ Using the assessment report from Step 2, follow the applicable branch:
 
    Read `references/subagents/phase4-r-bad-review.md` and follow its instructions exactly.
    ```
+
+   **Model pin rationale (added 2026-05-11 after PR #89 silent downgrade to Sonnet):** without an explicit `model:` parameter, the harness auto-routes — likely Opus when quota is fresh, Sonnet when constrained. The audit subagent does judgment-heavy work (synthesizing 4 dimensions of findings) AND serves as the self-analyze fallback when nested Agent dispatch fails (see `phase4-r-bad-review.md` HALT directive). Both paths need Opus depth. Pin explicitly.
 
    **3b. Print the returned verdict report verbatim**, then halt with:
    ```

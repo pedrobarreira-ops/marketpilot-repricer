@@ -64,7 +64,7 @@ Background: BAD's Step 5/7 reviewer can land revert commits after Step 6 writes 
 
 **What to do:**
 1. Locate the PR's worktree at `.worktrees/<headRefName>` (BAD convention). Get `headRefName` from the Phase 1 step 1 JSON.
-2. Run `npm test` there — treat its output as authoritative, not the PR body's claim.
+2. Run `npm test` there — treat its output as authoritative, not the PR body's claim. **Use synchronous Bash** — do NOT spawn `npm test` in background with the Monitor tool watching for completion. Synchronous Bash returns exit codes immediately; the background+Monitor pattern can stall the audit indefinitely if the test process hangs or never signals completion (root cause of PR #88 first-audit truncation at 11m 44s on 2026-05-11 — Monitor burned the subagent's context budget waiting for an npm test that never returned). If you need a long-running test, set Bash `timeout` explicitly rather than going async.
 3. **If red:** promote to the same handling as "CI failing" (Rule 6) — report the failing tests and stop. Do not proceed to Phase 2.
 4. **If green:** proceed to Phase 2 and note in the Phase 3 synthesis that the green-light came from a local run, not from GitHub Actions.
 5. **If worktree missing** (unusual — only happens for externally-contributed PRs or after manual cleanup): halt and ask the user to check out the branch or wait for GitHub Actions. Do not skip the check.
@@ -169,6 +169,14 @@ migration in `supabase/migrations/`) so Subagent A flags it as BLOCKING during
 code-vs-spec audit.
 
 **Purpose of `PRIOR_DEFERRED_ITEMS`:** used in Phase 3 to (a) deduplicate observations — if an audit subagent surfaces a finding that's already recorded in deferred-work, label it as "previously deferred" rather than a new finding; (b) flag patterns — if the same kind of observation appears across two or more PRs in the same story-family, that's signal for a retro discussion. Without this step, fresh `/bad-review` sessions would re-log the same observation on every PR.
+
+### Mirakl MCP availability pre-check (Phase 1 step 10 — Q5, Epic 6 retro)
+
+**Trigger:** any time `gh pr diff <N> --name-only` (from Phase 1 step 2) matches the same Mirakl-touching path list as the Live Smoke Evidence guard above (`shared/mirakl/`, `worker/src/engine/`, `worker/src/safety/`, `worker/src/jobs/`, etc.) — i.e., the audit will need MCP for any spec/endpoint cross-reference.
+
+**Check:** run `ToolSearch` with query `mcp__mirakl` and filter results by `/authenticate/i` (same pattern as `bad/SKILL.md` Story 6.1 MCP gate fix at commit `44622d6`). If filtered count > 0 (at least one non-auth Mirakl data tool exists), MCP is authenticated and active — set `MCP_AVAILABLE=true` and proceed to Phase 2 normally. If filtered count == 0 (only the two `*authenticate` tools or no results), MCP is disabled OR pending OR token-expired. Set `MCP_AVAILABLE=false` and pass that flag to Phase 2's subagent prompts.
+
+**Fallback banner (passed to MCP-using subagents — A `code-vs-spec` and B `mcp-alignment`):** when `MCP_AVAILABLE=false`, the dispatch prompt MUST include this directive verbatim: `⚠ MCP_AVAILABLE=false — Mirakl MCP is unavailable for this audit run. Emit a banner at the top of your findings: "⚠ Mirakl MCP unavailable during this audit — Mirakl-API claims below are training-data fallback, NOT MCP-verified. Re-run /bad-review after re-authenticating MCP for a verified audit." Do NOT silently fall back to training-data without the banner.` Rationale: PR #84/#85 audit runs hit silent token expiry mid-flight; the audit appeared clean but rested on training data. Closing the silent-degrade hole.
 
 ---
 

@@ -1,0 +1,50 @@
+{
+  "_fixture": "p11-cooperative-absorption-anomaly-freeze",
+  "_story": "7.4",
+  "_description": "External price change detected; deviation > 40% threshold → anomaly freeze, Atenção event, critical alert",
+  "_expected": {
+    "action": "SKIP",
+    "absorbed": false,
+    "frozen": true,
+    "auditEvent": "anomaly-freeze",
+    "priority": "atencao",
+    "criticalAlert": true,
+    "note": "Engine STEP 2 returns {absorbed:false, frozen:true} → engine returns SKIP; next cycles also skip (frozen=true)"
+  },
+  "_preconditions": {
+    "skuChannel": {
+      "tier": "1",
+      "current_price_cents": 1300,
+      "last_set_price_cents": 2200,
+      "list_price_cents": 2500,
+      "max_discount_pct": 0.20,
+      "max_increase_pct": 0.10,
+      "edge_step_cents": 1,
+      "min_shipping_price_cents": 0,
+      "pending_import_id": null,
+      "frozen_for_anomaly_review": false,
+      "excluded_at": null
+    },
+    "customerMarketplace": {
+      "cron_state": "ACTIVE",
+      "own_shop_name": "EasyStore",
+      "anomaly_threshold_pct": null
+    }
+  },
+  "products": [
+    {
+      "product_sku": "EAN-TEST-014",
+      "offers": [
+        {
+          "shop_id": "WORTEN",
+          "shop_name": "CompetitorA",
+          "price": 14.00,
+          "total_price": 14.00,
+          "active": true,
+          "channel_code": "WRT_PT_ONLINE"
+        }
+      ]
+    }
+  ],
+  "_note": "current_price(1300) != last_set_price(2200): external change. deviation=|1300-2500|/2500=0.48 (48%) > 0.40 default threshold → freeze. freezeSkuForReview called. Atenção emitted. Critical alert sent. Engine returns SKIP."
+}

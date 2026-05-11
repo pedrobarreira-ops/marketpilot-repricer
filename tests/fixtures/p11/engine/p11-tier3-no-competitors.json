@@ -1,0 +1,41 @@
+{
+  "_fixture": "p11-tier3-no-competitors",
+  "_story": "7.5",
+  "_description": "Tier 3 SKU — no competitors in P11 (or all filtered out); stays T3, daily cadence, no audit event",
+  "_expected": {
+    "action": "HOLD",
+    "tier": "3",
+    "cadence_minutes": 1440,
+    "tierTransition": false,
+    "auditEvent": null,
+    "note": "T3 steady state: only last_checked_at updated; no tier-transition event (silent)"
+  },
+  "_preconditions": {
+    "skuChannel": {
+      "tier": "3",
+      "current_price_cents": 2500,
+      "last_set_price_cents": 2500,
+      "list_price_cents": 2500,
+      "max_discount_pct": 0.20,
+      "max_increase_pct": 0.10,
+      "edge_step_cents": 1,
+      "min_shipping_price_cents": 0,
+      "pending_import_id": null,
+      "frozen_for_anomaly_review": false,
+      "excluded_at": null,
+      "tier_cadence_minutes": 1440,
+      "last_won_at": null
+    },
+    "customerMarketplace": {
+      "cron_state": "ACTIVE",
+      "own_shop_name": "EasyStore"
+    }
+  },
+  "products": [
+    {
+      "product_sku": "EAN-TEST-016",
+      "offers": []
+    }
+  ],
+  "_note": "No offers returned by P11 (empty offers array). Post-filter: filteredOffers=[]. Engine STEP 1: tier=3, HOLD, no write. Reconciliation (Story 7.7) checks T3 daily: last_checked_at=NOW(), no transition. No audit event (silent steady state)."
+}
