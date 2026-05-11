@@ -1,0 +1,26 @@
+{
+  "_note": "Tier 3: no competitors. P11 returns only own offer (self-filter removes it) → post-filter empty → tier=3, HOLD, no write.",
+  "_expected": {
+    "action": "HOLD",
+    "newPriceCents": null,
+    "auditEvent": "tier-transition",
+    "tier": "3"
+  },
+  "_fixture_meta": {
+    "skuChannel_overrides": {
+      "tier": "3",
+      "tier_cadence_minutes": 1440,
+      "list_price_cents": 3000,
+      "current_price_cents": 2999,
+      "last_set_price_cents": 2999,
+      "pending_import_id": null
+    },
+    "customerMarketplace_overrides": {}
+  },
+  "products": [{
+    "product_references": [{ "reference_type": "EAN", "reference": "0000000000014" }],
+    "offers": [
+      { "shop_name": "Easy - Store", "active": true, "total_price": 29.99, "shop_id": null }
+    ]
+  }]
+}

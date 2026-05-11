@@ -1,0 +1,27 @@
+{
+  "_note": "Tier 2b winning: we're at position 1 (cheapest). current_price_cents=2849 (€28.49). After self-filter: Competitor B at €35.00 (rank 1) and Competitor C at €40.00 (rank 2). list_price_cents=3000, max_increase_pct=0.10 → ceiling=floor(3000*1.10)=3300. edge_step_cents=1. competitor2ndCents=4000, targetCeiling=4000-1=3999, newCeiling=min(3999,3300)=3300. newCeiling(3300)>current_price_cents(2849) — but delta=(3300-2849)/2849=0.1583=15.83%>15% → per-SKU circuit breaker trips → HOLD (reason=circuit-breaker). Per-SKU CB is checked in engine STEP 5 after the CEILING_RAISE candidate is computed.",
+  "_expected": {
+    "action": "HOLD",
+    "newPriceCents": null,
+    "auditEvent": null,
+    "priority": null
+  },
+  "_fixture_meta": {
+    "skuChannel_overrides": {
+      "list_price_cents": 3000,
+      "current_price_cents": 2849,
+      "last_set_price_cents": 2849,
+      "pending_import_id": null,
+      "tier": "2b"
+    },
+    "customerMarketplace_overrides": {}
+  },
+  "products": [{
+    "product_references": [{ "reference_type": "EAN", "reference": "0000000000004" }],
+    "offers": [
+      { "shop_name": "Easy - Store", "active": true,  "total_price": 28.49, "shop_id": null },
+      { "shop_name": "Competitor B", "active": true,  "total_price": 35.00, "shop_id": null },
+      { "shop_name": "Competitor C", "active": true,  "total_price": 40.00, "shop_id": null }
+    ]
+  }]
+}

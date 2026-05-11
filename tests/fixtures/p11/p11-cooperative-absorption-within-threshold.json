@@ -1,0 +1,30 @@
+{
+  "_note": "Cooperative absorption within threshold: current_price=2800 vs last_set_price=2500 (deviation=12% < 40%). Real absorbExternalChange updates list_price to 2800 (absorbed baseline). Then engine CASE B: own(2800) < comp_lowest(2999) → position=1. competitor2nd=3200, targetCeiling=3199, ceiling=floor(2800*1.15)=3220, newCeiling=min(3199,3220)=3199 > current(2800) → CEILING_RAISE(3199). Requires max_increase_pct=0.15.",
+  "_expected": {
+    "action": "CEILING_RAISE",
+    "newPriceCents": 3199,
+    "absorbed": true,
+    "auditEvent": "ceiling-raise-decision",
+    "priority": "rotina"
+  },
+  "_fixture_meta": {
+    "skuChannel_overrides": {
+      "current_price_cents": 2800,
+      "last_set_price_cents": 2500,
+      "list_price_cents": 2500,
+      "pending_import_id": null,
+      "tier": "1"
+    },
+    "customerMarketplace_overrides": {
+      "max_increase_pct": 0.15
+    }
+  },
+  "products": [{
+    "product_references": [{ "reference_type": "EAN", "reference": "0000000000016" }],
+    "offers": [
+      { "shop_name": "Competitor A",  "active": true, "total_price": 29.99, "shop_id": null },
+      { "shop_name": "Competitor B",  "active": true, "total_price": 32.00, "shop_id": null },
+      { "shop_name": "Easy - Store",  "active": true, "total_price": 28.00, "shop_id": null }
+    ]
+  }]
+}

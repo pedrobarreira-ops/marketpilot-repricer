@@ -1,0 +1,27 @@
+{
+  "_note": "Two offers in P11 response have shop_name === 'Easy - Store' (AD13 collision detection). collisionDetected===true → SKIP + shop-name-collision-detected (Atenção). Note: collision check runs on RAW input before any filtering, so even if one of our offers is inactive, it still counts.",
+  "_expected": {
+    "action": "SKIP",
+    "newPriceCents": null,
+    "auditEvent": "shop-name-collision-detected",
+    "priority": "atencao"
+  },
+  "_fixture_meta": {
+    "skuChannel_overrides": {
+      "list_price_cents": 3000,
+      "current_price_cents": 2849,
+      "last_set_price_cents": 2849,
+      "pending_import_id": null,
+      "tier": "1"
+    },
+    "customerMarketplace_overrides": {}
+  },
+  "products": [{
+    "product_references": [{ "reference_type": "EAN", "reference": "0000000000011" }],
+    "offers": [
+      { "shop_name": "Easy - Store",  "active": true,  "total_price": 28.49, "shop_id": null },
+      { "shop_name": "Easy - Store",  "active": false, "total_price": 31.99, "shop_id": null },
+      { "shop_name": "Competitor A",  "active": true,  "total_price": 35.00, "shop_id": null }
+    ]
+  }]
+}

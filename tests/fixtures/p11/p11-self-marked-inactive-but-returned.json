@@ -1,0 +1,29 @@
+{
+  "_note": "Own offer returned with active=false. AD14 active===true filter catches it first (before shop_name check). After filtering: competitors at €25.00 and €30.00. own total (current_price_cents=3199+0=3199) > competitorLowest(2500) → position>1. targetUndercut=2500-1=2499, candidate=max(2499, floor=2850)=2850, candidate(2850)>competitorLowest(2500) → HOLD + hold-floor-bound. (inactive own offer correctly filtered by active===true check, not by shop_name check.)",
+  "_expected": {
+    "action": "HOLD",
+    "newPriceCents": null,
+    "auditEvent": "hold-floor-bound",
+    "priority": "rotina"
+  },
+  "_fixture_meta": {
+    "skuChannel_overrides": {
+      "list_price_cents": 3000,
+      "current_price_cents": 3199,
+      "last_set_price_cents": 3199,
+      "pending_import_id": null,
+      "tier": "1"
+    },
+    "customerMarketplace_overrides": {
+      "max_discount_pct": 0.05
+    }
+  },
+  "products": [{
+    "product_references": [{ "reference_type": "EAN", "reference": "0000000000008" }],
+    "offers": [
+      { "shop_name": "Easy - Store", "active": false, "total_price": 31.99, "shop_id": null },
+      { "shop_name": "Competitor A", "active": true,  "total_price": 25.00, "shop_id": null },
+      { "shop_name": "Competitor B", "active": true,  "total_price": 30.00, "shop_id": null }
+    ]
+  }]
+}

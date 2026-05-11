@@ -1,0 +1,29 @@
+{
+  "_note": "T3→T1: was tier 3 (no competitors), now one competitor entered. Engine math: list=5000, floor=ceil(5000*0.95)=4750. competitor=4599. own=4999>4599 → position>1. targetUndercut=4598. candidate=max(4598,4750)=4750. 4750>=4599 → HOLD floor-bound (not UNDERCUT — floor protects). Tier transitions 3→1 on next cycle.",
+  "_expected": {
+    "action": "HOLD",
+    "newPriceCents": null,
+    "auditEvent": "hold-floor-bound",
+    "tierTransition": "3→1"
+  },
+  "_fixture_meta": {
+    "skuChannel_overrides": {
+      "tier": "3",
+      "tier_cadence_minutes": 1440,
+      "list_price_cents": 5000,
+      "current_price_cents": 4999,
+      "last_set_price_cents": 4999,
+      "pending_import_id": null
+    },
+    "customerMarketplace_overrides": {
+      "max_discount_pct": 0.05
+    }
+  },
+  "products": [{
+    "product_references": [{ "reference_type": "EAN", "reference": "0000000000015" }],
+    "offers": [
+      { "shop_name": "New Competitor", "active": true, "total_price": 45.99, "shop_id": null },
+      { "shop_name": "Easy - Store",   "active": true, "total_price": 49.99, "shop_id": null }
+    ]
+  }]
+}

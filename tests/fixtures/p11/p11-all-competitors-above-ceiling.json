@@ -1,0 +1,27 @@
+{
+  "_note": "All competitors above ceiling. list_price_cents=3000, max_increase_pct=0.10 → ceiling=floor(3000*1.10)=3300. We're at position 1 (current=2800 cents = €28.00). 2nd competitor at €40.00 (4000 cents). targetCeiling=4000-1=3999, newCeiling=min(3999,3300)=3300. newCeiling(3300)>current_price_cents(2800) — but delta=(3300-2800)/2800=0.1786=17.86%>15% → per-SKU circuit breaker trips → HOLD (reason=circuit-breaker). Per-SKU CB is checked in engine STEP 5 after the CEILING_RAISE candidate is computed.",
+  "_expected": {
+    "action": "HOLD",
+    "newPriceCents": null,
+    "auditEvent": null,
+    "priority": null
+  },
+  "_fixture_meta": {
+    "skuChannel_overrides": {
+      "list_price_cents": 3000,
+      "current_price_cents": 2800,
+      "last_set_price_cents": 2800,
+      "pending_import_id": null,
+      "tier": "1"
+    },
+    "customerMarketplace_overrides": {}
+  },
+  "products": [{
+    "product_references": [{ "reference_type": "EAN", "reference": "0000000000006" }],
+    "offers": [
+      { "shop_name": "Easy - Store", "active": true,  "total_price": 28.00, "shop_id": null },
+      { "shop_name": "Competitor A", "active": true,  "total_price": 40.00, "shop_id": null },
+      { "shop_name": "Competitor B", "active": true,  "total_price": 45.00, "shop_id": null }
+    ]
+  }]
+}

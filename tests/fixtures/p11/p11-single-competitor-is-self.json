@@ -1,0 +1,25 @@
+{
+  "_note": "Only one offer in P11 response and it is our own shop. After self-filter (shop_name !== ownShopName), filteredOffers.length===0 → Tier 3 path. Expected: action=HOLD, reason=no-competitors, auditEvents=[tier-transition].",
+  "_expected": {
+    "action": "HOLD",
+    "newPriceCents": null,
+    "auditEvent": "tier-transition",
+    "priority": "rotina"
+  },
+  "_fixture_meta": {
+    "skuChannel_overrides": {
+      "list_price_cents": 3000,
+      "current_price_cents": 2999,
+      "last_set_price_cents": 2999,
+      "pending_import_id": null,
+      "tier": "3"
+    },
+    "customerMarketplace_overrides": {}
+  },
+  "products": [{
+    "product_references": [{ "reference_type": "EAN", "reference": "0000000000009" }],
+    "offers": [
+      { "shop_name": "Easy - Store", "active": true, "total_price": 29.99, "shop_id": null }
+    ]
+  }]
+}

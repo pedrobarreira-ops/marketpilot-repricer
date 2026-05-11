@@ -484,6 +484,70 @@ const CUSTOMER_SCOPED_TABLES = [
       );
     },
   },
+  // ---------------------------------------------------------------------------
+  // Story 5.2: pri01_staging
+  // Ownership is indirect via customer_marketplace_id → customer_marketplaces.customer_id.
+  // Worker writes via service-role (cycle-assembly); customer SELECT is gated by RLS.
+  // ---------------------------------------------------------------------------
+  {
+    table: 'pri01_staging',
+    ownerCol: 'customer_marketplace_id',
+    // pri01_staging rows are written by the worker (service-role only).
+    // seedHelper inserts a row using a real customer_marketplace + sku + channel.
+    seedHelper: async (pool, customerId) => {
+      let cmId;
+      const { rows: existing } = await pool.query(
+        `SELECT id FROM customer_marketplaces WHERE customer_id = $1 LIMIT 1`,
+        [customerId],
+      );
+      if (existing.length > 0) {
+        cmId = existing[0].id;
+      } else {
+        const { rows: inserted } = await pool.query(
+          `INSERT INTO customer_marketplaces
+             (customer_id, operator, marketplace_instance_url, max_discount_pct)
+           VALUES ($1, 'WORTEN', 'https://marketplace-pri01-seed.worten.pt', 0.015)
+           RETURNING id`,
+          [customerId],
+        );
+        cmId = inserted[0].id;
+      }
+      // Ensure a skus row exists.
+      let skuId;
+      const { rows: skuRows } = await pool.query(
+        `SELECT id FROM skus WHERE customer_marketplace_id = $1 LIMIT 1`,
+        [cmId],
+      );
+      if (skuRows.length > 0) {
+        skuId = skuRows[0].id;
+      } else {
+        const { rows: skuInserted } = await pool.query(
+          `INSERT INTO skus
+             (customer_marketplace_id, ean, shop_sku, product_title)
+           VALUES ($1, '5601234599999', 'EZ5601234599999', 'Test SKU for pri01_staging')
+           RETURNING id`,
+          [cmId],
+        );
+        skuId = skuInserted[0].id;
+      }
+      await pool.query(
+        `INSERT INTO pri01_staging
+           (customer_marketplace_id, sku_id, channel_code, new_price_cents, cycle_id)
+         VALUES ($1, $2, 'WRT_PT_ONLINE', 2500, gen_random_uuid())
+         ON CONFLICT DO NOTHING`,
+        [cmId, skuId],
+      );
+    },
+    cleanHelper: async (pool, customerId) => {
+      await pool.query(
+        `DELETE FROM pri01_staging
+         WHERE customer_marketplace_id IN (
+           SELECT id FROM customer_marketplaces WHERE customer_id = $1
+         )`,
+        [customerId],
+      );
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -686,9 +750,10 @@ test('rls_isolation_suite', { concurrency: 1 }, async (t) => {
       }
 
       // Story 4.2 tables: skus, sku_channels, baseline_snapshots, scan_jobs.
+      // Story 5.2 table: pri01_staging.
       // Ownership is indirect via customer_marketplace_id — same pattern as shop_api_key_vault.
       // Cannot use generic ownerCol=userId check (userBId is a customer UUID, not a marketplace UUID).
-      if (['skus', 'sku_channels', 'baseline_snapshots', 'scan_jobs'].includes(table)) {
+      if (['skus', 'sku_channels', 'baseline_snapshots', 'scan_jobs', 'pri01_staging'].includes(table)) {
         const { userAId, userBId, jwtA } = await seedTwoCustomers();
         await tableConfig.seedHelper(getServiceRoleClient(), userAId);
         await tableConfig.seedHelper(getServiceRoleClient(), userBId);
@@ -786,8 +851,9 @@ test('rls_isolation_suite', { concurrency: 1 }, async (t) => {
       }
 
       // Story 4.2 tables: skus, sku_channels, baseline_snapshots, scan_jobs.
+      // Story 5.2 table: pri01_staging.
       // Ownership is indirect via customer_marketplace_id — resolve FK before asserting.
-      if (['skus', 'sku_channels', 'baseline_snapshots', 'scan_jobs'].includes(table)) {
+      if (['skus', 'sku_channels', 'baseline_snapshots', 'scan_jobs', 'pri01_staging'].includes(table)) {
         const { userAId, userBId, jwtB } = await seedTwoCustomers();
         await tableConfig.seedHelper(getServiceRoleClient(), userAId);
         await tableConfig.seedHelper(getServiceRoleClient(), userBId);
@@ -883,9 +949,10 @@ test('rls_isolation_suite', { concurrency: 1 }, async (t) => {
       }
 
       // Story 4.2 tables: INSERT with customer B's marketplace_id must be rejected.
+      // Story 5.2 table: pri01_staging — service-role only, any customer INSERT is blocked.
       // scan_jobs has no customer-side modify policy (service-role only) — any INSERT is blocked.
       // skus, sku_channels, baseline_snapshots use customer_marketplace_id as the RLS check column.
-      if (['skus', 'sku_channels', 'baseline_snapshots', 'scan_jobs'].includes(table)) {
+      if (['skus', 'sku_channels', 'baseline_snapshots', 'scan_jobs', 'pri01_staging'].includes(table)) {
         const { userAId: _aId, userBId, jwtA } = await seedTwoCustomers();
         await tableConfig.seedHelper(getServiceRoleClient(), userBId);
         const pool = getServiceRoleClient();
@@ -959,9 +1026,10 @@ test('rls_isolation_suite', { concurrency: 1 }, async (t) => {
       }
 
       // Story 4.2 tables: UPDATE targeting customer B's rows must be blocked.
+      // Story 5.2 table: pri01_staging — service-role only, any customer UPDATE is blocked (rowCount=0).
       // scan_jobs has no customer-side modify policy — any UPDATE is blocked (rowCount=0).
       // skus, sku_channels, baseline_snapshots: UPDATE filtered by customer_marketplace_id → rowCount=0.
-      if (['skus', 'sku_channels', 'baseline_snapshots', 'scan_jobs'].includes(table)) {
+      if (['skus', 'sku_channels', 'baseline_snapshots', 'scan_jobs', 'pri01_staging'].includes(table)) {
         const { userBId, jwtA } = await seedTwoCustomers();
         await tableConfig.seedHelper(getServiceRoleClient(), userBId);
         const pool = getServiceRoleClient();
@@ -1034,9 +1102,10 @@ test('rls_isolation_suite', { concurrency: 1 }, async (t) => {
       }
 
       // Story 4.2 tables: DELETE targeting customer B's rows must be blocked.
+      // Story 5.2 table: pri01_staging — service-role only, any customer DELETE is blocked (rowCount=0).
       // scan_jobs has no customer-side modify policy — any DELETE is blocked (rowCount=0).
       // skus, sku_channels, baseline_snapshots: DELETE filtered by customer_marketplace_id → rowCount=0.
-      if (['skus', 'sku_channels', 'baseline_snapshots', 'scan_jobs'].includes(table)) {
+      if (['skus', 'sku_channels', 'baseline_snapshots', 'scan_jobs', 'pri01_staging'].includes(table)) {
         const { userBId, jwtA } = await seedTwoCustomers();
         await tableConfig.seedHelper(getServiceRoleClient(), userBId);
         const pool = getServiceRoleClient();
