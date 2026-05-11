@@ -3,7 +3,7 @@
 > Endpoints verified against Mirakl MCP and architecture-distillate empirical facts (2026-05-11).
 
 **Sprint-status key:** `7-3-worker-src-engine-cooperative-absorb-js-step-2-absorption-skip-on-pending`
-**Status:** ready-for-dev
+**Status:** review
 **Size:** M
 **Epic:** 7 — Engine Decision & Safety
 **Atomicity:** Bundle C (3/4) — AD9 cooperative-absorption half; gate at Story 7.8
@@ -590,16 +590,29 @@ When implementation is complete, these greps on `worker/src/engine/cooperative-a
 
 ### Agent Model Used
 
-(to be filled by dev agent)
+claude-sonnet-4-6 (Step 3 developer subagent)
 
 ### Completion Notes List
 
-(to be filled by dev agent)
+- Implemented `worker/src/engine/cooperative-absorb.js` — full AD9 cooperative-ERP-sync detection module.
+- All 4 branches implemented: skip-on-pending (AC2), no-op (AC3), absorption within threshold (AC1), freeze above threshold (AC1).
+- Dependency-injection pattern for `freezeFn` (AC5) — tests inject mock; production uses dynamic import stub for Story 7.4.
+- `skuChannel.list_price_cents` mutated in-place on absorption so decide.js STEP 3 reads the new baseline.
+- `writeAuditEvent` called with `EVENT_TYPES.EXTERNAL_CHANGE_ABSORBED` and payload `{ previousListPriceCents, newListPriceCents, deviationPct }`.
+- ERR_MODULE_NOT_FOUND stub pattern matches Story 7.2 decide.js pattern exactly; real runtime errors propagate.
+- All 18 unit tests pass (node --test tests/worker/engine/cooperative-absorb.test.js).
+- Pre-existing test:unit failures (25) are unchanged — all in dry-run-minimal, margin, decide fixtures, and ESLint codebase scan (DB-dependent or pre-existing issues).
+- Negative assertions: no raw INSERT audit_log, no console.log, no default export, no .then().
+- `node --check worker/src/engine/cooperative-absorb.js` passes.
+- Fixture `tests/fixtures/p11/p11-cooperative-absorption-within-threshold.json` was already created by ATDD step.
 
 ### File List
 
-(to be filled by dev agent)
+- `worker/src/engine/cooperative-absorb.js` — new (SSoT AD9 absorption module)
+- `tests/worker/engine/cooperative-absorb.test.js` — created by ATDD step (Step 2)
+- `tests/fixtures/p11/p11-cooperative-absorption-within-threshold.json` — created by ATDD step (Step 2)
 
 ### Change Log
 
 - 2026-05-11: Story 7.3 spec created by Bob (bmad-create-story). Worktree forked from story-7.2-engine-decide-ad8-flow (Bundle C stacked dispatch). Endpoints verified against Mirakl MCP and architecture-distillate empirical facts.
+- 2026-05-11: Implementation complete by Step 3 dev agent (claude-sonnet-4-6). `cooperative-absorb.js` created; all 18 unit tests pass; status set to review.
