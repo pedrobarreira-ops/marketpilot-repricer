@@ -117,8 +117,14 @@ export async function decideForSkuChannel ({ skuChannel, customerMarketplace, ow
   try {
     const mod = await import('./cooperative-absorb.js');
     absorb = await mod.absorbExternalChange({ tx, skuChannel, customerMarketplace });
-  } catch {
-    // Story 7.3 not yet available — continue with pass-through defaults
+  } catch (err) {
+    // Stub gate: only swallow "module not yet implemented" (Story 7.3 has not shipped).
+    // Once 7.3 lands, real runtime errors (DB transaction failures, syntax errors,
+    // etc.) MUST propagate — otherwise the engine silently emits prices while the
+    // safety check is broken. Step 7 review hardening (2026-05-11).
+    if (err && err.code !== 'ERR_MODULE_NOT_FOUND') {
+      throw err;
+    }
     logger.debug({ skuChannelId: skuChannel.id }, 'engine: cooperative-absorb stub (7.3 not shipped)');
   }
   if (absorb.skipped || absorb.frozen) {
@@ -215,8 +221,14 @@ export async function decideForSkuChannel ({ skuChannel, customerMarketplace, ow
         newPriceCents: candidateCents,
         currentPriceCents: skuChannel.current_price_cents,
       });
-    } catch {
-      // Story 7.6 not yet available — pass through
+    } catch (err) {
+      // Stub gate: only swallow "module not yet implemented" (Story 7.6 has not shipped).
+      // Once 7.6 lands, real runtime errors (e.g., a thrown TypeError inside the CB
+      // implementation) MUST propagate — otherwise the engine emits prices while the
+      // per-SKU safety check is silently broken. Step 7 review hardening (2026-05-11).
+      if (err && err.code !== 'ERR_MODULE_NOT_FOUND') {
+        throw err;
+      }
       logger.debug({ skuChannelId: skuChannel.id }, 'engine: per-SKU circuit-breaker stub (7.6 not shipped)');
     }
     if (cbResult.tripped) {
