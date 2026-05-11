@@ -166,7 +166,7 @@ development_status:
   7-5-worker-src-engine-tier-classify-js-full-transitions-atomic-t2a-t2b-write-per-f1: backlog
   7-6-worker-src-safety-circuit-breaker-js-per-sku-15-per-cycle-20: review  # ATOMICITY BUNDLE C (4/4 -- AD11); bmad-create-story: Story 7.6 sharded 2026-05-11 (Bob); worktree forked from story-7.2-engine-decide-ad8-flow (bundle-stacked dispatch exception); BAD Step 3 Develop done 2026-05-11; PR #89 OPEN (Phase 0 reconciliation 2026-05-11 pass 23)
   7-7-worker-src-safety-reconciliation-js-tier-3-daily-pass-nightly-reconciliation: backlog
-  7-8-end-to-end-integration-gate-full-cycle-test-on-all-17-p11-fixtures-atomicity-bundle-gate-for-ad7-ad8-ad9-ad11: review  # ATOMICITY BUNDLE C GATE; fires only after 6.1, 7.2, 7.3, 7.6 land; sharded 2026-05-11 (Bob); 3 integration test files + 5 missing P11 fixtures; no production code
+  7-8-end-to-end-integration-gate-full-cycle-test-on-all-17-p11-fixtures-atomicity-bundle-gate-for-ad7-ad8-ad9-ad11: review  # ATOMICITY BUNDLE C GATE; SCP-2026-05-11 RECOVERY: Phase 1 MUST fork worktree from `bundle-c-integrated` (NOT story-7.6-... — that branch is missing cooperative-absorb.js from Story 7.3 which was parallel-dispatched, the exact failure mode that caused the previous dispatch to ship a fake gate). Previous worktree+branch+PR #90 destroyed in joint destructive ops 2026-05-11 (reflog tip c20dfad recoverable 90d). Amended spec at 7-8-...md committed 703cb47 (9 SCP amendments — see sprint-change-proposal-2026-05-11.md). Phase 0 reconciler will flip status to ready-for-dev (no worktree, no branch, PR closed).
   epic-7-retrospective: optional
 
   # =========================================================================
