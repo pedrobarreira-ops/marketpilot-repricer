@@ -1,0 +1,11 @@
+{
+  "_note": "Precondition #4 failure: skuChannel.pending_import_id is set (non-null). Engine must return SKIP immediately, no audit event emitted. The P11 offers data is irrelevant — the precondition check happens before any offer evaluation.",
+  "_expected": { "action": "SKIP", "reason": "pending-import", "auditEvents": [] },
+  "products": [{
+    "product_references": [{ "reference_type": "EAN", "reference": "0000000000012" }],
+    "offers": [
+      { "shop_name": "Competitor A", "active": true, "total_price": 28.00, "shop_id": null },
+      { "shop_name": "Easy - Store", "active": true, "total_price": 31.99, "shop_id": null }
+    ]
+  }]
+}

@@ -1,0 +1,11 @@
+{
+  "_note": "Own offer appears in P11 as active. Self-filter removes it. Remaining competitor at €29.50. We're not in the filtered list, so ownPosition > 1 (current_price_cents=2849 < competitor_lowest_cents=2950 with no shipping). Wait — actually ownTotal(2849+0)=2849 < competitorLowest(2950) → position=1. With competitor2nd=null → HOLD + hold-already-in-1st. (Own offer filtered; competitor is the only ranked offer.)",
+  "_expected": { "action": "HOLD", "auditEvent": "hold-already-in-1st" },
+  "products": [{
+    "product_references": [{ "reference_type": "EAN", "reference": "0000000000007" }],
+    "offers": [
+      { "shop_name": "Easy - Store", "active": true,  "total_price": 28.49, "shop_id": null },
+      { "shop_name": "Competitor A", "active": true,  "total_price": 29.50, "shop_id": null }
+    ]
+  }]
+}

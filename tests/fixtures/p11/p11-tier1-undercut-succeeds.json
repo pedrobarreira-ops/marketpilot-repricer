@@ -1,0 +1,13 @@
+{
+  "_note": "Tier 1 contested: own offer at €31.99+shipping; lowest competitor €28.50. Floor allows undercut (floor = list*0.985 approx). Expected: action=UNDERCUT, newPriceCents=2849.",
+  "_expected": { "action": "UNDERCUT", "newPriceCents": 2849 },
+  "products": [{
+    "product_references": [{ "reference_type": "EAN", "reference": "8809606851663" }],
+    "offers": [
+      { "shop_name": "Competitor A",  "active": true,  "total_price": 28.50, "shop_id": null },
+      { "shop_name": "Competitor B",  "active": true,  "total_price": 32.00, "shop_id": null },
+      { "shop_name": "Easy - Store",  "active": true,  "total_price": 31.99, "shop_id": null },
+      { "shop_name": "Strawberrynet", "active": true,  "total_price": 0,     "shop_id": null }
+    ]
+  }]
+}

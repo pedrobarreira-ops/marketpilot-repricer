@@ -1,0 +1,11 @@
+{
+  "_note": "Tier 2b winning: we're at position 1 (cheapest). current_price_cents=2849 (€28.49). 2nd competitor at €35.00 (3500 cents). list_price_cents=3000, max_increase_pct=0.10 → ceiling=floor(3000*1.10)=3300. edge_step_cents=1. targetCeiling=3500-1=3499, newCeiling=min(3499,3300)=3300. newCeiling(3300)>current_price_cents(2849) → CEILING_RAISE + ceiling-raise-decision.",
+  "_expected": { "action": "CEILING_RAISE", "newPriceCents": 3300 },
+  "products": [{
+    "product_references": [{ "reference_type": "EAN", "reference": "0000000000004" }],
+    "offers": [
+      { "shop_name": "Easy - Store", "active": true,  "total_price": 28.49, "shop_id": null },
+      { "shop_name": "Competitor B", "active": true,  "total_price": 35.00, "shop_id": null }
+    ]
+  }]
+}

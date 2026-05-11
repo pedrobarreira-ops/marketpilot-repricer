@@ -1,0 +1,10 @@
+{
+  "_note": "Only one offer in P11 response and it is our own shop. After self-filter (shop_name !== ownShopName), filteredOffers.length===0 → Tier 3 path. Expected: action=HOLD, reason=no-competitors, auditEvents=[tier-transition].",
+  "_expected": { "action": "HOLD", "reason": "no-competitors", "auditEvent": "tier-transition" },
+  "products": [{
+    "product_references": [{ "reference_type": "EAN", "reference": "0000000000009" }],
+    "offers": [
+      { "shop_name": "Easy - Store", "active": true, "total_price": 29.99, "shop_id": null }
+    ]
+  }]
+}

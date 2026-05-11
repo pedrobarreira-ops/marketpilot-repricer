@@ -1,0 +1,11 @@
+{
+  "_note": "Tie case (pre-locked decision): list_price_cents=2850, max_discount_pct=0.0 → floor=ceil(2850*1.0)=2850. Competitor at €28.50 (2850 cents). edge_step_cents=1. targetUndercut=2850-1=2849, candidate=max(2849,2850)=2850. candidate(2850)==competitorLowest(2850) → HOLD + hold-floor-bound (NOT undercut — coin-flip with margin sacrifice is strictly worse).",
+  "_expected": { "action": "HOLD", "auditEvent": "hold-floor-bound" },
+  "products": [{
+    "product_references": [{ "reference_type": "EAN", "reference": "0000000000003" }],
+    "offers": [
+      { "shop_name": "Competitor A", "active": true,  "total_price": 28.50, "shop_id": null },
+      { "shop_name": "Easy - Store", "active": true,  "total_price": 31.99, "shop_id": null }
+    ]
+  }]
+}

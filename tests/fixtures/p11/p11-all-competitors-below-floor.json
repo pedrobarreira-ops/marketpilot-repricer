@@ -1,0 +1,12 @@
+{
+  "_note": "All competitors below floor. list_price_cents=3000, max_discount_pct=0.05 → floor=ceil(3000*0.95)=2850. Competitors at €20.00 (2000 cents) and €22.00 (2200 cents). We're at position 2 (current=2800). targetUndercut=2000-1=1999, candidate=max(1999,2850)=2850. candidate(2850)>competitorLowest(2000) → HOLD + hold-floor-bound.",
+  "_expected": { "action": "HOLD", "auditEvent": "hold-floor-bound" },
+  "products": [{
+    "product_references": [{ "reference_type": "EAN", "reference": "0000000000005" }],
+    "offers": [
+      { "shop_name": "Competitor A", "active": true,  "total_price": 20.00, "shop_id": null },
+      { "shop_name": "Competitor B", "active": true,  "total_price": 22.00, "shop_id": null },
+      { "shop_name": "Easy - Store", "active": true,  "total_price": 28.00, "shop_id": null }
+    ]
+  }]
+}
