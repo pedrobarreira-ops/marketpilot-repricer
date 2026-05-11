@@ -78,7 +78,7 @@
 # by design; pre-dates the rule).
 
 generated: 2026-05-01
-last_updated: 2026-05-11  # bmad-create-story: Story 7.2 sharded 2026-05-11 (Bob); 7-2-worker-src-engine-decide-js-full-ad8-decision-flow-with-filter-chain-via-self-filter → ready-for-dev; worktree forked from story-6.3-pri03-parser-per-sku-rebuild (bundle-stacked dispatch exception)
+last_updated: 2026-05-11  # bmad-create-story: Story 7.3 sharded 2026-05-11 (Bob); 7-3-worker-src-engine-cooperative-absorb-js-step-2-absorption-skip-on-pending → ready-for-dev; worktree forked from story-7.2-engine-decide-ad8-flow (bundle-stacked dispatch exception); Story 7.3 → atdd-done 2026-05-11 (BAD Step 2)
 project: marketpilot-repricer  # updated by bmad-create-story: Story 1.1 sharded 2026-05-01; Story 1.2 sharded 2026-05-01; Story 1.3 sharded 2026-05-02; Story 1.4 sharded 2026-05-02; Story 1.5 sharded 2026-05-03; Story 1.5 → review 2026-05-03; Story 1.5 → done 2026-05-03 (post-review); Story 2.1 sharded 2026-05-03 (Bob) → ready-for-dev
 project_key: NOKEY
 tracking_system: file-system
@@ -161,7 +161,7 @@ development_status:
   epic-7: in-progress
   7-1-shared-money-index-js-no-float-price-eslint-rule: done  # ESLint: no-float-price ships here
   7-2-worker-src-engine-decide-js-full-ad8-decision-flow-with-filter-chain-via-self-filter: review  # ATOMICITY BUNDLE C (2/4 -- AD8); bmad-create-story: Story 7.2 sharded 2026-05-11 (Bob); worktree forked from story-6.3-pri03-parser-per-sku-rebuild (bundle-stacked dispatch); dev-done 2026-05-11 (BAD Step 3 commits 38a7557 + d93e4bb — 36 ATDD tests pass, AD8 6-step flow complete)
-  7-3-worker-src-engine-cooperative-absorb-js-step-2-absorption-skip-on-pending: backlog  # ATOMICITY BUNDLE C (3/4 -- AD9)
+  7-3-worker-src-engine-cooperative-absorb-js-step-2-absorption-skip-on-pending: atdd-done  # ATOMICITY BUNDLE C (3/4 -- AD9)
   7-4-worker-src-safety-anomaly-freeze-js-audit-anomaly-sku-accept-reject-endpoints: backlog
   7-5-worker-src-engine-tier-classify-js-full-transitions-atomic-t2a-t2b-write-per-f1: backlog
   7-6-worker-src-safety-circuit-breaker-js-per-sku-15-per-cycle-20: backlog  # ATOMICITY BUNDLE C (4/4 -- AD11)
