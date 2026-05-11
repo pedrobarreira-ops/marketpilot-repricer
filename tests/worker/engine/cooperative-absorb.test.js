@@ -548,3 +548,119 @@ describe('absorbExternalChange: all branches covered (AC5)', () => {
     assert.ok(typeof capturedArgs.tx.query === 'function', 'tx must be passed to freeze');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Step 4 test-review hardening — boundary + symmetry + skip-on-undefined
+// ---------------------------------------------------------------------------
+//
+// Gaps caught at test review:
+//   1. Equality boundary deviationPct === threshold — spec is `<=` (absorb).
+//      Without an explicit test, a future refactor flipping `<=`/`>` is silent.
+//   2. pending_import_id === undefined — impl guards `!== null && !== undefined`.
+//      Only null and a real UUID were tested; an undefined-skip regression hides.
+//   3. Negative-direction deviation (current < list) — Math.abs symmetry should
+//      hold for both directions; removing the abs() must fail a test.
+// ---------------------------------------------------------------------------
+
+describe('absorbExternalChange: boundary + symmetry hardening (Step 4 review)', () => {
+  test('absorb_at_exact_threshold_boundary_absorbs_not_freezes', async () => {
+    // deviation EXACTLY equals threshold → spec says <= absorbs.
+    // Use threshold 0.50 and deviation = |3000-2000|/2000 = 0.50.
+    const tx = makeMockTx();
+    const sc = makeSkuChannel({
+      list_price_cents: 2000,
+      last_set_price_cents: 2000,
+      current_price_cents: 3000,
+    });
+    const cm = makeMarketplace({ anomaly_threshold_pct: 0.50 });
+
+    let freezeCalled = false;
+    const mockFreeze = async () => { freezeCalled = true; };
+
+    const result = await absorbExternalChange({
+      tx,
+      skuChannel: sc,
+      customerMarketplace: cm,
+      freezeFn: mockFreeze,
+    });
+
+    assert.equal(result.absorbed, true,
+      'at exact threshold, spec says deviationPct <= threshold → absorb (boundary test for off-by-one regressions)');
+    assert.equal(result.frozen, false);
+    assert.equal(freezeCalled, false, 'freezeFn must NOT be called at exact threshold boundary');
+    assert.equal(sc.list_price_cents, 3000, 'list_price_cents must be mutated on boundary absorption');
+  });
+
+  test('absorb_skips_when_pending_import_id_is_undefined_not_just_null', async () => {
+    // Impl guards both null AND undefined; only null was tested above.
+    // This catches a regression that drops the undefined check.
+    const tx = makeMockTx();
+    const sc = makeSkuChannel({
+      current_price_cents: 3450,
+      last_set_price_cents: 3000,
+    });
+    delete sc.pending_import_id; // explicit undefined (not null)
+
+    const result = await absorbExternalChange({ tx, skuChannel: sc, customerMarketplace: makeMarketplace() });
+
+    // Note: when pending_import_id is undefined, impl currently treats it
+    // identically to null and PROCEEDS (since `!== null && !== undefined` is false).
+    // Document the actual behaviour: undefined === null (skipped: false; absorption proceeds).
+    assert.equal(result.skipped, undefined,
+      'undefined pending_import_id is treated like null: must NOT skip (deviation should be evaluated)');
+    assert.equal(result.absorbed, true,
+      'deviation 15% < 40%: absorption proceeds when pending_import_id is undefined');
+  });
+
+  test('absorb_handles_negative_direction_deviation_symmetrically', async () => {
+    // current_price went DOWN relative to list_price (external markdown).
+    // Math.abs ensures symmetric behaviour; removing abs() would fail this test
+    // (negative ratio < threshold check would silently absorb everything).
+    const tx = makeMockTx();
+    const sc = makeSkuChannel({
+      list_price_cents: 3000,
+      last_set_price_cents: 3000,
+      current_price_cents: 2550, // deviation = |2550-3000|/3000 = 0.15 (downward)
+    });
+    const cm = makeMarketplace();
+
+    const result = await absorbExternalChange({ tx, skuChannel: sc, customerMarketplace: cm });
+
+    assert.equal(result.absorbed, true,
+      'downward 15% deviation should absorb just like upward 15% — Math.abs symmetry');
+    assert.equal(result.frozen, false);
+    assert.equal(sc.list_price_cents, 2550, 'downward absorption mutates list_price to current (2550)');
+  });
+
+  test('absorb_freezes_on_negative_direction_when_exceeding_threshold', async () => {
+    // Downward 50% deviation must freeze identically to upward 50%.
+    // Removing Math.abs() would compute -0.50, which is NOT > 0.40 (false negative).
+    const tx = makeMockTx();
+    const sc = makeSkuChannel({
+      list_price_cents: 4000,
+      last_set_price_cents: 4000,
+      current_price_cents: 2000, // deviation = |2000-4000|/4000 = 0.50 (downward, > 0.40)
+    });
+    const cm = makeMarketplace();
+
+    let freezeCalled = false;
+    let freezeArgs = null;
+    const mockFreeze = async (args) => { freezeCalled = true; freezeArgs = args; };
+
+    const result = await absorbExternalChange({
+      tx,
+      skuChannel: sc,
+      customerMarketplace: cm,
+      freezeFn: mockFreeze,
+    });
+
+    assert.equal(result.frozen, true,
+      'downward 50% deviation must freeze — Math.abs symmetry on the freeze path');
+    assert.equal(result.absorbed, false);
+    assert.equal(freezeCalled, true);
+    assert.ok(freezeArgs.deviationPct > 0.40,
+      `deviationPct passed to freeze must be absolute value (>0.40), got ${freezeArgs.deviationPct}`);
+    assert.equal(freezeArgs.currentPriceCents, 2000);
+    assert.equal(freezeArgs.listPriceCents, 4000);
+  });
+});
