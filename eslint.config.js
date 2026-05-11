@@ -13,6 +13,7 @@ import noDirectFetch from './eslint-rules/no-direct-fetch.js';
 import noRawCronStateUpdate from './eslint-rules/no-raw-cron-state-update.js';
 import workerMustFilterByCustomer from './eslint-rules/worker-must-filter-by-customer.js';
 import noRawCsvBuilding from './eslint-rules/no-raw-CSV-building.js';
+import noFloatPrice from './eslint-rules/no-float-price.js';
 
 export default [
   {
@@ -87,6 +88,15 @@ export default [
       'local-cron/no-raw-cron-state-update': 'error',
       'local-cron/worker-must-filter-by-customer': 'error',
       'local-cron/no-raw-CSV-building': 'error',
+    },
+  },
+  {
+    // Story 7.1: no-float-price rule — forbids float-price math patterns outside shared/money/index.js.
+    // No `files` restriction (Story 7.1 note: omitting `files` avoids "outside of base path" on Windows
+    // worktrees). The module-level allowlist inside the rule enforces scope to source files only.
+    plugins: { 'local-money': noFloatPrice },
+    rules: {
+      'local-money/no-float-price': 'error',
     },
   },
   {
