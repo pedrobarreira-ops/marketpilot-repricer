@@ -244,6 +244,12 @@ describe('checkPerCycleCircuitBreaker — per-cycle 20% circuit breaker', () => 
     assert.equal(transition.from, 'ACTIVE', 'Must transition FROM ACTIVE');
     assert.equal(transition.to, 'PAUSED_BY_CIRCUIT_BREAKER', 'Must transition TO PAUSED_BY_CIRCUIT_BREAKER');
     assert.deepEqual(transition.context, { cycleId, numerator: 21, denominator: 100 });
+    // Contract: transitionCronState requires BOTH tx (audit emission) and client (UPDATE).
+    // Without `client`, the UPDATE on line 132 of shared/state/cron-state.js throws
+    // "Cannot read properties of undefined (reading 'query')". Pin both keys.
+    assert.ok(transition.tx, 'transitionCronStateFn must receive tx (for audit emission)');
+    assert.ok(transition.client, 'transitionCronStateFn must receive client (for cron-state UPDATE — pre-existing contract from Story 4.1)');
+    assert.strictEqual(transition.tx, transition.client, 'tx and client must be the same checked-out PoolClient (cycle-assembly closure)');
 
     // sendAlertFn must also be called
     assert.equal(alertCalls.length, 1, 'sendAlertFn must be called exactly once on trip');

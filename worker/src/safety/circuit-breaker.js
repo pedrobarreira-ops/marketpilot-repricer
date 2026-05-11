@@ -31,15 +31,22 @@ const logger = createWorkerLogger();
  * @returns {Promise<void>}
  */
 async function _defaultSendAlertFn ({ customerMarketplaceId, cycleId, numerator, denominator }) {
-  const affectedPct = denominator > 0 ? `${numerator}/${denominator}` : 'N/A';
+  // Render the fraction "numerator/denominator" — the email recipient (operator)
+  // can compute the percentage at a glance. The previous code constructed a
+  // "${fraction}%" string which produced confusing output like "21/100%".
+  // Note: a true percent string ("21.0%") would require multiplying by 100 +
+  // .toFixed(1), both forbidden by the `local-money/no-float-price` ESLint rule
+  // outside shared/money/index.js. The fraction form sidesteps the rule and is
+  // also unambiguous (no need to mentally divide).
+  const fraction = denominator > 0 ? `${numerator}/${denominator}` : 'N/A';
   await sendCriticalAlert({
     to: process.env.ALERT_EMAIL ?? 'alerts@marketpilot.pt',
-    subject: `[MarketPilot] Circuit breaker tripped — ${affectedPct} SKUs staged`,
+    subject: `[MarketPilot] Circuit breaker tripped — ${fraction} SKUs staged`,
     html: `<p>Per-cycle circuit breaker tripped.</p>
 <ul>
   <li><strong>Customer marketplace:</strong> ${customerMarketplaceId}</li>
   <li><strong>Cycle ID:</strong> ${cycleId}</li>
-  <li><strong>Staged:</strong> ${numerator} / ${denominator} SKUs (${affectedPct}%)</li>
+  <li><strong>Staged:</strong> ${numerator} of ${denominator} active SKUs</li>
 </ul>
 <p>The marketplace has been paused. Manual review and unblock required via the dashboard.</p>`,
   });
@@ -138,8 +145,17 @@ export async function checkPerCycleCircuitBreaker ({
   // transitionCronState atomically: UPDATE cron_state + emits circuit-breaker-trip Atenção event
   // (ACTIVE → PAUSED_BY_CIRCUIT_BREAKER is in per-transition event map in Story 4.1)
   // Do NOT call writeAuditEvent separately — transitionCronState already emits the event.
+  //
+  // transitionCronState({ tx, client, ... }) requires BOTH parameters:
+  //   - tx: the transaction client, used for audit event emission (Bundle B atomicity)
+  //   - client: the transaction client, used for the optimistic-concurrency UPDATE
+  // In this code path, cycle-assembly already runs inside a checked-out PoolClient
+  // (the `tx` parameter here IS the client), so we pass the same value to both keys.
+  // Without `client`, the cron-state UPDATE on line 132 of shared/state/cron-state.js
+  // would throw "Cannot read properties of undefined (reading 'query')" on a real trip.
   await transitionCronStateFn({
     tx,
+    client: tx,
     customerMarketplaceId,
     from: 'ACTIVE',
     to: 'PAUSED_BY_CIRCUIT_BREAKER',
