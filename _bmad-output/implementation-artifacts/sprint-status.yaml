@@ -160,7 +160,7 @@ development_status:
   # =========================================================================
   epic-7: in-progress
   7-1-shared-money-index-js-no-float-price-eslint-rule: done  # ESLint: no-float-price ships here
-  7-2-worker-src-engine-decide-js-full-ad8-decision-flow-with-filter-chain-via-self-filter: atdd-done  # ATOMICITY BUNDLE C (2/4 -- AD8); bmad-create-story: Story 7.2 sharded 2026-05-11 (Bob); worktree forked from story-6.3-pri03-parser-per-sku-rebuild (bundle-stacked dispatch); ATDD complete 2026-05-11 (BAD Step 2 commit 27347d3 — 22 tests in tests/worker/engine/decide.test.js + 12 P11 fixtures)
+  7-2-worker-src-engine-decide-js-full-ad8-decision-flow-with-filter-chain-via-self-filter: review  # ATOMICITY BUNDLE C (2/4 -- AD8); bmad-create-story: Story 7.2 sharded 2026-05-11 (Bob); worktree forked from story-6.3-pri03-parser-per-sku-rebuild (bundle-stacked dispatch); dev-done 2026-05-11 (BAD Step 3 commits 38a7557 + d93e4bb — 36 ATDD tests pass, AD8 6-step flow complete)
   7-3-worker-src-engine-cooperative-absorb-js-step-2-absorption-skip-on-pending: backlog  # ATOMICITY BUNDLE C (3/4 -- AD9)
   7-4-worker-src-safety-anomaly-freeze-js-audit-anomaly-sku-accept-reject-endpoints: backlog
   7-5-worker-src-engine-tier-classify-js-full-transitions-atomic-t2a-t2b-write-per-f1: backlog
