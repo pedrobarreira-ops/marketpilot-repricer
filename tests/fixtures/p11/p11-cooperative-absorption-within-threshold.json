@@ -4,8 +4,8 @@
     "action": "CEILING_RAISE",
     "newPriceCents": 3199,
     "absorbed": true,
-    "auditEvent": "external-change-absorbed",
-    "priority": "notavel"
+    "auditEvent": "ceiling-raise-decision",
+    "priority": "rotina"
   },
   "_fixture_meta": {
     "skuChannel_overrides": {

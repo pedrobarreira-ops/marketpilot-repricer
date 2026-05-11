@@ -5,8 +5,8 @@
     "newPriceCents": null,
     "absorbed": false,
     "frozen": true,
-    "auditEvent": "anomaly-freeze",
-    "priority": "atencao"
+    "auditEvent": null,
+    "priority": null
   },
   "_fixture_meta": {
     "skuChannel_overrides": {
