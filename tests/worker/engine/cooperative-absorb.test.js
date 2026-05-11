@@ -353,8 +353,9 @@ describe('Fixture: p11-cooperative-absorption-within-threshold (AC4)', () => {
   // Load fixture synchronously before tests run
   try {
     fixture = JSON.parse(readFileSync(join(FIXTURES_DIR, fixtureFile), 'utf-8'));
-  } catch (err) {
+  } catch {
     // If fixture file doesn't exist yet, tests will fail with a clear error
+    // via the `assert.ok(fixture, ...)` in each test below.
     fixture = null;
   }
 
