@@ -207,54 +207,28 @@ describe('Story 7.2 — decideForSkuChannel: 12 P11 fixtures (AC4)', () => {
     );
   });
 
-  // Fixture 4: p11-tier2b-ceiling-raise-headroom
-  // Position 1 (own=2849, min_shipping=0; competitor1=2849 self→filtered; competitor_ranked[0]=3500).
-  // Actually: own offer filtered → competitors=[3500]. own total=2849 <= 3500 → position=1.
-  // competitor2nd=null → HOLD? No — wait, fixture has 2 offers: Easy-Store(2849) + CompetitorB(3500).
-  // After self-filter: filteredOffers=[{3500}]. filteredOffers[0]=3500(1st), filteredOffers[1]=undefined(null).
-  // position=1 (ownTotal=2849<=3500). No 2nd → HOLD + hold-already-in-1st.
-  // Need to redesign: use current_price_cents LESS than own total, and 2nd competitor available.
-  // Let own current=2849; competitors ranked after filter: compA=3500, compB=4000.
-  // ownTotal=2849+0=2849<=3500→position=1. competitor2nd=4000. targetCeiling=4000-1=3999.
-  // ceiling=floor(3000*1.10)=3300. newCeiling=min(3999,3300)=3300. 3300>2849 → CEILING_RAISE.
+  // Fixture 4: p11-tier2b-ceiling-raise-headroom (regenerated post-Step 4 review)
+  // Fixture stores 3 offers: Easy-Store(28.49) self → filtered; CompetitorB(35.00) → rank 1;
+  // CompetitorC(40.00) → rank 2. ownTotal=2849<=3500 → position=1.
+  // ceiling=floor(3000*1.10)=3300. targetCeiling=4000-1=3999. newCeiling=min(3999,3300)=3300.
+  // 3300>2849 → CEILING_RAISE(3300). No inline augmentation — fixture is self-contained.
   test('fixture_4_tier2b_ceiling_raise_headroom', async () => {
     const { decideForSkuChannel } = await getDecide();
     const fixture = loadFixture('p11-tier2b-ceiling-raise-headroom.json');
     const offers = fixture.products[0].offers;
-
-    // own offer at 28.49 in fixture → filtered. Competitors: [35.00]. Only 1 competitor → no 2nd.
-    // Use current_price lower than competitor to be position 1 but add a 2nd competitor via different setup.
-    // The fixture has only [Easy-Store(28.49), CompetitorB(35.00)].
-    // After self-filter: filteredOffers=[{35.00}]. ownTotal=2849<=3500 → pos=1, no 2nd → HOLD.
-    // Instead we need the fixture to work differently — we position the skuChannel
-    // with current_price_cents=2849, BELOW competitor after filtering.
-    // Since there is no 2nd competitor in the fixture, let's re-check: the test
-    // should use a custom offers array or the fixture as-is but accept the HOLD+already-in-1st result.
-    // Per story spec fixture 4: "current_price €28.49; competitor 2nd at €35.00; ceiling €30.00 → CEILING_RAISE"
-    // This means the fixture must have 2 competitors AFTER filtering. The fixture has Easy-Store+CompetitorB.
-    // After filtering: only CompetitorB(35.00). That's 1 competitor = 1st place = no 2nd → HOLD.
-    // The spec intends: after filtering there's CompetitorB(35.00) as rank1 AND another competitor as rank2.
-    // The fixture needs a 3rd party. But the fixture file only has 2 entries.
-    // We override: use the raw offers + append a 2nd competitor in the test.
-    const augmentedOffers = [
-      ...offers,
-      { shop_name: 'Competitor C', active: true, total_price: 40.00, shop_id: null },
-    ];
 
     const skuChannel = makeSkuChannel({
       list_price_cents: 3000,
       current_price_cents: 2849,
       min_shipping_price_cents: 0,
     });
-    // ceiling=floor(3000*1.10)=3300. competitor1=3500, competitor2=4000. targetCeiling=4000-1=3999.
-    // newCeiling=min(3999,3300)=3300. 3300>2849 → CEILING_RAISE(3300).
     const marketplace = makeMarketplace({ max_discount_pct: 0.05, max_increase_pct: 0.10, edge_step_cents: 1 });
 
     const result = await decideForSkuChannel({
       skuChannel,
       customerMarketplace: marketplace,
       ownShopName: OWN_SHOP_NAME,
-      p11RawOffers: augmentedOffers,
+      p11RawOffers: offers,
       tx: mockTx,
     });
 
@@ -573,6 +547,24 @@ describe('Story 7.2 — decideForSkuChannel: preconditions (AC1)', () => {
       tx: mockTx,
     });
     assert.equal(result.action, 'SKIP', 'excluded_at !== null must return SKIP');
+  });
+
+  // Defensive precondition (added by Step 5 review): current_price_cents must
+  // be a finite integer or the engine cannot compute own position safely.
+  // Schema permits NULL (202604301206_create_sku_channels.sql:12) so guard
+  // explicitly rather than rely on `null + 0 = 0` silently mis-positioning.
+  test('precondition_current_price_cents_null_returns_skip', async () => {
+    const { decideForSkuChannel } = await getDecide();
+    const result = await decideForSkuChannel({
+      skuChannel: makeSkuChannel({ current_price_cents: null }),
+      customerMarketplace: makeMarketplace(),
+      ownShopName: OWN_SHOP_NAME,
+      p11RawOffers: baseOffers,
+      tx: mockTx,
+    });
+    assert.equal(result.action, 'SKIP', 'current_price_cents=null must return SKIP (data-integrity guard)');
+    assert.equal(result.reason, 'current-price-unknown', `expected reason='current-price-unknown'; got '${result.reason}'`);
+    assert.deepEqual(result.auditEvents, [], 'data-integrity SKIP must emit no audit events');
   });
 
 });

@@ -1,5 +1,5 @@
 {
-  "_note": "Own offer appears in P11 as active. Self-filter removes it. Remaining competitor at €29.50. We're not in the filtered list, so ownPosition > 1 (current_price_cents=2849 < competitor_lowest_cents=2950 with no shipping). Wait — actually ownTotal(2849+0)=2849 < competitorLowest(2950) → position=1. With competitor2nd=null → HOLD + hold-already-in-1st. (Own offer filtered; competitor is the only ranked offer.)",
+  "_note": "Own offer appears in P11 as active. Self-filter removes it. Remaining competitor at €29.50. ownTotal(current_price_cents=2849 + 0 shipping)=2849 < competitorLowest(2950) → position=1 (we're cheaper than the only remaining competitor). competitor2nd=null → HOLD + hold-already-in-1st. NOTE: the story-7.2 spec narrative for Fixture 7 reasoned 'position=2 because own not in filtered list → UNDERCUT' — that reasoning is incorrect. Position is determined by comparing own current_price+shipping to filteredOffers[0], not by absence from the filtered list. The engine math in the line above is authoritative; the fixture and test assertion are the canonical contract for this scenario.",
   "_expected": { "action": "HOLD", "auditEvent": "hold-already-in-1st" },
   "products": [{
     "product_references": [{ "reference_type": "EAN", "reference": "0000000000007" }],

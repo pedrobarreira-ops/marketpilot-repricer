@@ -816,3 +816,26 @@ Also run `node --check worker/src/engine/decide.js` for syntax validation (catch
 ### Change Log
 
 - 2026-05-11: Story 7.2 spec created by Bob (bmad-create-story). Worktree forked from story-6.3-pri03-parser-per-sku-rebuild (Bundle C stacked dispatch). Endpoints verified against Mirakl MCP.
+- 2026-05-11: Step 5 code review completed by BAD subagent. 3 patches applied, 5 findings deferred, 1 dismissed. Tests 27 → 28 passing.
+
+### Review Findings (Step 5)
+
+Code review run via `/bmad-code-review` against `git diff origin/story-6.3-pri03-parser-per-sku-rebuild...HEAD`. Three review lenses applied (Blind Hunter, Edge Case Hunter, Acceptance Auditor). All `patch` findings auto-applied per BAD Step 5 protocol.
+
+#### Applied patches
+
+- [x] [Review][Patch] **Fixture 4 (p11-tier2b-ceiling-raise-headroom.json) — regenerated with 3rd competitor inline** — fixture previously stored 2 offers but `_note`/`_expected` described a CEILING_RAISE that required a 2nd competitor; the test compensated with inline augmentation. Made the fixture self-contained per Story 7.8 integration-gate intent.
+- [x] [Review][Patch] **Fixture 7 (p11-self-active-in-p11.json) — annotated `_note` with spec-narrative deviation** — story spec narrative said `position=2 → UNDERCUT` but the math correctly yields `position=1, no 2nd → HOLD + hold-already-in-1st`. Fixture and test were correct; `_note` now flags the deviation so future readers know the fixture is canonical.
+- [x] [Review][Patch] **`current_price_cents` precondition guard in decide.js** — schema permits NULL but JS `null + 0 = 0` would silently mis-position the SKU as winning. Added explicit `Number.isFinite` check before STEP 1; returns `SKIP` with reason `current-price-unknown`. Belt-and-suspenders against future code paths that might leave the column null. Test added: `precondition_current_price_cents_null_returns_skip` in AC1 suite.
+
+#### Deferred (pre-existing or out-of-scope)
+
+- [x] [Review][Defer] **Other nullable column hardening (list_price_cents, max_discount_pct, max_increase_pct)** — onboarding-scan + Epic 2 baseline always populate these; schema-level NOT NULL constraints are the right enforcement point. Out of scope for Story 7.2.
+- [x] [Review][Defer] **Cooperative-absorb `absorbed: true` not handled in STEP 2 stub** — handoff contract for Story 7.3 (engine should re-read updated list_price_cents after absorb). Story 7.3's responsibility.
+- [x] [Review][Defer] **cycle-assembly `customerMarketplace=null` race produces misleading log** — `customerMarketplace_id` cascade-deleted briefly between dispatcher SELECT and decide call. Minor log clarity issue; not a correctness bug.
+- [x] [Review][Defer] **cycle-assembly P11 fetch errors uncaught** — `getProductOffersByEan` throw halts the cycle for all subsequent SKUs. Retry policy belongs in Story 5.1 dispatcher orchestrator + Story 7.6 per-SKU CB, both upstream of decide.js.
+- [x] [Review][Defer] **No integration test for real-engine cycle-assembly path** — new SELECT + P11-fetch branch in cycle-assembly is only exercised when `opts.engine === null` AND `apiKey + baseUrl` present. Story 7.8 integration gate (live P11 + real engine) is the right place to test this; adding integration tests now is gold-plating per-story scope.
+
+#### Dismissed
+
+- CB stub log misclassification (E4 finding) — log says "stub (7.6 not shipped)" when a partial-deployment scenario could mask a real export-missing bug, but the catch correctly defaults to `{ tripped: false }`. Not a real risk.

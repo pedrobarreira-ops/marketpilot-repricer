@@ -67,6 +67,17 @@ export async function decideForSkuChannel ({ skuChannel, customerMarketplace, ow
     return { action: 'SKIP', newPriceCents: null, auditEvents: [], reason: 'excluded' };
   }
 
+  // Defensive: current_price_cents is nullable in the DB schema (see
+  // 202604301206_create_sku_channels.sql:12). Onboarding-scan always populates
+  // it at SKU-channel creation, but a row could be inserted by a future code
+  // path without setting it. JS `null + 0 = 0` would silently mis-position the
+  // SKU as winning (ownTotalCents=0). Fail-fast with SKIP rather than emit a
+  // spurious price write.
+  if (!Number.isFinite(skuChannel.current_price_cents)) {
+    logger.warn({ skuChannelId: skuChannel.id, current_price_cents: skuChannel.current_price_cents }, 'engine: SKIP — current_price_cents not finite (data integrity)');
+    return { action: 'SKIP', newPriceCents: null, auditEvents: [], reason: 'current-price-unknown' };
+  }
+
   // -------------------------------------------------------------------------
   // STEP 1 — Filter chain (AD13+AD14) + collision check + Tier 3 path
   // -------------------------------------------------------------------------
