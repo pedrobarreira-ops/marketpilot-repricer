@@ -25,6 +25,8 @@ import { randomUUID } from 'node:crypto';
 
 /**
  * Build a minimal mock transaction object that captures INSERTs.
+ * SELECT COUNT queries return { rows: [{ count: 0 }] } so the real per-cycle
+ * circuit-breaker (Story 7.6) works without tripping (0 staged / 0 active = no trip).
  * @returns {{ tx: object, inserts: Array<{text: string, params: any[]}> }}
  */
 function buildMockTx () {
@@ -33,6 +35,10 @@ function buildMockTx () {
     query: async (text, params) => {
       if (text && text.toUpperCase().includes('INSERT')) {
         inserts.push({ text, params });
+      }
+      // Return a safe COUNT=0 for SELECT COUNT queries used by per-cycle circuit-breaker
+      if (text && text.toUpperCase().includes('COUNT')) {
+        return { rows: [{ count: 0 }], rowCount: 1 };
       }
       return { rows: [], rowCount: 0 };
     },

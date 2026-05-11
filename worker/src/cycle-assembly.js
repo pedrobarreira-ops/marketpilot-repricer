@@ -3,6 +3,8 @@
 // Story 5.2: cycle-assembly skeleton — Atomicity Bundle C participant.
 // Story 7.2: Updated to load full skuChannel row, customerMarketplace row, and P11 offers
 //            when calling the real engine (decideForSkuChannel named-param shape).
+// Story 7.6: Wire in real per-cycle circuit-breaker (checkPerCycleCircuitBreaker) and
+//            per-SKU CB event emission when engine returns reason === 'circuit-breaker'.
 //
 // Bridges the dispatcher (Story 5.1) and the pricing engine (Epic 7).
 // Reads per-SKU decisions from the engine, writes UNDERCUT/CEILING_RAISE
@@ -21,6 +23,7 @@
 //   - No .then() chains — async/await only
 
 import { writeAuditEvent as _writeAuditEvent } from '../../shared/audit/writer.js';
+import { EVENT_TYPES } from '../../shared/audit/event-types.js';
 import { createWorkerLogger } from '../../shared/logger.js';
 
 const logger = createWorkerLogger();
@@ -38,7 +41,7 @@ const logger = createWorkerLogger();
  * @param {object} [opts] — injectable dependencies for testing:
  *   - engine: { decideForSkuChannel(params): Promise<{action, newPriceCents, auditEvents}> }
  *   - writeAuditEvent: function (same contract as shared/audit/writer.js)
- *   - circuitBreakerCheck: async (stagedCount) => void (stub; Story 7.6)
+ *   - circuitBreakerCheck: async (stagedCount) => void (injectable; defaults to real per-cycle CB via Story 7.6)
  *   - apiKey: string — decrypted Mirakl API key (required for real engine P11 calls)
  *   - baseUrl: string — Mirakl marketplace base URL (required for real engine P11 calls)
  * @returns {Promise<{ stagedCount: number, heldCount: number }>}
@@ -65,12 +68,17 @@ export async function assembleCycle (tx, customerMarketplaceId, skuChannels, cyc
   // Resolve writeAuditEvent: use injected stub or the shared SSoT writer
   const writeAuditEvent = opts.writeAuditEvent ?? _writeAuditEvent;
 
-  // Resolve circuit-breaker check: use injected stub or default log-only stub
-  const circuitBreakerCheck = opts.circuitBreakerCheck ?? (async (stagedCount) => {
-    logger.debug(
-      { stagedCount, cycleId, customerMarketplaceId },
-      'cycle-assembly: circuit-breaker check (stub — Story 7.6)',
-    );
+  // Resolve circuit-breaker check: use injected stub or the real per-cycle CB (Story 7.6).
+  // The default implementation loads checkPerCycleCircuitBreaker lazily (dynamic import) and
+  // calls it with the current tx, customerMarketplaceId, and cycleId from this closure.
+  // Tests inject opts.circuitBreakerCheck to avoid real DB/Resend calls.
+  const circuitBreakerCheck = opts.circuitBreakerCheck ?? (async (_stagedCount) => {
+    const cbMod = await import('./safety/circuit-breaker.js');
+    return cbMod.checkPerCycleCircuitBreaker({
+      tx,
+      customerMarketplaceId,
+      cycleId,
+    });
   });
 
   // When using the real engine (not an injected test stub), load full context per SKU.
@@ -138,7 +146,41 @@ export async function assembleCycle (tx, customerMarketplaceId, skuChannels, cyc
       continue;
     }
 
-    const { action, newPriceCents, auditEvents } = await engine.decideForSkuChannel(decideParams);
+    const { action, newPriceCents, auditEvents, reason } = await engine.decideForSkuChannel(decideParams);
+
+    // Per-SKU circuit-breaker trip — decide.js returns { action:'HOLD', auditEvents:[], reason:'circuit-breaker' }.
+    // cycle-assembly is responsible for emitting the CIRCUIT_BREAKER_PER_SKU_TRIP Atenção event
+    // and sending the Resend critical alert (checkPerSkuCircuitBreaker is pure; no side effects there).
+    if (action === 'HOLD' && reason === 'circuit-breaker') {
+      await writeAuditEvent({
+        tx,
+        customerMarketplaceId,
+        skuId: skuChannel.sku_id,
+        skuChannelId: skuChannel.id,
+        cycleId,
+        eventType: EVENT_TYPES.CIRCUIT_BREAKER_PER_SKU_TRIP,
+        payload: {
+          skuId: skuChannel.sku_id,
+          failureCount: 1, // per-SKU CB always fires on first occurrence
+          cycleId,
+        },
+      });
+      // Send Resend critical alert for per-SKU trip (best-effort; sendCriticalAlert never re-throws)
+      // Lazy import to avoid pulling in RESEND_API_KEY check at module load time
+      const { sendCriticalAlert } = await import('../../shared/resend/client.js');
+      await sendCriticalAlert({
+        to: process.env.ALERT_EMAIL ?? 'alerts@marketpilot.pt',
+        subject: '[MarketPilot] Per-SKU circuit breaker tripped',
+        html: `<p>Per-SKU circuit breaker tripped (>15% price move).</p>
+<ul>
+  <li><strong>Customer marketplace:</strong> ${customerMarketplaceId}</li>
+  <li><strong>SKU channel ID:</strong> ${skuChannel.id}</li>
+  <li><strong>Cycle ID:</strong> ${cycleId}</li>
+</ul>`,
+      });
+      heldCount++;
+      continue;
+    }
 
     if (action === 'UNDERCUT' || action === 'CEILING_RAISE') {
       // Insert one staging row for this pricing decision

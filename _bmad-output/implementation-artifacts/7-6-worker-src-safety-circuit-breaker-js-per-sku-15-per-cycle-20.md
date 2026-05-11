@@ -3,7 +3,7 @@
 > No Mirakl API endpoints are called by this story. All work is pure computation + DB queries + audit emission. No MCP verification required.
 
 **Sprint-status key:** `7-6-worker-src-safety-circuit-breaker-js-per-sku-15-per-cycle-20`
-**Status:** ready-for-dev
+**Status:** review
 **Size:** M
 **Epic:** 7 — Engine Decision & Safety
 **Atomicity:** Bundle C (4/4) — AD11 circuit-breaker half; gate at Story 7.8
@@ -663,16 +663,32 @@ import { LEGAL_CRON_TRANSITIONS } from '../../../shared/state/transitions-matrix
 
 ### Agent Model Used
 
-(to be filled by dev agent)
+claude-sonnet-4-6
 
 ### Completion Notes List
 
-(to be filled by dev agent)
+- Implemented `worker/src/safety/circuit-breaker.js` with two exports:
+  - `checkPerSkuCircuitBreaker` — pure synchronous function (no async, no side effects). Returns `{ tripped, deltaPct }`. Called from engine STEP 5 without await. Caller (cycle-assembly) emits the audit event and Resend alert when tripped.
+  - `checkPerCycleCircuitBreaker` — async. Queries `pri01_staging` (numerator) and `sku_channels` (denominator, F6 amendment). Trips when `numerator/denominator > 0.20` (strict >). On trip: calls `transitionCronStateFn(ACTIVE → PAUSED_BY_CIRCUIT_BREAKER)` then `sendAlertFn`. Both fns are injectable for testing. Division-by-zero guard: returns `{ tripped: false }` when denominator=0.
+- Updated `worker/src/cycle-assembly.js`:
+  - Added `import { EVENT_TYPES }` from event-types.js
+  - Updated Story 7.6 comments in file header
+  - Replaced log-only `circuitBreakerCheck` stub with real `checkPerCycleCircuitBreaker` (lazy dynamic import, uses closure tx/customerMarketplaceId/cycleId)
+  - Added per-SKU CB trip detection: when engine returns `{ action: 'HOLD', reason: 'circuit-breaker' }`, cycle-assembly emits `CIRCUIT_BREAKER_PER_SKU_TRIP` audit event + Resend critical alert, then `continue`s (heldCount++)
+- Updated `tests/worker/cycle-assembly.test.js`:
+  - `buildMockTx` enhanced: returns `{ rows: [{ count: 0 }] }` for SELECT COUNT queries, enabling the real per-cycle CB to be called in existing tests without tripping (0/0 denominator guard)
+- All 23 circuit-breaker tests pass (per-SKU + per-cycle + manual-unblock invariant + negative assertions)
+- All 11 cycle-assembly tests pass (no regressions)
+- Pre-existing failures: Story 7.2 fixtures 4/6 (pre-existing on this branch), ESLint no-direct-fetch (pre-existing), margin/dry-run-minimal route tests (pre-existing). Zero new failures introduced.
 
 ### File List
 
-(to be filled by dev agent)
+- `worker/src/safety/circuit-breaker.js` (new)
+- `tests/worker/safety/circuit-breaker.test.js` (pre-existing ATDD, unchanged — all tests pass)
+- `worker/src/cycle-assembly.js` (modified — per-SKU CB event emission + per-cycle CB wiring)
+- `tests/worker/cycle-assembly.test.js` (modified — buildMockTx SELECT COUNT support)
 
 ### Change Log
 
 - 2026-05-11: Story 7.6 spec created by Bob (bmad-create-story). Worktree forked from story-7.2-engine-decide-ad8-flow (Bundle C stacked dispatch). No Mirakl endpoints. event-types.js PayloadForCircuitBreakerPerSkuTrip shape reconciled against shipped SSoT (failureCount/cycleId, not deltaPct/prices). checkPerSkuCircuitBreaker confirmed synchronous from decide.js STEP 5 call site.
+- 2026-05-11: Implementation complete by dev agent (claude-sonnet-4-6). AC1–AC7 satisfied. 23/23 circuit-breaker tests pass. 11/11 cycle-assembly tests pass. No new regressions.
