@@ -664,6 +664,7 @@ Using the assessment report from Step 2, follow the applicable branch:
    **3a. Spawn the audit subagent** (`general-purpose` type — needs `Agent` tool to spawn its own audit subagents):
    ```
    Agent type: general-purpose
+   Model: opus
    Description: bad-review audit on PR #{N}
 
    Prompt:
@@ -674,6 +675,8 @@ Using the assessment report from Step 2, follow the applicable branch:
 
    Read `references/subagents/phase4-r-bad-review.md` and follow its instructions exactly.
    ```
+
+   **Model pin rationale (added 2026-05-11 after PR #89 silent downgrade to Sonnet):** without an explicit `model:` parameter, the harness auto-routes — likely Opus when quota is fresh, Sonnet when constrained. The audit subagent does judgment-heavy work (synthesizing 4 dimensions of findings) AND serves as the self-analyze fallback when nested Agent dispatch fails (see `phase4-r-bad-review.md` HALT directive). Both paths need Opus depth. Pin explicitly.
 
    **3b. Print the returned verdict report verbatim**, then halt with:
    ```

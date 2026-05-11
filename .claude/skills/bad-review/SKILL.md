@@ -64,7 +64,7 @@ Background: BAD's Step 5/7 reviewer can land revert commits after Step 6 writes 
 
 **What to do:**
 1. Locate the PR's worktree at `.worktrees/<headRefName>` (BAD convention). Get `headRefName` from the Phase 1 step 1 JSON.
-2. Run `npm test` there — treat its output as authoritative, not the PR body's claim.
+2. Run `npm test` there — treat its output as authoritative, not the PR body's claim. **Use synchronous Bash** — do NOT spawn `npm test` in background with the Monitor tool watching for completion. Synchronous Bash returns exit codes immediately; the background+Monitor pattern can stall the audit indefinitely if the test process hangs or never signals completion (root cause of PR #88 first-audit truncation at 11m 44s on 2026-05-11 — Monitor burned the subagent's context budget waiting for an npm test that never returned). If you need a long-running test, set Bash `timeout` explicitly rather than going async.
 3. **If red:** promote to the same handling as "CI failing" (Rule 6) — report the failing tests and stop. Do not proceed to Phase 2.
 4. **If green:** proceed to Phase 2 and note in the Phase 3 synthesis that the green-light came from a local run, not from GitHub Actions.
 5. **If worktree missing** (unusual — only happens for externally-contributed PRs or after manual cleanup): halt and ask the user to check out the branch or wait for GitHub Actions. Do not skip the check.
