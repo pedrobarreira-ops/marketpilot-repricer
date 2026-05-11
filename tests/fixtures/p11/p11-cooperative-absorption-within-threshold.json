@@ -1,0 +1,19 @@
+{
+  "_note": "Cooperative absorption within threshold: current_price=2800 vs last_set_price=2500 (deviation=12% < 40%). Absorption succeeds. external-change-absorbed Notável emitted. Fixture skuChannel: current_price_cents=2800, last_set_price_cents=2500, pending_import_id=null.",
+  "_expected": { "absorbed": true, "auditEvent": "external-change-absorbed", "priority": "notavel" },
+  "_fixture_meta": {
+    "skuChannel_overrides": {
+      "current_price_cents": 2800,
+      "last_set_price_cents": 2500,
+      "pending_import_id": null
+    }
+  },
+  "products": [{
+    "product_references": [{ "reference_type": "EAN", "reference": "0000000000016" }],
+    "offers": [
+      { "shop_name": "Competitor A",  "active": true, "total_price": 29.99, "shop_id": null },
+      { "shop_name": "Competitor B",  "active": true, "total_price": 32.00, "shop_id": null },
+      { "shop_name": "Easy - Store",  "active": true, "total_price": 28.00, "shop_id": null }
+    ]
+  }]
+}

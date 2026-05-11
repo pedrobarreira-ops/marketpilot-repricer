@@ -1,0 +1,22 @@
+{
+  "_note": "T2a: own is 1st place, last_won_at < 4h ago. skuChannel.tier='2a', last_won_at=2h ago. Own at 35.99 total, competitors at 36.50 and 37.50. T2a stays T2a. Expected: tier stays '2a', cadence stays 15min, engine decision per AD8 CASE B (winning). competitor2nd=37.50=3750 cents, targetCeiling=3750-1=3749, ceiling=floor(3500*1.10)=3850, newCeiling=min(3749,3850)=3749. newCeiling(3749)>current_price_cents(3599) → CEILING_RAISE.",
+  "_expected": { "action": "CEILING_RAISE", "tierStay": "2a" },
+  "_fixture_meta": {
+    "skuChannel_overrides": {
+      "tier": "2a",
+      "tier_cadence_minutes": 15,
+      "list_price_cents": 3500,
+      "current_price_cents": 3599,
+      "last_set_price_cents": 3599,
+      "last_won_at": "__2h_ago__"
+    }
+  },
+  "products": [{
+    "product_references": [{ "reference_type": "EAN", "reference": "0000000000013" }],
+    "offers": [
+      { "shop_name": "Easy - Store",    "active": true, "total_price": 35.99, "shop_id": null },
+      { "shop_name": "Competitor Alpha","active": true, "total_price": 36.50, "shop_id": null },
+      { "shop_name": "Competitor Beta", "active": true, "total_price": 37.50, "shop_id": null }
+    ]
+  }]
+}

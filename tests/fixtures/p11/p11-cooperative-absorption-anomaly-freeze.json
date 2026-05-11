@@ -1,0 +1,19 @@
+{
+  "_note": "Cooperative absorption anomaly freeze: current_price=1000 vs last_set_price=2500 (deviation=60% > 40%). Freeze fires. anomaly-freeze Atenção emitted. Critical alert sent. Engine SKIPs. Fixture skuChannel: current_price_cents=1000, last_set_price_cents=2500, pending_import_id=null.",
+  "_expected": { "absorbed": false, "frozen": true, "auditEvent": "anomaly-freeze", "priority": "atencao" },
+  "_fixture_meta": {
+    "skuChannel_overrides": {
+      "current_price_cents": 1000,
+      "last_set_price_cents": 2500,
+      "pending_import_id": null
+    }
+  },
+  "products": [{
+    "product_references": [{ "reference_type": "EAN", "reference": "0000000000017" }],
+    "offers": [
+      { "shop_name": "Competitor A",  "active": true, "total_price": 19.99, "shop_id": null },
+      { "shop_name": "Competitor B",  "active": true, "total_price": 21.00, "shop_id": null },
+      { "shop_name": "Easy - Store",  "active": true, "total_price": 10.00, "shop_id": null }
+    ]
+  }]
+}
