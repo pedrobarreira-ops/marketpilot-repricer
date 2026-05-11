@@ -127,7 +127,8 @@ export function buildPri01Csv ({ skuChannels, operatorCsvDelimiter, offerPricesD
       ? ch.newPriceCents
       : ch.lastSetPriceCents;
 
-    // Format to offerPricesDecimals decimal places; toFixed() always uses ASCII period
+    // Format to offerPricesDecimals decimal places; toFixed() always uses ASCII period.
+    // eslint-disable-next-line local-money/no-float-price -- PRI01 CSV serialisation: cents→decimal string is the SSoT for this conversion; fromCents() is fixed at 2 d.p. and returns a PT-locale string, unsuitable for PRI01's variable-precision ASCII format.
     const priceStr = (priceCents / 100).toFixed(offerPricesDecimals);
 
     const lineIndex = bodyLines.length + 1;  // 1-based

@@ -16,6 +16,8 @@
 //   - No console.log (pino logger rule — no logger needed, pure function)
 //   - Tier 2b NOT assigned here (requires 4h elapsed since last_won_at — impossible at scan time)
 
+import { toCents } from '../../../shared/money/index.js';
+
 /**
  * Classify the initial tier for a sku_channel at scan time.
  *
@@ -40,7 +42,7 @@ export function classifyInitialTier (ownCurrentPriceCents, competitorOffers) {
 
   // competitorOffers is sorted ascending by total_price (self-filter.js guarantees this)
   // Cheapest competitor is first
-  const lowestCompetitorCents = Math.round(competitorOffers[0].total_price * 100);
+  const lowestCompetitorCents = toCents(competitorOffers[0].total_price);
 
   if (ownCurrentPriceCents <= lowestCompetitorCents) {
     // We're winning or tied at 1st — Tier 2a

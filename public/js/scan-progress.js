@@ -62,6 +62,7 @@
    */
   function calcPercent (processed, total) {
     if (!total || total === 0) return 0;
+    // eslint-disable-next-line local-money/no-float-price -- percentage calculation, not price arithmetic
     return Math.min(100, Math.round(((processed || 0) / total) * 100));
   }
 
