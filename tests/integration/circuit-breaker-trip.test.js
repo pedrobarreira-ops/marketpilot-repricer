@@ -195,7 +195,13 @@ describe('AC4 — Per-cycle circuit breaker trip: 21% catalog change (real modul
     };
 
     let cbWasCalled = false;
-    let pri01SubmitAttempts = 0;
+    // Capture the CB result so we can assert tripped=true — proving the CB fired
+    // and would cause the dispatcher to halt before calling submitPriceImport.
+    // (assembleCycle does not call submitPriceImport directly; it only writes to
+    // pri01_staging. The dispatcher is responsible for the PRI01 HTTP submit,
+    // and it checks the CB cron-state transition before proceeding. Asserting
+    // tripped=true is the correct proof that no PRI01 submit would occur.)
+    let capturedCbResult = null;
 
     // Mock tx that tracks pri01_staging INSERTs and CB queries
     const queries = [];
@@ -243,7 +249,7 @@ describe('AC4 — Per-cycle circuit breaker trip: 21% catalog change (real modul
         circuitBreakerCheck: async (_count) => {
           cbWasCalled = true;
           // Use REAL checkPerCycleCircuitBreaker
-          const cbResult = await checkPerCycleCircuitBreaker({
+          capturedCbResult = await checkPerCycleCircuitBreaker({
             tx,
             customerMarketplaceId: CUSTOMER_MARKETPLACE_ID,
             cycleId: CYCLE_ID,
@@ -252,7 +258,7 @@ describe('AC4 — Per-cycle circuit breaker trip: 21% catalog change (real modul
               await transitionCronState({ ...args, tx: args.tx, client: args.client });
             },
           });
-          return cbResult;
+          return capturedCbResult;
         },
       },
     );
@@ -263,8 +269,13 @@ describe('AC4 — Per-cycle circuit breaker trip: 21% catalog change (real modul
     // The 21 SKUs were staged (assembleCycle stages before calling CB)
     assert.equal(finalStagedCount, 21, 'assembleCycle must stage 21 decisions before CB check');
 
-    // Verify NO submitPriceImport was attempted (no mock invocation)
-    assert.equal(pri01SubmitAttempts, 0, 'No PRI01 submit should be attempted when CB trips');
+    // Verify CB tripped — this is the real proof that no PRI01 submit would occur.
+    // assembleCycle does not call submitPriceImport (that is the dispatcher's responsibility);
+    // the no-submit guarantee is enforced by the dispatcher halting when CB tripped=true
+    // (cron_state transitioned to PAUSED_BY_CIRCUIT_BREAKER by REAL transitionCronState above).
+    assert.ok(capturedCbResult !== null, 'capturedCbResult must be set by circuitBreakerCheck');
+    assert.equal(capturedCbResult.tripped, true,
+      'CB must have tripped (tripped=true) — dispatcher halts before PRI01 submit on trip');
 
     // Verify the per-cycle CB issued a transition (via the real transitionCronState path)
     const cronStateUpdates = queries.filter(q =>
