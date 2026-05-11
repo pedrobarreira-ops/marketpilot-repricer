@@ -323,17 +323,15 @@ describe('Story 7.2 — decideForSkuChannel: 12 P11 fixtures (AC4)', () => {
       tx: mockTx,
     });
 
+    // Per fixture _expected: action='CEILING_RAISE', newPriceCents=3300 (capped at ceiling).
+    // The fixture data is unambiguous: own at 2800 (position 1), competitors at 4000 + 4500;
+    // ceiling = floor(3000*1.10) = 3300; newCeiling = min(4499, 3300) = 3300 > 2800 → CEILING_RAISE.
+    assert.equal(result.action, 'CEILING_RAISE', `Expected CEILING_RAISE (capped at ceiling); got ${result.action}. reason=${result.reason}`);
+    assert.equal(result.newPriceCents, 3300, `Expected newPriceCents=3300 (capped at ceiling); got ${result.newPriceCents}`);
     assert.ok(
-      result.action === 'CEILING_RAISE' || result.action === 'HOLD',
-      `Expected CEILING_RAISE or HOLD; got ${result.action}`,
+      result.auditEvents.includes('ceiling-raise-decision'),
+      `auditEvents must include 'ceiling-raise-decision'; got ${JSON.stringify(result.auditEvents)}`,
     );
-    if (result.action === 'CEILING_RAISE') {
-      assert.ok(result.newPriceCents <= 3300, `CEILING_RAISE price must be capped at ceiling (3300); got ${result.newPriceCents}`);
-      assert.ok(
-        result.auditEvents.includes('ceiling-raise-decision'),
-        `auditEvents must include 'ceiling-raise-decision'; got ${JSON.stringify(result.auditEvents)}`,
-      );
-    }
   });
 
   // Fixture 7: p11-self-active-in-p11
@@ -689,38 +687,16 @@ describe('Story 7.2 — decideForSkuChannel: CASE B position 1 branching (AC1)',
   test('position_1_with_2nd_but_ceiling_prevents_raise_returns_hold', async () => {
     const { decideForSkuChannel } = await getDecide();
 
-    const rawOffers = [
-      { shop_name: 'Easy - Store', active: true, total_price: 30.00, shop_id: null },
-      { shop_name: 'Competitor A', active: true, total_price: 31.00, shop_id: null },
-      { shop_name: 'Competitor B', active: true, total_price: 35.00, shop_id: null },
-    ];
-
-    // current=3000, ceiling=floor(3000*1.05)=3150. competitor2nd=3500. targetCeiling=3500-1=3499.
-    // newCeiling=min(3499,3150)=3150. 3150>3000 → CEILING_RAISE(3150). Actually that raises.
-    // To get HOLD: current must already be AT ceiling. current=3150, ceiling=3150. 3150>3150? No → HOLD.
-    const skuChannel = makeSkuChannel({
-      list_price_cents: 3000,
-      current_price_cents: 3150,  // already at ceiling
-      min_shipping_price_cents: 0,
-    });
-    // ceiling=floor(3000*1.05)=3150. competitor1=3100 (after filtering own 3000). Wait:
-    // After self-filter from the raw offers above: [Competitor A:3100, Competitor B:3500].
-    // ownTotal=3150+0=3150. competitorLowest=3100. 3150>3100 → position>1? Yes.
-    // Hmm, position > 1 would trigger CASE A undercut logic, not CASE B.
-    // Redesign: own current must be < competitorLowest to be position 1.
-    // Let current=2900; competitors=[3100, 3500]; ownTotal=2900<3100 → pos=1.
-    // competitor2nd=3500. targetCeiling=3499. ceiling=floor(3000*1.05)=3150. newCeiling=min(3499,3150)=3150.
-    // 3150>2900 → CEILING_RAISE(3150). That's a CEILING_RAISE case.
-    // For HOLD at position 1: newCeiling <= current_price_cents.
-    // current=3150; competitor1=3200; competitor2=3500; ownTotal=3150<3200 → pos=1.
+    // Scenario: position 1 but already at ceiling — newCeiling === current_price_cents → HOLD.
+    // own current=3150; competitor1=3200; competitor2=3500; ownTotal=3150<3200 → pos=1.
     // ceiling=floor(3000*1.05)=3150. targetCeiling=3500-1=3499. newCeiling=min(3499,3150)=3150.
     // 3150 > 3150? No → HOLD + hold-already-in-1st.
-    const skuChannelV2 = makeSkuChannel({
+    const skuChannel = makeSkuChannel({
       list_price_cents: 3000,
       current_price_cents: 3150,
       min_shipping_price_cents: 0,
     });
-    const rawOffersV2 = [
+    const rawOffers = [
       { shop_name: 'Easy - Store', active: true, total_price: 31.50, shop_id: null },
       { shop_name: 'Competitor A', active: true, total_price: 32.00, shop_id: null },
       { shop_name: 'Competitor B', active: true, total_price: 35.00, shop_id: null },
@@ -728,10 +704,10 @@ describe('Story 7.2 — decideForSkuChannel: CASE B position 1 branching (AC1)',
     const marketplace = makeMarketplace({ max_discount_pct: 0.05, max_increase_pct: 0.05, edge_step_cents: 1 });
 
     const result = await decideForSkuChannel({
-      skuChannel: skuChannelV2,
+      skuChannel,
       customerMarketplace: marketplace,
       ownShopName: OWN_SHOP_NAME,
-      p11RawOffers: rawOffersV2,
+      p11RawOffers: rawOffers,
       tx: mockTx,
     });
 
@@ -801,6 +777,69 @@ describe('Story 7.2 — decideForSkuChannel: structural negative assertions (AC5
     } catch (err) {
       assert.fail(`node --check failed on decide.js: ${err.stderr || err.message}`);
     }
+  });
+
+  // AC5 — Zero matches for p11RawOffers used after the filterCompetitorOffers call line.
+  // Only the call site itself passes raw offers to the filter; all post-filter ranking
+  // must use filteredOffers exclusively.
+  test('decide_js_does_not_read_p11RawOffers_after_filter_call', async () => {
+    const { readFile } = await import('node:fs/promises');
+    const source = await readFile('worker/src/engine/decide.js', 'utf8');
+    const lines = source.split('\n');
+
+    // Locate the filterCompetitorOffers call site
+    const filterCallLineIndex = lines.findIndex(line => line.includes('filterCompetitorOffers(p11RawOffers'));
+    assert.ok(filterCallLineIndex !== -1, 'decide.js must call filterCompetitorOffers(p11RawOffers, ...)');
+
+    // Scan executable lines after the filter call for any p11RawOffers reference.
+    // Strip line comments before matching so docstrings/notes about the variable
+    // (e.g. the "p11RawOffers is never read again past this point" comment) do not
+    // trigger a false positive.
+    const stripLineComment = (line) => {
+      const idx = line.indexOf('//');
+      return idx === -1 ? line : line.slice(0, idx);
+    };
+
+    const violations = [];
+    for (let i = filterCallLineIndex + 1; i < lines.length; i++) {
+      const code = stripLineComment(lines[i]);
+      if (/\bp11RawOffers\b/.test(code)) {
+        violations.push(`line ${i + 1}: ${lines[i].trim()}`);
+      }
+    }
+
+    assert.equal(
+      violations.length,
+      0,
+      `decide.js must NOT read p11RawOffers after the filter call (Engine Law: post-filter only); found:\n${violations.join('\n')}`,
+    );
+  });
+
+  // AC5 — Belt-and-suspenders grep for float-price math (no-float-price ESLint rule
+  // is the primary enforcement; this grep is the redundant structural confirmation).
+  test('decide_js_has_no_float_price_math_patterns', async () => {
+    const { readFile } = await import('node:fs/promises');
+    const source = await readFile('worker/src/engine/decide.js', 'utf8');
+
+    // Strip block + line comments and JSDoc so commentary mentioning these tokens
+    // (e.g. "use toCents instead of * 100") does not trigger false positives.
+    const stripped = source
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .split('\n')
+      .map(line => {
+        const idx = line.indexOf('//');
+        return idx === -1 ? line : line.slice(0, idx);
+      })
+      .join('\n');
+
+    const forbidden = ['.toFixed(2)', 'parseFloat(', '* 100', '/ 100'];
+    const found = forbidden.filter(token => stripped.includes(token));
+
+    assert.deepEqual(
+      found,
+      [],
+      `decide.js must NOT contain float-price math tokens (no-float-price); found: ${JSON.stringify(found)}`,
+    );
   });
 
 });
