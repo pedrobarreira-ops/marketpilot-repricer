@@ -249,4 +249,40 @@ describe('checkPerSkuCircuitBreaker — synchronous 15% threshold', () => {
     // deltaPct = |2100-2500|/2500 = 400/2500 = 0.16 > 0.15 → trip
     assert.equal(result.tripped, true, '16% decrease must trip CB');
   });
+
+  test('zero delta (newPrice == currentPrice) → tripped=false, deltaPct=0', () => {
+    // Defensive symmetry: a no-op price write must never trip the CB.
+    // Important for the engine's HOLD outcome lookup (deltaPct=0 must not be flagged).
+    const result = checkPerSkuCircuitBreaker({
+      skuChannel: { id: 'sc-noop' },
+      newPriceCents: 2500,
+      currentPriceCents: 2500,
+    });
+    assert.equal(result.tripped, false, 'No-op price write must not trip per-SKU CB');
+    assert.equal(result.deltaPct, 0, 'deltaPct must be 0 for identical prices');
+  });
+
+  test('1-cent change → tripped=false, deltaPct is very small', () => {
+    // Smallest possible non-zero change. Locks in the minimum-resolution behavior.
+    const result = checkPerSkuCircuitBreaker({
+      skuChannel: { id: 'sc-1cent' },
+      newPriceCents: 2501,
+      currentPriceCents: 2500,
+    });
+    assert.equal(result.tripped, false, '1-cent change must not trip per-SKU CB');
+    assert.ok(result.deltaPct > 0 && result.deltaPct < 0.01, `Expected tiny non-zero deltaPct, got ${result.deltaPct}`);
+  });
+
+  test('decrease symmetric with increase at 15% boundary → tripped=false', () => {
+    // Symmetry guard: |delta|/current is used (sign agnostic).
+    // Increase 2875 from 2500 = 15% NOT tripped. Decrease 2125 from 2500 = 15% must also NOT trip.
+    const result = checkPerSkuCircuitBreaker({
+      skuChannel: { id: 'sc-decrease-15' },
+      newPriceCents: 2125,
+      currentPriceCents: 2500,
+    });
+    // deltaPct = |2125-2500|/2500 = 375/2500 = 0.15 exactly — strict > so not tripped
+    assert.equal(result.tripped, false, 'Exactly 15% decrease must NOT trip (symmetric with increase boundary)');
+    assert.ok(Math.abs(result.deltaPct - 0.15) < 0.0001, `Expected deltaPct=0.15, got ${result.deltaPct}`);
+  });
 });

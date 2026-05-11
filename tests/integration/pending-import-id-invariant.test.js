@@ -259,6 +259,109 @@ describe('AC3.2 — engine STEP 1: SKIP when pending_import_id is set', () => {
 });
 
 // ---------------------------------------------------------------------------
+// AC3.2 extended — SKIP precondition panel (companion barriers to pending_import_id)
+//
+// Bundle C atomicity depends on the engine STEP 0 panel of preconditions returning
+// SKIP without consulting P11/staging when ANY guard tripsk. Without this panel,
+// a row whose cron_state was paused mid-cycle, or whose frozen flag was set after
+// markStagingPending, could emit a second write — breaking atomicity.
+//
+// Tests here lock in the full barrier panel as a single binding regression suite.
+// ---------------------------------------------------------------------------
+
+describe('AC3.2 extended — engine STEP 0: SKIP precondition panel (Bundle C barrier)', () => {
+  const p11OffersFixture = [
+    { shop_name: 'Competitor A', active: true, total_price: 28.50, shop_id: null },
+    { shop_name: 'Easy - Store', active: true, total_price: 31.99, shop_id: null },
+  ];
+  const tx = { query: async () => ({ rows: [], rowCount: 0 }) };
+
+  test('cron_state != ACTIVE → SKIP with reason=cron-state-not-active (no audit event)', async () => {
+    const result = await decideForSkuChannel({
+      skuChannel: buildMockSkuChannel(),
+      customerMarketplace: buildMockCustomerMarketplace({ cron_state: 'PAUSED_BY_CIRCUIT_BREAKER' }),
+      ownShopName: 'Easy - Store',
+      p11RawOffers: p11OffersFixture,
+      tx,
+    });
+    assert.equal(result.action, 'SKIP');
+    assert.equal(result.reason, 'cron-state-not-active');
+    assert.deepEqual(result.auditEvents, []);
+    assert.equal(result.newPriceCents, null);
+  });
+
+  test('frozen_for_anomaly_review=true → SKIP with reason=frozen-for-anomaly-review', async () => {
+    const result = await decideForSkuChannel({
+      skuChannel: buildMockSkuChannel({ frozen_for_anomaly_review: true }),
+      customerMarketplace: buildMockCustomerMarketplace(),
+      ownShopName: 'Easy - Store',
+      p11RawOffers: p11OffersFixture,
+      tx,
+    });
+    assert.equal(result.action, 'SKIP');
+    assert.equal(result.reason, 'frozen-for-anomaly-review');
+    assert.deepEqual(result.auditEvents, []);
+  });
+
+  test('frozen_for_pri01_persistent=true → SKIP with reason=frozen-for-pri01-persistent', async () => {
+    const result = await decideForSkuChannel({
+      skuChannel: buildMockSkuChannel({ frozen_for_pri01_persistent: true }),
+      customerMarketplace: buildMockCustomerMarketplace(),
+      ownShopName: 'Easy - Store',
+      p11RawOffers: p11OffersFixture,
+      tx,
+    });
+    assert.equal(result.action, 'SKIP');
+    assert.equal(result.reason, 'frozen-for-pri01-persistent');
+    assert.deepEqual(result.auditEvents, []);
+  });
+
+  test('excluded_at set → SKIP with reason=excluded', async () => {
+    const result = await decideForSkuChannel({
+      skuChannel: buildMockSkuChannel({ excluded_at: new Date().toISOString() }),
+      customerMarketplace: buildMockCustomerMarketplace(),
+      ownShopName: 'Easy - Store',
+      p11RawOffers: p11OffersFixture,
+      tx,
+    });
+    assert.equal(result.action, 'SKIP');
+    assert.equal(result.reason, 'excluded');
+    assert.deepEqual(result.auditEvents, []);
+  });
+
+  test('current_price_cents not finite → SKIP with reason=current-price-unknown (data-integrity guard)', async () => {
+    const result = await decideForSkuChannel({
+      skuChannel: buildMockSkuChannel({ current_price_cents: null }),
+      customerMarketplace: buildMockCustomerMarketplace(),
+      ownShopName: 'Easy - Store',
+      p11RawOffers: p11OffersFixture,
+      tx,
+    });
+    assert.equal(result.action, 'SKIP');
+    assert.equal(result.reason, 'current-price-unknown');
+    assert.deepEqual(result.auditEvents, []);
+    assert.equal(result.newPriceCents, null);
+  });
+
+  test('pending_import_id wins precedence over excluded_at when both set', async () => {
+    // Order matters: pending_import_id is checked BEFORE excluded_at in decide.js.
+    // Verifies the precondition order is locked in (regression guard against accidental reorder).
+    const result = await decideForSkuChannel({
+      skuChannel: buildMockSkuChannel({
+        pending_import_id: 'pending-uuid',
+        excluded_at: new Date().toISOString(),
+      }),
+      customerMarketplace: buildMockCustomerMarketplace(),
+      ownShopName: 'Easy - Store',
+      p11RawOffers: p11OffersFixture,
+      tx,
+    });
+    assert.equal(result.action, 'SKIP');
+    assert.equal(result.reason, 'pending-import', 'pending-import must take precedence over excluded');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // AC3.3 — Cooperative-absorption SKIP on pending_import_id
 //          (module not on this branch → verified via fixture p11-pri01-pending-skip.json)
 // ---------------------------------------------------------------------------
@@ -458,7 +561,7 @@ describe('AC3.5 — PRI02 FAILED: clears pending_import_id AND records PRI03 inv
   test('FAILED path with hasErrorReport=true: invokes lineMap query (PRI03 path)', async () => {
     const queriedSqls = [];
     const tx = {
-      query: async (sql, params) => {
+      query: async (sql, _params) => {
         queriedSqls.push(sql);
         if (sql && sql.toUpperCase().includes('UPDATE') && sql.includes('sku_channels')) {
           return { rows: [{ id: 'sc-1' }], rowCount: 1 };
@@ -477,23 +580,41 @@ describe('AC3.5 — PRI02 FAILED: clears pending_import_id AND records PRI03 inv
       },
     };
 
-    // FAILED path with hasErrorReport=true: triggers lineMap query + PRI03 parser invocation
-    // PRI03 parser dynamic-import may succeed or fail (depending on branch state).
-    // We verify the lineMap query was issued (proof that the PRI03 path was entered).
-    await clearPendingImport({
-      tx,
-      importId: 'import-with-report',
-      customerMarketplaceId: 'cm-uuid',
-      outcome: 'FAILED',
-      hasErrorReport: true,
-      baseUrl: 'https://worten.mirakl.net',
-      apiKey: 're_test_key',
-    }).catch(() => {
-      // PRI03 parser may fail (baseUrl is fake) — acceptable in unit test context
-    });
+    // FAILED path with hasErrorReport=true: triggers lineMap query + PRI03 parser invocation.
+    // PRI03 parser performs a real HTTP fetch to baseUrl — the fetch fails because baseUrl is
+    // fake. We capture the thrown error to assert the lineMap path was reached (the lineMap
+    // query is issued BEFORE the fetch), then explicitly classify the failure mode.
+    let caughtError = null;
+    try {
+      await clearPendingImport({
+        tx,
+        importId: 'import-with-report',
+        customerMarketplaceId: 'cm-uuid',
+        outcome: 'FAILED',
+        hasErrorReport: true,
+        baseUrl: 'https://worten.mirakl.net.fake-host-for-test.invalid',
+        apiKey: 're_test_key',
+      });
+    } catch (err) {
+      caughtError = err;
+    }
 
-    // The lineMap query must have been issued (proves PRI03 path was entered)
+    // The lineMap query must have been issued BEFORE the fetch fails (proves PRI03 path entered).
     const lineMapQueried = queriedSqls.some(sql => sql && sql.includes('csv_line_number'));
     assert.ok(lineMapQueried, 'FAILED path with hasErrorReport=true: must query csv_line_number for PRI03 lineMap');
+
+    // If clearPendingImport threw, the error must be a network/fetch failure — NOT a query/
+    // schema error. This narrows the catch above (no longer swallows arbitrary failures).
+    if (caughtError) {
+      const msg = String(caughtError.message ?? '');
+      const isNetworkErr = msg.includes('fetch') || msg.includes('ENOTFOUND') ||
+                           msg.includes('Failed to fetch') || msg.includes('network') ||
+                           caughtError.code === 'ENOTFOUND' || caughtError.code === 'ECONNREFUSED' ||
+                           caughtError.cause?.code === 'ENOTFOUND' || caughtError.cause?.code === 'ECONNREFUSED';
+      assert.ok(
+        isNetworkErr,
+        `Expected network/fetch error from fake baseUrl, got: ${msg} (code=${caughtError.code})`,
+      );
+    }
   });
 });

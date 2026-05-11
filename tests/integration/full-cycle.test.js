@@ -260,6 +260,7 @@ const FIXTURE_CASES = [
     // newCeiling=min(3199,3300)=3199. 3199>2800 → CEILING_RAISE.
     expectedAction: 'CEILING_RAISE',
     skuOverrides: { current_price_cents: 2800, last_set_price_cents: 2500 },
+    expectedAuditEvent: 'ceiling-raise-decision',
     checkNewPriceCents: true,
   },
   {
@@ -289,6 +290,7 @@ const FIXTURE_CASES = [
       last_set_price_cents: 3599,
       last_won_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
     },
+    expectedAuditEvent: 'ceiling-raise-decision',
     checkNewPriceCents: true,
   },
   {
