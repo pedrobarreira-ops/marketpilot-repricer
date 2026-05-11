@@ -1,5 +1,5 @@
 # Story Dependency Graph
-_Last updated: 2026-05-10T00:00:00Z_
+_Last updated: 2026-05-11T00:00:00Z_
 
 ## Stories
 
@@ -31,12 +31,12 @@ _Last updated: 2026-05-10T00:00:00Z_
 | 6.1 | 6 | shared/mirakl/pri01-writer.js + per-SKU aggregation + multipart submit + no-raw-CSV-building ESLint rule [MERGE_BLOCK until 7.8] | review | #22 | #83 | open | 5.2, 3.1 | ❌ No (review-shipped, awaiting bundle gate 7-8-end-to-end-integration-gate-full-cycle-test-on-all-17-p11-fixtures-atomicity-bundle-gate-for-ad7-ad8-ad9-ad11) |
 | 6.2 | 6 | shared/mirakl/pri02-poller.js + worker/src/jobs/pri02-poll.js + cron entry complete/failed handling [MERGE_BLOCK until 7.8] | review | #23 | #84 | open | 6.1 | ❌ No (review-shipped, awaiting bundle gate 7-8-end-to-end-integration-gate-full-cycle-test-on-all-17-p11-fixtures-atomicity-bundle-gate-for-ad7-ad8-ad9-ad11) |
 | 6.3 | 6 | shared/mirakl/pri03-parser.js + per-SKU rebuild semantics [MERGE_BLOCK until 7.8] | review | #26 | #85 | open | 6.2 | ❌ No (review-shipped, awaiting bundle gate 7-8-end-to-end-integration-gate-full-cycle-test-on-all-17-p11-fixtures-atomicity-bundle-gate-for-ad7-ad8-ad9-ad11) |
-| 7.1 | 7 | shared/money/index.js + no-float-price ESLint rule (CALENDAR-EARLY) | backlog | #27 | — | — | 1.1 (calendar-early: after_epic=1) | ✅ Yes (calendar-early) |
-| 7.2 | 7 | worker/src/engine/decide.js — full AD8 decision flow with filter chain via self-filter [MERGE_BLOCK until 7.8] | backlog | #28 | — | — | 7.1, 3.2, 6.1 | ❌ No (7.1 not done; epic 6 not complete) |
-| 7.3 | 7 | worker/src/engine/cooperative-absorb.js — STEP 2 absorption + skip-on-pending [MERGE_BLOCK until 7.8] | backlog | #29 | — | — | 7.2 | ❌ No (7.2 not done) |
+| 7.1 | 7 | shared/money/index.js + no-float-price ESLint rule (CALENDAR-EARLY) | done | #27 | #86 | merged | 1.1 (calendar-early: after_epic=1) | ✅ Yes (done) |
+| 7.2 | 7 | worker/src/engine/decide.js — full AD8 decision flow with filter chain via self-filter [MERGE_BLOCK until 7.8] | backlog | #28 | — | — | 7.1, 3.2, 6.1 | ✅ Yes (bundle-stacked: story-6.3-pri03-parser-per-sku-rebuild) |
+| 7.3 | 7 | worker/src/engine/cooperative-absorb.js — STEP 2 absorption + skip-on-pending [MERGE_BLOCK until 7.8] | backlog | #29 | — | — | 7.2 | ❌ No (7.2 not in review yet — bundle exception requires upstream PR open) |
 | 7.4 | 7 | worker/src/safety/anomaly-freeze.js + audit anomaly SKU accept/reject endpoints | backlog | #30 | — | — | 7.2, 9.0 | ❌ No (7.2 not done) |
 | 7.5 | 7 | worker/src/engine/tier-classify.js — full transitions + atomic T2a→T2b write per F1 | backlog | #31 | — | — | 7.2 | ❌ No (7.2 not done) |
-| 7.6 | 7 | worker/src/safety/circuit-breaker.js — per-SKU 15% + per-cycle 20% [MERGE_BLOCK until 7.8] | backlog | #32 | — | — | 7.2 | ❌ No (7.2 not done) |
+| 7.6 | 7 | worker/src/safety/circuit-breaker.js — per-SKU 15% + per-cycle 20% [MERGE_BLOCK until 7.8] | backlog | #32 | — | — | 7.2 | ❌ No (7.2 not in review yet — bundle exception requires upstream PR open) |
 | 7.7 | 7 | worker/src/safety/reconciliation.js — Tier 3 daily pass = nightly reconciliation | backlog | #33 | — | — | 7.5 | ❌ No (7.5 not done) |
 | 7.8 | 7 | END-TO-END INTEGRATION GATE — full cycle test on all 17 P11 fixtures (atomicity bundle gate AD7+AD8+AD9+AD11) | backlog | #34 | — | — | 6.1, 7.2, 7.3, 7.6 | ❌ No (7.2, 7.3, 7.6 not done; epic 6 not complete) |
 | 8.1 | 8 | Dashboard root state-aware view + sticky header chrome | backlog | #35 | — | — | 4.9, epic 7 complete | ❌ No (epic 7 not complete) |
@@ -129,7 +129,7 @@ _Last updated: 2026-05-10T00:00:00Z_
 
 ## Notes
 
-### Current State (Phase 0 reconciliation 2026-05-10 pass 19)
+### Current State (Phase 0 reconciliation 2026-05-11 pass 20)
 - Epic 1 complete (5/5 stories done — pre-BAD direct commits to main, no PRs).
 - Epic 1 retrospective complete (2026-05-03).
 - Epic 2 complete (2/2 stories done).
@@ -164,16 +164,16 @@ _Last updated: 2026-05-10T00:00:00Z_
   - Worktree `.worktrees/story-6.1-pri01-writer-aggregation-multipart-submit` still active — NOT cleaned up (PR still open).
 - **Story 6.2 (PR #84): OPEN — in review.** Review-shipped exclusion fires: 6.2 is in merge_blocks (Bundle C), status=review, open PR → NOT Ready. BAD has no more pipeline work for 6.2 until bundle gate 7.8 reaches done.
   - Worktree `.worktrees/story-6.2-pri02-poller-cron-handler` still active — NOT cleaned up (PR still open).
-- **Story 6.3 (PR #85): OPEN — review.** BAD additive commit 451e06b landed 2026-05-09 (dev-done). Sprint-status flipped to `review` (commit 6fd54d2). Review-shipped exclusion NOW FIRES: 6.3 is in merge_blocks (Bundle C), status=review, open PR #85 → NOT Ready. BAD has no more pipeline work for 6.3 until bundle gate 7.8 reaches done.
+- **Story 6.3 (PR #85): OPEN — in review.** Review-shipped exclusion fires: 6.3 is in merge_blocks (Bundle C), status=review, open PR #85 → NOT Ready. BAD has no more pipeline work for 6.3 until bundle gate 7.8 reaches done.
   - Worktree `.worktrees/story-6.3-pri03-parser-per-sku-rebuild` still active — NOT cleaned up (PR still open).
 - Epic 6: in-progress (all 3 stories review-shipped, none merged yet). **Epic 6 is fully dispatched** — all 3 stories have open PRs.
-- **Story 7.1: CALENDAR-EARLY READY** — calendar_early_overrides added 2026-05-10 sprint-planning amendment (Bob) with `after_epic: 1`. Epic 1 is done. Per-story dep is only 1.1 (ESLint config) — merged. Calendar-early exception fires → Ready to Work. test_design_epic: 7. epic_test_design[7] = pending → Epic-Start Test Design fires for Epic 7.
-  - 7.1 is a pure utility module (shared/money/index.js + no-float-price ESLint rule) with NO actual code dep on Epic 5/6/Bundle C work. Calendar-early treatment matches the 9.0/9.1 precedent.
+- **Story 7.1 (PR #86): MERGED 2026-05-10T14:53:04Z** — sprint-status: done. Calendar-early exception fired. Worktree `.worktrees/story-7.1-shared-money-index-js-no-float-price-eslint-rule` removed (pass 20 cleanup). Remote branch deleted. epic_test_design[7] = done (test scaffolds committed 2026-05-10).
+- **Story 7.2: BUNDLE-STACKED READY** — atomicity-bundle exception fires. 7.1 is now done (merged PR #86). Per-story deps 3.2 (done) and 6.1 (Bundle C, review-shipped, open PR #83) — 6.1 is a Bundle C sibling with same until_story=7.8 → treated as merged-for-dispatch. Epic-ordering: Epic 5 (5.1 + 5.2 both Bundle C, review-shipped) + Epic 6 (6.1 + 6.2 + 6.3 all Bundle C, review-shipped) → DUAL RELAXATION fires → Epics 5+6 count as complete-for-dispatch. Highest unmerged bundle-sibling upstream: PR #85 branch `story-6.3-pri03-parser-per-sku-rebuild`. Worktree for 7.2 must fork from that branch.
 
 ### Parallelization Opportunities
-- **Current state (pass 19 — 2026-05-10):** Story **7.1** is Ready to Work (calendar-early — backlog, no worktree yet, base_branch=main). Epic 6 fully dispatched: stories 5.1 (PR #81), 5.2 (PR #82), 6.1 (PR #83), 6.2 (PR #84), 6.3 (PR #85) all review-shipped (Bundle C). Epic-Start Test Design for Epic 7 is PENDING — Phase 1 must fire Epic-Start for Epic 7 before dispatching 7.1.
-- Once 7.1 reaches `done`, and Epic 6 Bundle C stories are treated as complete-for-dispatch (all review + open PRs with same until_story=7.8), stories 7.2, 7.3, 7.6 become eligible for bundle-stacked dispatch.
-- Bundle C (Epics 5-7): Stories 5.1, 5.2, 6.1, 6.2, 6.3, 7.2, 7.3, 7.6 must all hold for merge until 7.8 gate passes. 7.1 is NOT a Bundle C member — it can merge to main independently once done.
+- **Current state (pass 20 — 2026-05-11):** Story **7.2** is Ready to Work (bundle-stacked: `story-6.3-pri03-parser-per-sku-rebuild`). Epic-Start Test Design for Epic 7 is DONE (epic_test_design[7]=done — scaffolds committed 2026-05-10). Phase 1 must dispatch 7.2 stacked on branch `story-6.3-pri03-parser-per-sku-rebuild`.
+- Once 7.2 reaches `review` with an open PR, stories 7.3 and 7.6 become eligible for bundle-stacked dispatch (stacked from 7.2's branch).
+- Bundle C (Epics 5-7): Stories 5.1, 5.2, 6.1, 6.2, 6.3, 7.2, 7.3, 7.6 must all hold for merge until 7.8 gate passes. 7.1 is NOT a Bundle C member — it has been merged to main independently.
 - Epic 8 has the most parallelism: stories 8.3-8.12 can mostly run in parallel after 8.1 ships.
 
 ### Merge Blocks (atomicity constraints)
