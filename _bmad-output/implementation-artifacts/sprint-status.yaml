@@ -78,7 +78,7 @@
 # by design; pre-dates the rule).
 
 generated: 2026-05-01
-last_updated: 2026-05-11  # bmad-create-story: Story 7.6 sharded 2026-05-11 (Bob); 7-6-worker-src-safety-circuit-breaker-js-per-sku-15-per-cycle-20 → ready-for-dev; worktree forked from story-7.2-engine-decide-ad8-flow (bundle-stacked dispatch exception)
+last_updated: 2026-05-11  # Phase 0 reconciliation pass 23: Story 7.6 PR #89 OPEN → status confirmed review; dependency-graph 7.6 row + 7.8 Ready updated (all 4 Bundle C participants in review — atomicity-bundle exception fires for 7.8)
 project: marketpilot-repricer  # updated by bmad-create-story: Story 1.1 sharded 2026-05-01; Story 1.2 sharded 2026-05-01; Story 1.3 sharded 2026-05-02; Story 1.4 sharded 2026-05-02; Story 1.5 sharded 2026-05-03; Story 1.5 → review 2026-05-03; Story 1.5 → done 2026-05-03 (post-review); Story 2.1 sharded 2026-05-03 (Bob) → ready-for-dev
 project_key: NOKEY
 tracking_system: file-system
@@ -164,7 +164,7 @@ development_status:
   7-3-worker-src-engine-cooperative-absorb-js-step-2-absorption-skip-on-pending: review  # ATOMICITY BUNDLE C (3/4 -- AD9)
   7-4-worker-src-safety-anomaly-freeze-js-audit-anomaly-sku-accept-reject-endpoints: backlog
   7-5-worker-src-engine-tier-classify-js-full-transitions-atomic-t2a-t2b-write-per-f1: backlog
-  7-6-worker-src-safety-circuit-breaker-js-per-sku-15-per-cycle-20: review  # ATOMICITY BUNDLE C (4/4 -- AD11); bmad-create-story: Story 7.6 sharded 2026-05-11 (Bob); worktree forked from story-7.2-engine-decide-ad8-flow (bundle-stacked dispatch exception); BAD Step 3 Develop done 2026-05-11
+  7-6-worker-src-safety-circuit-breaker-js-per-sku-15-per-cycle-20: review  # ATOMICITY BUNDLE C (4/4 -- AD11); bmad-create-story: Story 7.6 sharded 2026-05-11 (Bob); worktree forked from story-7.2-engine-decide-ad8-flow (bundle-stacked dispatch exception); BAD Step 3 Develop done 2026-05-11; PR #89 OPEN (Phase 0 reconciliation 2026-05-11 pass 23)
   7-7-worker-src-safety-reconciliation-js-tier-3-daily-pass-nightly-reconciliation: backlog
   7-8-end-to-end-integration-gate-full-cycle-test-on-all-17-p11-fixtures-atomicity-bundle-gate-for-ad7-ad8-ad9-ad11: backlog  # ATOMICITY BUNDLE C GATE; fires only after 6.1, 7.2, 7.3, 7.6 land
   epic-7-retrospective: optional
