@@ -581,9 +581,18 @@ describe('AC3.5 — PRI02 FAILED: clears pending_import_id AND records PRI03 inv
     };
 
     // FAILED path with hasErrorReport=true: triggers lineMap query + PRI03 parser invocation.
-    // PRI03 parser performs a real HTTP fetch to baseUrl — the fetch fails because baseUrl is
-    // fake. We capture the thrown error to assert the lineMap path was reached (the lineMap
-    // query is issued BEFORE the fetch), then explicitly classify the failure mode.
+    // PRI03 parser performs an HTTP fetch — we stub globalThis.fetch to return a non-retryable
+    // 400 immediately (avoids the real 31s exponential-backoff retry loop on a fake URL).
+    // The parser throws on non-2xx without retrying when status is not in {429, 5xx}.
+    // We capture the thrown error to assert the lineMap path was reached (the lineMap query
+    // is issued BEFORE the fetch), then explicitly classify the failure mode.
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => ({
+      ok: false,
+      status: 400,
+      text: async () => '',
+    });
+
     let caughtError = null;
     try {
       await clearPendingImport({
@@ -592,28 +601,28 @@ describe('AC3.5 — PRI02 FAILED: clears pending_import_id AND records PRI03 inv
         customerMarketplaceId: 'cm-uuid',
         outcome: 'FAILED',
         hasErrorReport: true,
-        baseUrl: 'https://worten.mirakl.net.fake-host-for-test.invalid',
+        baseUrl: 'https://stub.invalid',
         apiKey: 're_test_key',
       });
     } catch (err) {
       caughtError = err;
+    } finally {
+      globalThis.fetch = originalFetch;
     }
 
     // The lineMap query must have been issued BEFORE the fetch fails (proves PRI03 path entered).
     const lineMapQueried = queriedSqls.some(sql => sql && sql.includes('csv_line_number'));
     assert.ok(lineMapQueried, 'FAILED path with hasErrorReport=true: must query csv_line_number for PRI03 lineMap');
 
-    // If clearPendingImport threw, the error must be a network/fetch failure — NOT a query/
-    // schema error. This narrows the catch above (no longer swallows arbitrary failures).
+    // If clearPendingImport threw, the error must be a PRI03 parser fetch failure — NOT a
+    // query/schema error. The stub returns HTTP 400 (non-retryable per isRetryable),
+    // so the parser throws immediately with the documented "HTTP 400" error format.
     if (caughtError) {
       const msg = String(caughtError.message ?? '');
-      const isNetworkErr = msg.includes('fetch') || msg.includes('ENOTFOUND') ||
-                           msg.includes('Failed to fetch') || msg.includes('network') ||
-                           caughtError.code === 'ENOTFOUND' || caughtError.code === 'ECONNREFUSED' ||
-                           caughtError.cause?.code === 'ENOTFOUND' || caughtError.cause?.code === 'ECONNREFUSED';
+      const isParserHttpErr = msg.includes('PRI03') && msg.includes('HTTP 400');
       assert.ok(
-        isNetworkErr,
-        `Expected network/fetch error from fake baseUrl, got: ${msg} (code=${caughtError.code})`,
+        isParserHttpErr,
+        `Expected PRI03 parser HTTP 400 error from stubbed fetch, got: ${msg}`,
       );
     }
   });
