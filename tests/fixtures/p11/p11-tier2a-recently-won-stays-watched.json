@@ -1,0 +1,30 @@
+{
+  "_note": "T2a: own is 1st place, last_won_at < 4h ago. Tier stays 2a. Engine decision per AD8 CASE B yields CEILING_RAISE (own=3599 < competitor 3650 → position 1; competitor2nd 3750; targetCeiling 3749; ceiling 3850; newCeiling 3749 > 3599 → CEILING_RAISE).",
+  "_expected": {
+    "action": "CEILING_RAISE",
+    "newPriceCents": 3749,
+    "auditEvent": "ceiling-raise-decision",
+    "priority": "rotina",
+    "tierStay": "2a"
+  },
+  "_fixture_meta": {
+    "skuChannel_overrides": {
+      "tier": "2a",
+      "tier_cadence_minutes": 15,
+      "list_price_cents": 3500,
+      "current_price_cents": 3599,
+      "last_set_price_cents": 3599,
+      "pending_import_id": null,
+      "last_won_at": "<set in test: new Date(Date.now() - 2*60*60*1000).toISOString()>"
+    },
+    "customerMarketplace_overrides": {}
+  },
+  "products": [{
+    "product_references": [{ "reference_type": "EAN", "reference": "0000000000013" }],
+    "offers": [
+      { "shop_name": "Easy - Store",     "active": true, "total_price": 35.99, "shop_id": null },
+      { "shop_name": "Competitor Alpha", "active": true, "total_price": 36.50, "shop_id": null },
+      { "shop_name": "Competitor Beta",  "active": true, "total_price": 37.50, "shop_id": null }
+    ]
+  }]
+}

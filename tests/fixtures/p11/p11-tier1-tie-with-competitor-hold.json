@@ -1,6 +1,23 @@
 {
   "_note": "Tie case (pre-locked decision): list_price_cents=2850, max_discount_pct=0.0 → floor=ceil(2850*1.0)=2850. Competitor at €28.50 (2850 cents). edge_step_cents=1. targetUndercut=2850-1=2849, candidate=max(2849,2850)=2850. candidate(2850)==competitorLowest(2850) → HOLD + hold-floor-bound (NOT undercut — coin-flip with margin sacrifice is strictly worse).",
-  "_expected": { "action": "HOLD", "auditEvent": "hold-floor-bound" },
+  "_expected": {
+    "action": "HOLD",
+    "newPriceCents": null,
+    "auditEvent": "hold-floor-bound",
+    "priority": "rotina"
+  },
+  "_fixture_meta": {
+    "skuChannel_overrides": {
+      "list_price_cents": 2850,
+      "current_price_cents": 3199,
+      "last_set_price_cents": 3199,
+      "pending_import_id": null,
+      "tier": "1"
+    },
+    "customerMarketplace_overrides": {
+      "max_discount_pct": 0.0
+    }
+  },
   "products": [{
     "product_references": [{ "reference_type": "EAN", "reference": "0000000000003" }],
     "offers": [

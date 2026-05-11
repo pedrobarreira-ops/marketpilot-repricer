@@ -1,6 +1,23 @@
 {
   "_note": "All competitors below floor. list_price_cents=3000, max_discount_pct=0.05 → floor=ceil(3000*0.95)=2850. Competitors at €20.00 (2000 cents) and €22.00 (2200 cents). We're at position 2 (current=2800). targetUndercut=2000-1=1999, candidate=max(1999,2850)=2850. candidate(2850)>competitorLowest(2000) → HOLD + hold-floor-bound.",
-  "_expected": { "action": "HOLD", "auditEvent": "hold-floor-bound" },
+  "_expected": {
+    "action": "HOLD",
+    "newPriceCents": null,
+    "auditEvent": "hold-floor-bound",
+    "priority": "rotina"
+  },
+  "_fixture_meta": {
+    "skuChannel_overrides": {
+      "list_price_cents": 3000,
+      "current_price_cents": 2800,
+      "last_set_price_cents": 2800,
+      "pending_import_id": null,
+      "tier": "1"
+    },
+    "customerMarketplace_overrides": {
+      "max_discount_pct": 0.05
+    }
+  },
   "products": [{
     "product_references": [{ "reference_type": "EAN", "reference": "0000000000005" }],
     "offers": [

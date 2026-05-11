@@ -1,6 +1,23 @@
 {
   "_note": "Strawberrynet-style placeholder with total_price=0 mixed in. AD14 total_price>0 filter removes it. Remaining competitor at €29.00. own total (current=3199+0=3199) > competitorLowest(2900) → position>1. targetUndercut=2900-1=2899. floor=ceil(3000*0.95)=2850. candidate=max(2899,2850)=2899. candidate(2899)<competitorLowest(2900) → UNDERCUT + undercut-decision.",
-  "_expected": { "action": "UNDERCUT", "newPriceCents": 2899 },
+  "_expected": {
+    "action": "UNDERCUT",
+    "newPriceCents": 2899,
+    "auditEvent": "undercut-decision",
+    "priority": "rotina"
+  },
+  "_fixture_meta": {
+    "skuChannel_overrides": {
+      "list_price_cents": 3000,
+      "current_price_cents": 3199,
+      "last_set_price_cents": 3199,
+      "pending_import_id": null,
+      "tier": "1"
+    },
+    "customerMarketplace_overrides": {
+      "max_discount_pct": 0.05
+    }
+  },
   "products": [{
     "product_references": [{ "reference_type": "EAN", "reference": "0000000000010" }],
     "offers": [

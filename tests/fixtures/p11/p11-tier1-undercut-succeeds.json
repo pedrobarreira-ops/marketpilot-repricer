@@ -1,6 +1,23 @@
 {
-  "_note": "Tier 1 contested: own offer at €31.99+shipping; lowest competitor €28.50. Floor allows undercut (floor = list*0.985 approx). Expected: action=UNDERCUT, newPriceCents=2849.",
-  "_expected": { "action": "UNDERCUT", "newPriceCents": 2849 },
+  "_note": "Tier 1 contested: own offer at €31.99+shipping; lowest competitor €28.50. max_discount_pct=0.15 → floor=ceil(3000*0.85)=2550. targetUndercut=2850-1=2849, candidate=max(2849,2550)=2849. candidate(2849)<competitorLowest(2850) → UNDERCUT(2849).",
+  "_expected": {
+    "action": "UNDERCUT",
+    "newPriceCents": 2849,
+    "auditEvent": "undercut-decision",
+    "priority": "rotina"
+  },
+  "_fixture_meta": {
+    "skuChannel_overrides": {
+      "list_price_cents": 3000,
+      "current_price_cents": 3199,
+      "last_set_price_cents": 3199,
+      "pending_import_id": null,
+      "tier": "1"
+    },
+    "customerMarketplace_overrides": {
+      "max_discount_pct": 0.15
+    }
+  },
   "products": [{
     "product_references": [{ "reference_type": "EAN", "reference": "8809606851663" }],
     "offers": [
