@@ -1,5 +1,5 @@
 # Story Dependency Graph
-_Last updated: 2026-05-11T01:00:00Z_
+_Last updated: 2026-05-11T02:00:00Z_
 
 ## Stories
 
@@ -33,12 +33,12 @@ _Last updated: 2026-05-11T01:00:00Z_
 | 6.3 | 6 | shared/mirakl/pri03-parser.js + per-SKU rebuild semantics [MERGE_BLOCK until 7.8] | review | #26 | #85 | open | 6.2 | ❌ No (review-shipped, awaiting bundle gate 7-8-end-to-end-integration-gate-full-cycle-test-on-all-17-p11-fixtures-atomicity-bundle-gate-for-ad7-ad8-ad9-ad11) |
 | 7.1 | 7 | shared/money/index.js + no-float-price ESLint rule (CALENDAR-EARLY) | done | #27 | #86 | merged | 1.1 (calendar-early: after_epic=1) | ✅ Yes (done) |
 | 7.2 | 7 | worker/src/engine/decide.js — full AD8 decision flow with filter chain via self-filter [MERGE_BLOCK until 7.8] | review | #28 | #87 | open | 7.1, 3.2, 6.1 | ❌ No (review-shipped, awaiting bundle gate 7-8-end-to-end-integration-gate-full-cycle-test-on-all-17-p11-fixtures-atomicity-bundle-gate-for-ad7-ad8-ad9-ad11) |
-| 7.3 | 7 | worker/src/engine/cooperative-absorb.js — STEP 2 absorption + skip-on-pending [MERGE_BLOCK until 7.8] | backlog | #29 | — | — | 7.2 | ✅ Yes (bundle-stacked: story-7.2-engine-decide-ad8-flow) |
+| 7.3 | 7 | worker/src/engine/cooperative-absorb.js — STEP 2 absorption + skip-on-pending [MERGE_BLOCK until 7.8] | review | #29 | #88 | open | 7.2 | ❌ No (review-shipped, awaiting bundle gate 7-8-end-to-end-integration-gate-full-cycle-test-on-all-17-p11-fixtures-atomicity-bundle-gate-for-ad7-ad8-ad9-ad11) |
 | 7.4 | 7 | worker/src/safety/anomaly-freeze.js + audit anomaly SKU accept/reject endpoints | backlog | #30 | — | — | 7.2, 9.0 | ❌ No (7.2 not done) |
 | 7.5 | 7 | worker/src/engine/tier-classify.js — full transitions + atomic T2a→T2b write per F1 | backlog | #31 | — | — | 7.2 | ❌ No (7.2 not done) |
 | 7.6 | 7 | worker/src/safety/circuit-breaker.js — per-SKU 15% + per-cycle 20% [MERGE_BLOCK until 7.8] | backlog | #32 | — | — | 7.2 | ✅ Yes (bundle-stacked: story-7.2-engine-decide-ad8-flow) |
 | 7.7 | 7 | worker/src/safety/reconciliation.js — Tier 3 daily pass = nightly reconciliation | backlog | #33 | — | — | 7.5 | ❌ No (7.5 not done) |
-| 7.8 | 7 | END-TO-END INTEGRATION GATE — full cycle test on all 17 P11 fixtures (atomicity bundle gate AD7+AD8+AD9+AD11) | backlog | #34 | — | — | 6.1, 7.2, 7.3, 7.6 | ❌ No (7.2, 7.3, 7.6 not done; epic 6 not complete) |
+| 7.8 | 7 | END-TO-END INTEGRATION GATE — full cycle test on all 17 P11 fixtures (atomicity bundle gate AD7+AD8+AD9+AD11) | backlog | #34 | — | — | 6.1, 7.2, 7.3, 7.6 | ❌ No (7.6 not in review yet — bundle exception requires upstream PR open) |
 | 8.1 | 8 | Dashboard root state-aware view + sticky header chrome | backlog | #35 | — | — | 4.9, epic 7 complete | ❌ No (epic 7 not complete) |
 | 8.2 | 8 | KPI cards row (3 status cards + secondary catalog-value lines) | backlog | #36 | — | — | 8.1, 9.2 | ❌ No (epic 7 not complete) |
 | 8.3 | 8 | PT/ES channel toggle pill in sticky header | backlog | #37 | — | — | 8.1 | ❌ No (epic 7 not complete) |
@@ -129,7 +129,7 @@ _Last updated: 2026-05-11T01:00:00Z_
 
 ## Notes
 
-### Current State (Phase 0 reconciliation 2026-05-11 pass 21)
+### Current State (Phase 0 reconciliation 2026-05-11 pass 22)
 - Epic 1 complete (5/5 stories done — pre-BAD direct commits to main, no PRs).
 - Epic 1 retrospective complete (2026-05-03).
 - Epic 2 complete (2/2 stories done).
@@ -170,12 +170,13 @@ _Last updated: 2026-05-11T01:00:00Z_
 - **Story 7.1 (PR #86): MERGED 2026-05-10T14:53:04Z** — sprint-status: done. Calendar-early exception fired. Worktree cleaned up (pass 20). epic_test_design[7] = done (test scaffolds committed 2026-05-10).
 - **Story 7.2 (PR #87): OPEN — in review.** Review-shipped exclusion fires: 7.2 is in merge_blocks (Bundle C), status=review, open PR #87 → NOT Ready. BAD has no more pipeline work for 7.2 until bundle gate 7.8 reaches done.
   - Worktree `.worktrees/story-7.2-engine-decide-ad8-flow` still active — NOT cleaned up (PR still open).
-- **Story 7.3: BUNDLE-STACKED READY** — atomicity-bundle exception fires. 7.2 is now in `review` with open PR #87 (Bundle C, same until_story=7.8). Per-story dep 7.2 is a Bundle C sibling → treated as merged-for-dispatch. Epic-ordering: DUAL RELAXATION — Epics 5+6 all Bundle C review-shipped → count as complete-for-dispatch. Epic 7 ordering: 7.2 is Bundle C in review → relaxed. Highest unmerged bundle-sibling upstream: PR #87 branch `story-7.2-engine-decide-ad8-flow`. Worktree for 7.3 must fork from that branch.
-- **Story 7.6: BUNDLE-STACKED READY** — same analysis as 7.3. Both 7.3 and 7.6 depend on 7.2 only, and 7.2 is Bundle C in review with PR #87. Stacked on `story-7.2-engine-decide-ad8-flow`.
+- **Story 7.3 (PR #88): OPEN — in review.** Review-shipped exclusion fires: 7.3 is in merge_blocks (Bundle C, AD9), status=review, open PR #88 → NOT Ready. BAD dispatched 7.3 in pass 21 (bundle-stacked on story-7.2-engine-decide-ad8-flow). Now review-shipped; pipeline work complete until 7.8 gate.
+  - Worktree `.worktrees/story-7.3-worker-src-engine-cooperative-absorb-js-step-2-absorption-skip-on-pending` still active — NOT cleaned up (PR still open).
+- **Story 7.6: BUNDLE-STACKED READY** — atomicity-bundle exception fires. 7.6 depends on 7.2 only (NOT 7.3). 7.2 is Bundle C in review with open PR #87 (same until_story=7.8) → treated as merged-for-dispatch. Epic-ordering DUAL RELAXATION: all incomplete Epics 5+6+7 Bundle C stories are review-shipped → count as complete-for-dispatch. Highest unmerged bundle-sibling upstream that 7.6 depends on: 7.2 → PR #87 branch `story-7.2-engine-decide-ad8-flow`. Worktree for 7.6 must fork from that branch.
 
 ### Parallelization Opportunities
-- **Current state (pass 21 — 2026-05-11):** Stories **7.3** and **7.6** are Ready to Work (bundle-stacked: `story-7.2-engine-decide-ad8-flow`). Epic-Start Test Design for Epic 7 is DONE (epic_test_design[7]=done — scaffolds committed 2026-05-10). Story 7.2 review-shipped (PR #87 open) — review-shipped exclusion fires for 7.2. Phase 1 must dispatch 7.3 and 7.6 stacked on branch `story-7.2-engine-decide-ad8-flow`. MAX_PARALLEL_STORIES=1 → pick the lowest-numbered: **7.3** dispatches first.
-- Once 7.3 reaches `review` with an open PR, 7.3's PR branch becomes the base for any remaining bundle-stacked dispatch (7.6 if not yet dispatched, or 7.8 after 7.3+7.6 both in review).
+- **Current state (pass 22 — 2026-05-11):** Story **7.6** is Ready to Work (bundle-stacked: `story-7.2-engine-decide-ad8-flow`). Story 7.3 is now review-shipped (PR #88 open) — review-shipped exclusion fires. Epic-Start Test Design for Epic 7 is DONE (epic_test_design[7]=done). Phase 1 must dispatch 7.6 stacked on branch `story-7.2-engine-decide-ad8-flow`. Note: 7.6 forks from 7.2 (not 7.3) because 7.6 depends on 7.2 only — the two branches are independent forks from 7.2.
+- Once 7.6 reaches `review` with an open PR, the atomicity-bundle exception for 7.8 can fire: all 4 Bundle C participants (6.1 in review, 7.2 in review, 7.3 in review, 7.6 in review) will satisfy the dual-relaxation condition. 7.8 will then be Ready (bundle-stacked on the highest unmerged upstream PR branch at that point).
 - Bundle C (Epics 5-7): Stories 5.1, 5.2, 6.1, 6.2, 6.3, 7.2, 7.3, 7.6 must all hold for merge until 7.8 gate passes. 7.1 is NOT a Bundle C member — it has been merged to main independently.
 - Epic 8 has the most parallelism: stories 8.3-8.12 can mostly run in parallel after 8.1 ships.
 
