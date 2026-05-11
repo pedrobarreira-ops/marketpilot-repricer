@@ -7,13 +7,36 @@
 // Also verifies the manual-unblock invariant (PAUSED_BY_CIRCUIT_BREAKER → ACTIVE
 // is in LEGAL_CRON_TRANSITIONS AND is NOT in the per-transition event map).
 //
+// Step 4 test-review additions (2026-05-11):
+//   - Test self-containment: stub RESEND_API_KEY before importing circuit-breaker.js,
+//     which transitively imports shared/resend/client.js (throws at import time if unset).
+//     Without this, the file is unrunnable under `npm run test:unit`.
+//   - AUDIT_EVENT_MAP invariant (AC5): assert via source inspection that
+//     ACTIVE → PAUSED_BY_CIRCUIT_BREAKER IS mapped (emits circuit-breaker-trip)
+//     and PAUSED_BY_CIRCUIT_BREAKER → ACTIVE is NOT mapped (no event on manual unblock).
+//   - SQL filter coverage (AC2): assert numerator query uses `flushed_at IS NULL`.
+//   - F6 small-catalog scenario (AC5): 1/1 = 100% must trip.
+//   - Per-SKU zero-current-price defensive case.
+//
 // Run with: node --test tests/worker/safety/circuit-breaker.test.js
 // Or via:   npm run test:unit
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { LEGAL_CRON_TRANSITIONS } from '../../../shared/state/transitions-matrix.js';
-import { checkPerSkuCircuitBreaker, checkPerCycleCircuitBreaker } from '../../../worker/src/safety/circuit-breaker.js';
+
+// Stub RESEND_API_KEY BEFORE we dynamically import circuit-breaker.js, which transitively
+// imports shared/resend/client.js (throws at import time when RESEND_API_KEY is unset).
+// ESM static imports are hoisted above top-level statements, so we MUST dynamic-import
+// the modules under test inside an awaited initializer — not at the top of the file.
+// Real Resend never gets called because all tests inject sendAlertFn — but the module
+// must successfully load. Precedent: tests/integration/scan-failed.test.js sets the same stub;
+// tests/worker/cycle-assembly.test.js uses dynamic imports for the same reason.
+if (!process.env.RESEND_API_KEY) {
+  process.env.RESEND_API_KEY = 're_test_circuit_breaker_stub_xxxxxxxxxx';
+}
+
+const { LEGAL_CRON_TRANSITIONS } = await import('../../../shared/state/transitions-matrix.js');
+const { checkPerSkuCircuitBreaker, checkPerCycleCircuitBreaker } = await import('../../../worker/src/safety/circuit-breaker.js');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -448,5 +471,213 @@ describe('AC7 — Negative assertions (source inspection)', () => {
       checkPerCycleCircuitBreaker instanceof AsyncFunction,
       'checkPerCycleCircuitBreaker MUST be an async function',
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Step 4 test-review additions (2026-05-11) — close coverage gaps
+// ---------------------------------------------------------------------------
+
+describe('AC2 — SQL filter coverage (numerator query semantics)', () => {
+  // Gap: existing AC2 worker-must-filter-by-customer test verifies cm_id is in
+  // params but does NOT verify the numerator SQL still includes `flushed_at IS NULL`.
+  // If a refactor accidentally dropped this filter, ALL rows ever staged across
+  // historical cycles would be counted — every cycle would over-count and falsely
+  // trip the 20% cap. This is a high-blast-radius silent bug; pin it.
+
+  test('numerator query includes `flushed_at IS NULL` filter (not just cycle_id + cm_id)', async () => {
+    const queries = [];
+    const tx = {
+      query: async (sql, params) => {
+        queries.push({ sql, params });
+        if (sql.includes('pri01_staging')) return { rows: [{ count: 10 }] };
+        if (sql.includes('sku_channels')) return { rows: [{ count: 100 }] };
+        return { rows: [] };
+      },
+    };
+
+    await checkPerCycleCircuitBreaker({
+      tx,
+      customerMarketplaceId: 'cm-test-uuid',
+      cycleId: 'cycle-test-uuid',
+      sendAlertFn: async () => {},
+      transitionCronStateFn: async () => {},
+    });
+
+    const stagingQuery = queries.find((q) => q.sql.includes('pri01_staging'));
+    assert.ok(stagingQuery, 'pri01_staging numerator query must run');
+    assert.ok(
+      stagingQuery.sql.includes('flushed_at IS NULL'),
+      'Numerator query must filter `flushed_at IS NULL` (count staged-but-not-yet-flushed rows for THIS cycle only). ' +
+      'Without this filter, historical staged rows from prior cycles would be counted and falsely trip the 20% cap.',
+    );
+  });
+
+  test('denominator query includes `excluded_at IS NULL` filter (F6 active-SKU count)', async () => {
+    const queries = [];
+    const tx = {
+      query: async (sql, params) => {
+        queries.push({ sql, params });
+        if (sql.includes('pri01_staging')) return { rows: [{ count: 5 }] };
+        if (sql.includes('sku_channels')) return { rows: [{ count: 100 }] };
+        return { rows: [] };
+      },
+    };
+
+    await checkPerCycleCircuitBreaker({
+      tx,
+      customerMarketplaceId: 'cm-test-uuid',
+      cycleId: 'cycle-test-uuid',
+      sendAlertFn: async () => {},
+      transitionCronStateFn: async () => {},
+    });
+
+    const skuChannelsQuery = queries.find((q) => q.sql.includes('sku_channels'));
+    assert.ok(skuChannelsQuery, 'sku_channels denominator query must run');
+    assert.ok(
+      skuChannelsQuery.sql.includes('excluded_at IS NULL'),
+      'Denominator query must filter `excluded_at IS NULL` (F6 amendment — count only ACTIVE SKUs in the marketplace catalog, not deleted/excluded ones).',
+    );
+  });
+});
+
+describe('AC5 — F6 small-catalog scenario (per-cycle denominator semantics)', () => {
+  // Gap: existing per-cycle tests use 100-SKU denominators. F6 was specifically
+  // designed for small-catalog cases (e.g., during onboarding scans or staged
+  // rollouts). 1/1 = 100% MUST trip; the F6 amendment exists precisely so this
+  // scenario CAN trip when the catalog is small but fully impacted.
+  const customerMarketplaceId = 'cm-test-uuid';
+  const cycleId = 'cycle-test-uuid';
+
+  test('1 staged of 1 active SKU (100% affected) — trips per F6', async () => {
+    const tx = makeMockTx({ numerator: 1, denominator: 1 });
+    const transitionCalls = [];
+    const alertCalls = [];
+    const transitionCronStateFn = async (args) => { transitionCalls.push(args); };
+    const sendAlertFn = async (args) => { alertCalls.push(args); };
+
+    const result = await checkPerCycleCircuitBreaker({
+      tx,
+      customerMarketplaceId,
+      cycleId,
+      sendAlertFn,
+      transitionCronStateFn,
+    });
+
+    assert.equal(result.tripped, true, '100% affected (1/1) must trip — F6 amendment enables small-catalog trips');
+    assert.equal(result.numerator, 1);
+    assert.equal(result.denominator, 1);
+    assert.equal(result.affectedPct, 1);
+    assert.equal(transitionCalls.length, 1, 'transitionCronStateFn called on trip');
+    assert.equal(alertCalls.length, 1, 'sendAlertFn called on trip');
+  });
+
+  test('3 staged of 10 active SKUs (30% affected) — trips on small catalog', async () => {
+    const tx = makeMockTx({ numerator: 3, denominator: 10 });
+    const transitionCalls = [];
+    const transitionCronStateFn = async (args) => { transitionCalls.push(args); };
+
+    const result = await checkPerCycleCircuitBreaker({
+      tx,
+      customerMarketplaceId,
+      cycleId,
+      sendAlertFn: async () => {},
+      transitionCronStateFn,
+    });
+
+    assert.equal(result.tripped, true, '30% on small catalog must trip — F6 denominator is full active-SKU count');
+    assert.equal(transitionCalls.length, 1);
+  });
+
+  test('2 staged of 10 active SKUs (20% affected) — exactly 20%, NOT tripped', async () => {
+    const tx = makeMockTx({ numerator: 2, denominator: 10 });
+    const result = await checkPerCycleCircuitBreaker({
+      tx,
+      customerMarketplaceId,
+      cycleId,
+      sendAlertFn: async () => {},
+      transitionCronStateFn: async () => {},
+    });
+
+    assert.equal(result.tripped, false, 'Strict > 0.20 — exactly 20% on small catalog also does not trip');
+    assert.equal(result.affectedPct, 0.2);
+  });
+});
+
+describe('AC5 — Per-transition audit event map invariant (manual unblock emits no event)', () => {
+  // Gap: existing manual-unblock test verifies the transition is LEGAL but does NOT
+  // verify the spec's stronger claim: PAUSED_BY_CIRCUIT_BREAKER → ACTIVE is NOT in
+  // the per-transition event map (no audit event on manual unblock — per AD20 Q2).
+  // Conversely, ACTIVE → PAUSED_BY_CIRCUIT_BREAKER IS in the map (emits
+  // circuit-breaker-trip Atenção automatically — Story 7.6 relies on this fact).
+  // If shared/state/cron-state.js's AUDIT_EVENT_MAP is mutated, this contract breaks
+  // silently. Pin both directions via source inspection (the map is not exported).
+
+  let cronStateSrc;
+
+  test('source-inspect: AUDIT_EVENT_MAP exists and maps ACTIVE → PAUSED_BY_CIRCUIT_BREAKER to circuit-breaker-trip', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { join, dirname } = await import('node:path');
+    const { fileURLToPath } = await import('node:url');
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    cronStateSrc = readFileSync(join(__dirname, '../../../shared/state/cron-state.js'), 'utf-8');
+
+    assert.ok(
+      cronStateSrc.includes("'ACTIVE->PAUSED_BY_CIRCUIT_BREAKER': 'circuit-breaker-trip'"),
+      "shared/state/cron-state.js AUDIT_EVENT_MAP must map 'ACTIVE->PAUSED_BY_CIRCUIT_BREAKER' → 'circuit-breaker-trip'. " +
+      'Story 7.6 relies on transitionCronState emitting this event automatically on trip; if the map is missing this key, ' +
+      'checkPerCycleCircuitBreaker would pause the marketplace WITHOUT writing the Atenção audit row.',
+    );
+  });
+
+  test('source-inspect: AUDIT_EVENT_MAP does NOT map PAUSED_BY_CIRCUIT_BREAKER → ACTIVE (manual unblock emits no event)', async () => {
+    if (!cronStateSrc) {
+      const { readFileSync } = await import('node:fs');
+      const { join, dirname } = await import('node:path');
+      const { fileURLToPath } = await import('node:url');
+      const __dirname = dirname(fileURLToPath(import.meta.url));
+      cronStateSrc = readFileSync(join(__dirname, '../../../shared/state/cron-state.js'), 'utf-8');
+    }
+
+    // Match any mapping that sets PAUSED_BY_CIRCUIT_BREAKER->ACTIVE to a string value.
+    // The spec requires this transition to NOT be in the map (AD20 Q2: manual unblocks emit no event).
+    const manualUnblockEntryRegex = /'PAUSED_BY_CIRCUIT_BREAKER->ACTIVE'\s*:\s*'[^']+'/;
+    assert.ok(
+      !manualUnblockEntryRegex.test(cronStateSrc),
+      "shared/state/cron-state.js AUDIT_EVENT_MAP must NOT contain a mapping for 'PAUSED_BY_CIRCUIT_BREAKER->ACTIVE'. " +
+      'Per AD20 Q2, manual unblocks emit NO audit event — Story 8.5 separately sets resolved_at on the original ' +
+      'circuit-breaker-trip row. Mapping this transition would double-emit on unblock.',
+    );
+  });
+});
+
+describe('AC1 — Per-SKU edge cases (defensive)', () => {
+  // Gap: existing per-SKU tests don't cover currentPriceCents === 0. Division by zero
+  // returns Infinity; Infinity > 0.15 is true; the breaker would correctly trip.
+  // Document this behavior so future refactors (e.g., adding a guard) don't
+  // accidentally swallow Infinity into NaN and break the trip.
+
+  test('currentPriceCents === 0 — deltaPct is Infinity, tripped = true (defensive: zero price always trips)', () => {
+    const skuChannel = makeSkuChannel();
+    const result = checkPerSkuCircuitBreaker({
+      skuChannel,
+      newPriceCents: 1000,
+      currentPriceCents: 0,
+    });
+    // Division by zero: Math.abs(1000 - 0) / 0 === Infinity
+    // Infinity > 0.15 → true. Any non-zero proposed price for a zero-current-price SKU trips.
+    assert.equal(result.tripped, true, 'Zero current price with any new price should trip (Infinity > 0.15)');
+    assert.equal(result.deltaPct, Infinity, 'deltaPct is Infinity when currentPriceCents is 0');
+  });
+
+  test('newPriceCents === currentPriceCents — deltaPct is 0, NOT tripped (no-op price)', () => {
+    const skuChannel = makeSkuChannel();
+    const result = checkPerSkuCircuitBreaker({
+      skuChannel,
+      newPriceCents: 10000,
+      currentPriceCents: 10000,
+    });
+    assert.equal(result.tripped, false, 'Equal prices must not trip');
+    assert.equal(result.deltaPct, 0, 'deltaPct is exactly 0 for equal prices');
   });
 });

@@ -18,6 +18,16 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// Story 7.6 Step 4 test-review: stub RESEND_API_KEY before decide.js is loaded.
+// Before Story 7.6 shipped, decide.js's STEP 5 dynamic-import of circuit-breaker.js
+// failed with ERR_MODULE_NOT_FOUND (caught and ignored), so RESEND_API_KEY was never
+// needed in this test. Now that circuit-breaker.js EXISTS, the dynamic import succeeds,
+// pulling in shared/resend/client.js which throws at import when RESEND_API_KEY is unset.
+// Real Resend is never called from these tests — sendAlertFn is invoked only on actual CB trips.
+if (!process.env.RESEND_API_KEY) {
+  process.env.RESEND_API_KEY = 're_test_decide_stub_xxxxxxxxxxxxxx';
+}
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = join(__dirname, '../../fixtures/p11');
 

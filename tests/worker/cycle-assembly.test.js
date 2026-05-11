@@ -19,6 +19,15 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
+// Story 7.6 Step 4 test-review: stub RESEND_API_KEY before cycle-assembly is dynamically
+// imported below. cycle-assembly's default circuitBreakerCheck path dynamic-imports
+// worker/src/safety/circuit-breaker.js, which static-imports shared/resend/client.js
+// (throws at import time when RESEND_API_KEY is unset). Tests that don't inject
+// opts.circuitBreakerCheck would otherwise crash at worker boot.
+if (!process.env.RESEND_API_KEY) {
+  process.env.RESEND_API_KEY = 're_test_cycle_assembly_stub_xxxxxxxxxx';
+}
+
 // ---------------------------------------------------------------------------
 // AC#2 — assembleCycle unit tests (no DB required)
 // ---------------------------------------------------------------------------
@@ -401,6 +410,151 @@ test('cycle_assembly_test_covers_mixed_decisions', async () => {
   const stagingInserts = inserts.filter((i) => i.text.toLowerCase().includes('pri01_staging'));
   assert.equal(stagingInserts.length, 2, 'UNDERCUT + CEILING_RAISE must produce 2 staging inserts (HOLD produces 0)');
   assert.equal(auditCalls.length, 3, '3 SKU-channels must produce 3 audit events regardless of action type');
+});
+
+// ---------------------------------------------------------------------------
+// Story 7.6 AC3 — per-SKU CB event emission when engine returns reason='circuit-breaker'
+// Step 4 test-review addition (2026-05-11): the cycle-assembly per-SKU CB branch
+// (lines 154-183) was previously untested. A refactor that flipped the conditional
+// or dropped the audit emission would have been silent.
+// ---------------------------------------------------------------------------
+
+test('cycle_assembly_emits_per_sku_cb_audit_event_when_engine_returns_circuit_breaker_reason', async () => {
+  const { assembleCycle } = await import('../../worker/src/cycle-assembly.js');
+  const { tx, inserts } = buildMockTx();
+  const { calls: auditCalls, stub: mockWriteAuditEvent } = buildMockAuditWriter();
+  const { EVENT_TYPES } = await import('../../shared/audit/event-types.js');
+
+  const customerMarketplaceId = randomUUID();
+  const cycleId = randomUUID();
+  const skuChannel = buildSkuChannel({ customer_marketplace_id: customerMarketplaceId });
+
+  // Engine returns the per-SKU CB-trip signal: HOLD + reason='circuit-breaker' + auditEvents:[]
+  // (per the Story 7.2 stub at decide.js lines 215-238 — Story 7.6 activates that path).
+  const cbTrippedEngine = {
+    decideForSkuChannel: async () => ({
+      action: 'HOLD',
+      newPriceCents: null,
+      auditEvents: [], // decide.js explicitly returns empty — caller is responsible for emission
+      reason: 'circuit-breaker',
+    }),
+  };
+
+  await assembleCycle(tx, customerMarketplaceId, [skuChannel], cycleId, {
+    engine: cbTrippedEngine,
+    writeAuditEvent: mockWriteAuditEvent,
+    // Inject a no-op per-cycle CB so the test focuses on the per-SKU emission path
+    circuitBreakerCheck: async () => {},
+  });
+
+  // No staging insert (HOLD means no PRI01 row)
+  const stagingInserts = inserts.filter((i) => i.text.toLowerCase().includes('pri01_staging'));
+  assert.equal(stagingInserts.length, 0, 'Per-SKU CB trip must NOT produce a staging insert (action is HOLD)');
+
+  // Exactly one audit event: the CIRCUIT_BREAKER_PER_SKU_TRIP Atenção event
+  assert.equal(
+    auditCalls.length,
+    1,
+    'Per-SKU CB trip must emit exactly one audit event (the CIRCUIT_BREAKER_PER_SKU_TRIP Atenção). ' +
+    'decide.js returns auditEvents:[] so the for-loop emits zero; the dedicated CB branch emits one.',
+  );
+
+  const call = auditCalls[0];
+  assert.equal(call.eventType, EVENT_TYPES.CIRCUIT_BREAKER_PER_SKU_TRIP, 'eventType must be CIRCUIT_BREAKER_PER_SKU_TRIP');
+  assert.equal(call.customerMarketplaceId, customerMarketplaceId, 'audit must carry customerMarketplaceId');
+  assert.equal(call.skuId, skuChannel.sku_id, 'audit must carry skuId from sku_channel.sku_id');
+  assert.equal(call.skuChannelId, skuChannel.id, 'audit must carry skuChannelId from sku_channel.id');
+  assert.equal(call.cycleId, cycleId, 'audit must carry cycleId');
+
+  // Payload shape MUST match the shipped PayloadForCircuitBreakerPerSkuTrip typedef:
+  // { skuId, failureCount, cycleId } — Story 7.6 spec line 134-140
+  assert.deepEqual(
+    call.payload,
+    { skuId: skuChannel.sku_id, failureCount: 1, cycleId },
+    'Payload must match PayloadForCircuitBreakerPerSkuTrip typedef (skuId, failureCount, cycleId) — failureCount is always 1 per spec',
+  );
+  assert.ok(call.tx, 'audit call must include tx for transactional audit-event write');
+});
+
+test('cycle_assembly_counts_per_sku_cb_trip_as_held_not_staged', async () => {
+  const { assembleCycle } = await import('../../worker/src/cycle-assembly.js');
+  const { tx } = buildMockTx();
+  const { stub: mockWriteAuditEvent } = buildMockAuditWriter();
+
+  const customerMarketplaceId = randomUUID();
+  const cycleId = randomUUID();
+  const skuChannels = [
+    buildSkuChannel({ customer_marketplace_id: customerMarketplaceId }),
+    buildSkuChannel({ customer_marketplace_id: customerMarketplaceId }),
+    buildSkuChannel({ customer_marketplace_id: customerMarketplaceId }),
+  ];
+
+  // Mix: 1 UNDERCUT, 1 per-SKU CB trip (HOLD/cb), 1 regular HOLD
+  let idx = 0;
+  const seq = [
+    { action: 'UNDERCUT', newPriceCents: 1799, auditEvents: ['undercut-decision'] },
+    { action: 'HOLD', newPriceCents: null, auditEvents: [], reason: 'circuit-breaker' },
+    { action: 'HOLD', newPriceCents: null, auditEvents: ['hold-decision'] },
+  ];
+  const seqEngine = {
+    decideForSkuChannel: async () => seq[idx++],
+  };
+
+  const result = await assembleCycle(tx, customerMarketplaceId, skuChannels, cycleId, {
+    engine: seqEngine,
+    writeAuditEvent: mockWriteAuditEvent,
+    circuitBreakerCheck: async () => {},
+  });
+
+  // 1 UNDERCUT → staged; per-SKU CB and regular HOLD → both held
+  assert.deepEqual(
+    result,
+    { stagedCount: 1, heldCount: 2 },
+    'Per-SKU CB trip must count as held (not staged) — same bucket as regular HOLD',
+  );
+});
+
+test('cycle_assembly_does_not_emit_per_sku_cb_event_for_regular_hold', async () => {
+  // Regression guard: a regular HOLD (no reason field, or reason != 'circuit-breaker')
+  // MUST NOT trigger the per-SKU CB emission branch. Otherwise every HOLD would emit
+  // a false Atenção event.
+  const { assembleCycle } = await import('../../worker/src/cycle-assembly.js');
+  const { tx } = buildMockTx();
+  const { calls: auditCalls, stub: mockWriteAuditEvent } = buildMockAuditWriter();
+  const { EVENT_TYPES } = await import('../../shared/audit/event-types.js');
+
+  const customerMarketplaceId = randomUUID();
+  const cycleId = randomUUID();
+  const skuChannel = buildSkuChannel({ customer_marketplace_id: customerMarketplaceId });
+
+  // Engine returns a regular HOLD without reason='circuit-breaker'
+  const regularHoldEngine = {
+    decideForSkuChannel: async () => ({
+      action: 'HOLD',
+      newPriceCents: null,
+      auditEvents: ['hold-already-in-1st'],
+      // No `reason` field — this is a regular hold, not a CB trip
+    }),
+  };
+
+  await assembleCycle(tx, customerMarketplaceId, [skuChannel], cycleId, {
+    engine: regularHoldEngine,
+    writeAuditEvent: mockWriteAuditEvent,
+    circuitBreakerCheck: async () => {},
+  });
+
+  // Exactly one audit event, and it MUST be the regular hold event — NOT the CB trip
+  assert.equal(auditCalls.length, 1, 'Regular HOLD emits one audit event (the engine-supplied event)');
+  assert.equal(
+    auditCalls[0].eventType,
+    'hold-already-in-1st',
+    'eventType must be the engine-supplied hold event, NOT CIRCUIT_BREAKER_PER_SKU_TRIP',
+  );
+  assert.notEqual(
+    auditCalls[0].eventType,
+    EVENT_TYPES.CIRCUIT_BREAKER_PER_SKU_TRIP,
+    'Regular HOLD must NEVER emit CIRCUIT_BREAKER_PER_SKU_TRIP — that would be a false Atenção alert',
+  );
 });
 
 // ---------------------------------------------------------------------------
