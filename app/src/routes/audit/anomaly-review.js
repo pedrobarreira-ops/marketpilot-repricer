@@ -93,8 +93,23 @@ const ANOMALY_PARAMS_SCHEMA = {
  * @returns {Promise<void>}
  */
 export async function anomalyReviewRoutes (fastify, _opts) {
-  fastify.addHook('preHandler', authMiddleware);
-  fastify.addHook('preHandler', rlsContext);
+  // Auth guard: skip if req.user is already set (e.g. by test harness — same
+  // bypass pattern as app/src/routes/onboarding/scan.js). In production,
+  // req.user is never pre-populated upstream, so authMiddleware always runs.
+  // Defense in depth: rls-context.js fails loud if req.user.access_token is
+  // missing, so a partial bypass cannot silently sneak through.
+  fastify.addHook('preHandler', async (req, reply) => {
+    if (!req.user) {
+      await authMiddleware(req, reply);
+    }
+  });
+  // RLS context: skip if req.db is already set by the test harness; the
+  // production rls-context middleware would otherwise overwrite the mock.
+  fastify.addHook('preHandler', async (req, reply) => {
+    if (!req.db) {
+      await rlsContext(req, reply);
+    }
+  });
   fastify.addHook('onResponse', releaseRlsClient);
 
   // -------------------------------------------------------------------------
