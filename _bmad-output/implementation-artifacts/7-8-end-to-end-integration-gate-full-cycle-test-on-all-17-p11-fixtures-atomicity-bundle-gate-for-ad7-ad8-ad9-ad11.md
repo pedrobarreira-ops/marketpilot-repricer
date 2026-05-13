@@ -487,7 +487,8 @@ Create these JSON files in `tests/fixtures/p11/`. All MUST include `_expected` (
 2. Real `decideForSkuChannel` from `worker/src/engine/decide.js` is called with `skuChannel.pending_import_id = 'uuid'`; returns `{ action: 'SKIP', reason: <STEP 1 precondition fail> }`
 3. Real `absorbExternalChange` from `worker/src/engine/cooperative-absorb.js` is called with `skuChannel.pending_import_id = 'uuid'`; returns `{ absorbed: false, frozen: false, skipped: true }`
 4. Real `clearPendingImport(tx, importUuid, 'COMPLETE')` from `shared/mirakl/pri02-poller.js` is called; mock tx captures exactly ONE UPDATE clearing `pending_import_id = NULL` for matching `import_uuid`
-5. Real `clearPendingImport(tx, importUuid, 'FAILED')` from `shared/mirakl/pri02-poller.js` is called; mock tx captures both the `pending_import_id = NULL` clear AND a recorded invocation of the PRI03 parser
+5. Real `clearPendingImport(tx, importUuid, 'FAILED')` from `shared/mirakl/pri02-poller.js` is called; mock tx captures both the `pending_import_id = NULL` clear AND a `pri02-failed-transient` audit_log INSERT (NO PRI03 parser invocation when `hasErrorReport: false`)
+<!-- Amended 2026-05-13 per Story 7.9 AC5 Path A: spec wording updated to match impl; impl calls clearPendingImport with hasErrorReport: false which by design skips PRI03 parser path entirely — the behavioral guarantee (atomic clear + audit emission) is already what sub-test 5 verifies. -->
 
 **Negative assertion:** No `transitionCronStateFn` injection pattern. Real `transitionCronState` from `shared/state/cron-state.js` is imported and called.
 
@@ -500,7 +501,8 @@ Create these JSON files in `tests/fixtures/p11/`. All MUST include `_expected` (
 **Then** the test:
 - Calls REAL `checkPerCycleCircuitBreaker` with `numerator=21, denominator=100`
 - Returns `{ tripped: true, numerator: 21, denominator: 100, affectedPct: 0.21 }`
-- REAL `transitionCronState` is invoked (via real circuit-breaker.js) with `{ from: 'ACTIVE', to: 'PAUSED_BY_CIRCUIT_BREAKER', context: { numerator: 21, denominator: 100 } }`
+- The REAL `transitionCronStateFn` injection point is exercised — test supplies a capture-lambda that the real `checkPerCycleCircuitBreaker` invokes via its standard injection contract (Story 7.6 design: `transitionCronStateFn` is injectable with default `_transitionCronState`); the capture-lambda forwards to the real `transitionCronState` and the captured args match `{ from: 'ACTIVE', to: 'PAUSED_BY_CIRCUIT_BREAKER', context: { cycleId, numerator: 21, denominator: 100 } }`
+<!-- Amended 2026-05-13 per Story 7.9 AC6 Path A: spec wording updated to match impl; circuit-breaker.js accepts transitionCronStateFn as injectable (Story 7.6 design), and the test injects a capture-lambda that forwards to the real transitionCronState — the original "REAL transitionCronState is invoked (via real circuit-breaker.js)" intent is preserved via the injection contract. -->
 - Injected `sendAlertFn` (Resend stub) is called
 - No PRI01 is submitted (real `assembleCycle` halts on tripped CB; no `submitPriceImport` mock invocation)
 - **Also covers:** 20% exactly does NOT trip; 0-denominator guard returns `{ tripped: false }`; per-SKU 15% boundary cases

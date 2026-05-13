@@ -217,22 +217,33 @@ describe('Story 7.2 — decideForSkuChannel: 12 P11 fixtures (AC4)', () => {
     );
   });
 
-  // Fixture 4: p11-tier2b-ceiling-raise-headroom (regenerated post-Step 4 review)
-  // Fixture stores 3 offers: Easy-Store(28.49) self → filtered; CompetitorB(35.00) → rank 1;
-  // CompetitorC(40.00) → rank 2. ownTotal=2849<=3500 → position=1.
-  // ceiling=floor(3000*1.10)=3300. targetCeiling=4000-1=3999. newCeiling=min(3999,3300)=3300.
-  // 3300>2849 → CEILING_RAISE(3300). No inline augmentation — fixture is self-contained.
+  // Fixture 4: p11-tier2b-ceiling-raise-headroom
+  // Re-tuned in Story 7.8 SCP-2026-05-11 Amendment 4: per-SKU CB trips at 15.83% delta
+  // (3300-2849)/2849=15.83%>15% → HOLD (circuit-breaker). _expected.action updated to HOLD.
+  // Migrated to fixture._expected oracle per Story 7.9 AC7 — no more hardcoded values.
   test('fixture_4_tier2b_ceiling_raise_headroom', async () => {
     const { decideForSkuChannel } = await getDecide();
     const fixture = loadFixture('p11-tier2b-ceiling-raise-headroom.json');
     const offers = fixture.products[0].offers;
 
+    // skuChannel built from _fixture_meta.skuChannel_overrides values (mirrors fixture verbatim)
+    // IMPORTANT: last_set_price_cents=2849 is required — same as current_price_cents=2849 means
+    // cooperative-absorb sees no external change and does NOT mutate list_price_cents (3000).
+    // With list_price_cents=3000 preserved, ceiling=floor(3000*1.10)=3300, and
+    // (3300-2849)/2849=15.83%>15% → per-SKU CB trips → HOLD.
+    const meta4 = fixture._fixture_meta.skuChannel_overrides;
+    const cm4 = fixture._fixture_meta.customerMarketplace_overrides ?? {};
     const skuChannel = makeSkuChannel({
-      list_price_cents: 3000,
-      current_price_cents: 2849,
+      list_price_cents: meta4.list_price_cents ?? 3000,
+      last_set_price_cents: meta4.last_set_price_cents ?? meta4.current_price_cents ?? 2849,
+      current_price_cents: meta4.current_price_cents ?? 2849,
       min_shipping_price_cents: 0,
     });
-    const marketplace = makeMarketplace({ max_discount_pct: 0.05, max_increase_pct: 0.10, edge_step_cents: 1 });
+    const marketplace = makeMarketplace({
+      max_discount_pct: cm4.max_discount_pct ?? 0.05,
+      max_increase_pct: cm4.max_increase_pct ?? 0.10,
+      edge_step_cents: cm4.edge_step_cents ?? 1,
+    });
 
     const result = await decideForSkuChannel({
       skuChannel,
@@ -242,12 +253,17 @@ describe('Story 7.2 — decideForSkuChannel: 12 P11 fixtures (AC4)', () => {
       tx: mockTx,
     });
 
-    assert.equal(result.action, 'CEILING_RAISE', `Expected CEILING_RAISE; got ${result.action}. reason=${result.reason}`);
-    assert.equal(result.newPriceCents, 3300, `Expected newPriceCents=3300 (capped at ceiling); got ${result.newPriceCents}`);
-    assert.ok(
-      result.auditEvents.includes('ceiling-raise-decision'),
-      `auditEvents must include 'ceiling-raise-decision'; got ${JSON.stringify(result.auditEvents)}`,
-    );
+    // fixture._expected is the SOLE oracle — no hardcoded values
+    assert.equal(result.action, fixture._expected.action,
+      `[fixture_4] action mismatch: expected ${fixture._expected.action}, got ${result.action}. reason=${result.reason}`);
+    assert.equal(result.newPriceCents, fixture._expected.newPriceCents ?? null,
+      `[fixture_4] newPriceCents mismatch: expected ${fixture._expected.newPriceCents ?? null}, got ${result.newPriceCents}`);
+    if (fixture._expected.auditEvent !== undefined && fixture._expected.auditEvent !== null) {
+      assert.ok(
+        result.auditEvents.includes(fixture._expected.auditEvent),
+        `[fixture_4] auditEvents must include '${fixture._expected.auditEvent}'; got ${JSON.stringify(result.auditEvents)}`,
+      );
+    }
   });
 
   // Fixture 5: p11-all-competitors-below-floor
@@ -283,21 +299,33 @@ describe('Story 7.2 — decideForSkuChannel: 12 P11 fixtures (AC4)', () => {
   });
 
   // Fixture 6: p11-all-competitors-above-ceiling
-  // Self filtered out. Remaining competitors: [40.00, 45.00]. own current=2800+0=2800<=4000 → position=1.
-  // competitor2nd=4500. ceiling=floor(3000*1.10)=3300. targetCeiling=4500-1=4499. newCeiling=min(4499,3300)=3300.
-  // 3300>2800 → CEILING_RAISE(3300).
+  // Re-tuned in Story 7.8 SCP-2026-05-11 Amendment 4: per-SKU CB trips at 17.86% delta
+  // (3300-2800)/2800=17.86%>15% → HOLD (circuit-breaker). _expected.action updated to HOLD.
+  // Migrated to fixture._expected oracle per Story 7.9 AC7 — no more hardcoded values.
   test('fixture_6_all_competitors_above_ceiling', async () => {
     const { decideForSkuChannel } = await getDecide();
     const fixture = loadFixture('p11-all-competitors-above-ceiling.json');
     const offers = fixture.products[0].offers;
 
+    // skuChannel built from _fixture_meta.skuChannel_overrides values (mirrors fixture verbatim)
+    // IMPORTANT: last_set_price_cents=2800 is required — same as current_price_cents=2800 means
+    // cooperative-absorb sees no external change and does NOT mutate list_price_cents (3000).
+    // With list_price_cents=3000 preserved, ceiling=floor(3000*1.10)=3300, and
+    // (3300-2800)/2800=17.86%>15% → per-SKU CB trips → HOLD.
+    const meta6 = fixture._fixture_meta.skuChannel_overrides;
+    const cm6 = fixture._fixture_meta.customerMarketplace_overrides ?? {};
     const skuChannel = makeSkuChannel({
-      list_price_cents: 3000,
-      current_price_cents: 2800,
+      list_price_cents: meta6.list_price_cents ?? 3000,
+      last_set_price_cents: meta6.last_set_price_cents ?? meta6.current_price_cents ?? 2800,
+      current_price_cents: meta6.current_price_cents ?? 2800,
       min_shipping_price_cents: 0,
     });
-    // ceiling=floor(3000*1.10)=3300; competitor1=4000, competitor2=4500; newCeiling=min(4499,3300)=3300>2800 → CEILING_RAISE
-    const marketplace = makeMarketplace({ max_discount_pct: 0.05, max_increase_pct: 0.10, edge_step_cents: 1 });
+    // ceiling=floor(3000*1.10)=3300; per-SKU CB trips at 17.86%>15% → HOLD per _expected
+    const marketplace = makeMarketplace({
+      max_discount_pct: cm6.max_discount_pct ?? 0.05,
+      max_increase_pct: cm6.max_increase_pct ?? 0.10,
+      edge_step_cents: cm6.edge_step_cents ?? 1,
+    });
 
     const result = await decideForSkuChannel({
       skuChannel,
@@ -307,15 +335,17 @@ describe('Story 7.2 — decideForSkuChannel: 12 P11 fixtures (AC4)', () => {
       tx: mockTx,
     });
 
-    // Per fixture _expected: action='CEILING_RAISE', newPriceCents=3300 (capped at ceiling).
-    // The fixture data is unambiguous: own at 2800 (position 1), competitors at 4000 + 4500;
-    // ceiling = floor(3000*1.10) = 3300; newCeiling = min(4499, 3300) = 3300 > 2800 → CEILING_RAISE.
-    assert.equal(result.action, 'CEILING_RAISE', `Expected CEILING_RAISE (capped at ceiling); got ${result.action}. reason=${result.reason}`);
-    assert.equal(result.newPriceCents, 3300, `Expected newPriceCents=3300 (capped at ceiling); got ${result.newPriceCents}`);
-    assert.ok(
-      result.auditEvents.includes('ceiling-raise-decision'),
-      `auditEvents must include 'ceiling-raise-decision'; got ${JSON.stringify(result.auditEvents)}`,
-    );
+    // fixture._expected is the SOLE oracle — no hardcoded values
+    assert.equal(result.action, fixture._expected.action,
+      `[fixture_6] action mismatch: expected ${fixture._expected.action}, got ${result.action}. reason=${result.reason}`);
+    assert.equal(result.newPriceCents, fixture._expected.newPriceCents ?? null,
+      `[fixture_6] newPriceCents mismatch: expected ${fixture._expected.newPriceCents ?? null}, got ${result.newPriceCents}`);
+    if (fixture._expected.auditEvent !== undefined && fixture._expected.auditEvent !== null) {
+      assert.ok(
+        result.auditEvents.includes(fixture._expected.auditEvent),
+        `[fixture_6] auditEvents must include '${fixture._expected.auditEvent}'; got ${JSON.stringify(result.auditEvents)}`,
+      );
+    }
   });
 
   // Fixture 7: p11-self-active-in-p11
@@ -841,6 +871,26 @@ describe('Story 7.2 — decideForSkuChannel: structural negative assertions (AC5
       found,
       [],
       `decide.js must NOT contain float-price math tokens (no-float-price); found: ${JSON.stringify(found)}`,
+    );
+  });
+
+  // AC8 (Story 7.9) — Regression test: narrowed-catch pattern present in STEP 2 + STEP 5.
+  // Path A: source-grep structural assertion. Verifies that commit 983b8fb's narrowed-catch
+  // pattern (err.code !== 'ERR_MODULE_NOT_FOUND') is present for both STEP 2 (cooperative-absorb)
+  // and STEP 5 (circuit-breaker) dynamic imports — preventing silent regression to bare catch.
+  test('narrowed_catch_pattern_present_in_step_2_and_step_5', async () => {
+    const { readFile } = await import('node:fs/promises');
+    const source = await readFile('worker/src/engine/decide.js', 'utf8');
+
+    // Count occurrences of the narrowed-catch pattern
+    const pattern = "err.code !== 'ERR_MODULE_NOT_FOUND'";
+    const occurrences = source.split(pattern).length - 1;
+
+    assert.ok(
+      occurrences >= 2,
+      `decide.js must contain at least 2 occurrences of "${pattern}" ` +
+      `(STEP 2 cooperative-absorb + STEP 5 circuit-breaker catch blocks); ` +
+      `found ${occurrences}. Regression guard: commit 983b8fb must not be reverted.`,
     );
   });
 

@@ -346,6 +346,9 @@ describe('absorbExternalChange: external change detection (AC1)', () => {
 // AC4 — Fixture: p11-cooperative-absorption-within-threshold.json
 // ---------------------------------------------------------------------------
 
+// AC4 — Fixture: p11-cooperative-absorption-within-threshold.json
+// Migrated to _fixture_meta schema per Story 7.9 AC7 (was _preconditions, now _fixture_meta).
+// _preconditions was removed from the fixture in Story 7.8 SCP-2026-05-11 Amendment 4.
 describe('Fixture: p11-cooperative-absorption-within-threshold (AC4)', () => {
   const fixtureFile = 'p11-cooperative-absorption-within-threshold.json';
   let fixture;
@@ -359,85 +362,95 @@ describe('Fixture: p11-cooperative-absorption-within-threshold (AC4)', () => {
     fixture = null;
   }
 
-  test('fixture_loads_and_has_required_preconditions', () => {
+  test('fixture_loads_and_has_required_metadata', () => {
     assert.ok(fixture, `Fixture file ${fixtureFile} must exist`);
-    assert.ok(fixture._preconditions, 'fixture must have _preconditions');
-    assert.ok(fixture._preconditions.skuChannel, 'fixture._preconditions.skuChannel must exist');
-    assert.ok(fixture._preconditions.customerMarketplace, 'fixture._preconditions.customerMarketplace must exist');
-    assert.equal(fixture._preconditions.skuChannel.pending_import_id, null,
-      'fixture skuChannel.pending_import_id must be null');
+    assert.ok(fixture._fixture_meta, 'fixture must have _fixture_meta');
+    assert.ok(fixture._fixture_meta.skuChannel_overrides, 'fixture._fixture_meta.skuChannel_overrides must exist');
+    assert.ok(fixture._fixture_meta.customerMarketplace_overrides !== undefined,
+      'fixture._fixture_meta.customerMarketplace_overrides must exist');
+    assert.equal(fixture._fixture_meta.skuChannel_overrides.pending_import_id, null,
+      'fixture skuChannel_overrides.pending_import_id must be null');
     assert.notEqual(
-      fixture._preconditions.skuChannel.current_price_cents,
-      fixture._preconditions.skuChannel.last_set_price_cents,
-      'fixture must have current_price != last_set_price (external change present)',
+      fixture._fixture_meta.skuChannel_overrides.current_price_cents,
+      fixture._fixture_meta.skuChannel_overrides.last_set_price_cents,
+      'fixture must have current_price_cents != last_set_price_cents (external change present)',
     );
   });
 
   test('fixture_absorption_within_threshold_absorbed_true', async () => {
     assert.ok(fixture, `Fixture file ${fixtureFile} must exist`);
     const tx = makeMockTx();
-    const { skuChannel: prec, customerMarketplace: mktPrec } = fixture._preconditions;
+    const skuOverrides = fixture._fixture_meta.skuChannel_overrides;
+    const cmOverrides = fixture._fixture_meta.customerMarketplace_overrides ?? {};
 
-    // Build skuChannel from fixture preconditions
+    // Build skuChannel from _fixture_meta.skuChannel_overrides (migrated from _preconditions)
     const sc = {
       id: 'sc-fixture-uuid',
       sku_id: 'sku-fixture-uuid',
       customer_marketplace_id: 'cm-fixture-uuid',
-      list_price_cents: prec.list_price_cents,
-      last_set_price_cents: prec.last_set_price_cents,
-      current_price_cents: prec.current_price_cents,
-      pending_import_id: prec.pending_import_id,
-      frozen_for_anomaly_review: prec.frozen_for_anomaly_review,
+      list_price_cents: skuOverrides.list_price_cents,
+      last_set_price_cents: skuOverrides.last_set_price_cents,
+      current_price_cents: skuOverrides.current_price_cents,
+      pending_import_id: skuOverrides.pending_import_id ?? null,
+      frozen_for_anomaly_review: skuOverrides.frozen_for_anomaly_review ?? false,
     };
     const cm = {
       id: 'cm-fixture-uuid',
-      anomaly_threshold_pct: mktPrec.anomaly_threshold_pct,
+      anomaly_threshold_pct: cmOverrides.anomaly_threshold_pct ?? null,
     };
 
     const result = await absorbExternalChange({ tx, skuChannel: sc, customerMarketplace: cm });
 
-    // Fixture _expected: absorbed=true, frozen=false
+    // Fixture _expected is the SOLE oracle — no hardcoded values
     assert.equal(result.absorbed, fixture._expected.absorbed,
       `fixture expected absorbed=${fixture._expected.absorbed}`);
-    assert.equal(result.frozen, fixture._expected.frozen,
-      `fixture expected frozen=${fixture._expected.frozen}`);
+    // fixture._expected.frozen may be omitted when not relevant to the scenario;
+    // default to false (absorption within threshold never freezes)
+    const expectedFrozen = fixture._expected.frozen ?? false;
+    assert.equal(result.frozen, expectedFrozen,
+      `fixture expected frozen=${expectedFrozen}`);
     assert.equal(result.skipped, undefined,
       'fixture scenario must not skip (pending_import_id is null)');
 
     // list_price_cents must be updated to current_price_cents
-    assert.equal(sc.list_price_cents, prec.current_price_cents,
+    assert.equal(sc.list_price_cents, skuOverrides.current_price_cents,
       'fixture: skuChannel.list_price_cents must be mutated to current_price_cents after absorption');
   });
 
   test('fixture_absorption_emits_correct_notavel_event_payload', async () => {
     assert.ok(fixture, `Fixture file ${fixtureFile} must exist`);
     const tx = makeMockTx();
-    const { skuChannel: prec, customerMarketplace: mktPrec } = fixture._preconditions;
+    const skuOverrides = fixture._fixture_meta.skuChannel_overrides;
+    const cmOverrides = fixture._fixture_meta.customerMarketplace_overrides ?? {};
 
     const sc = {
       id: 'sc-fixture-uuid',
       sku_id: 'sku-fixture-uuid',
       customer_marketplace_id: 'cm-fixture-uuid',
-      list_price_cents: prec.list_price_cents,
-      last_set_price_cents: prec.last_set_price_cents,
-      current_price_cents: prec.current_price_cents,
-      pending_import_id: prec.pending_import_id,
-      frozen_for_anomaly_review: prec.frozen_for_anomaly_review,
+      list_price_cents: skuOverrides.list_price_cents,
+      last_set_price_cents: skuOverrides.last_set_price_cents,
+      current_price_cents: skuOverrides.current_price_cents,
+      pending_import_id: skuOverrides.pending_import_id ?? null,
+      frozen_for_anomaly_review: skuOverrides.frozen_for_anomaly_review ?? false,
     };
     const cm = {
       id: 'cm-fixture-uuid',
-      anomaly_threshold_pct: mktPrec.anomaly_threshold_pct,
+      anomaly_threshold_pct: cmOverrides.anomaly_threshold_pct ?? null,
     };
 
     await absorbExternalChange({ tx, skuChannel: sc, customerMarketplace: cm });
 
-    // Verify audit event slug matches fixture expectation
+    // Verify audit event slug from absorbExternalChange — emits 'external-change-absorbed' (Notável).
+    // Note: fixture._expected.auditEvent = 'ceiling-raise-decision' refers to the full engine cycle
+    // decision, NOT the cooperative-absorb step. absorbExternalChange's own audit event is
+    // 'external-change-absorbed' (EVENT_TYPES.EXTERNAL_CHANGE_ABSORBED in shared/audit/event-types.js).
+    const COOPERATIVE_ABSORB_EVENT = 'external-change-absorbed';
     const insertCall = tx.calls.find(c => c.sql.toUpperCase().includes('INSERT') &&
       c.sql.toLowerCase().includes('audit_log'));
     assert.ok(insertCall, 'audit INSERT must be present for fixture absorption scenario');
     assert.ok(
-      insertCall.params.includes(fixture._expected.auditEvent),
-      `audit INSERT must use event_type "${fixture._expected.auditEvent}"`,
+      insertCall.params.includes(COOPERATIVE_ABSORB_EVENT),
+      `absorbExternalChange audit INSERT must use event_type "${COOPERATIVE_ABSORB_EVENT}"; got params=${JSON.stringify(insertCall.params)}`,
     );
 
     // Verify payload correctness
@@ -446,15 +459,15 @@ describe('Fixture: p11-cooperative-absorption-within-threshold (AC4)', () => {
     const payload = JSON.parse(payloadParam);
 
     const expectedDeviation = Math.abs(
-      (prec.current_price_cents - prec.list_price_cents) / prec.list_price_cents
+      (skuOverrides.current_price_cents - skuOverrides.list_price_cents) / skuOverrides.list_price_cents
     );
     assert.ok(
       Math.abs(payload.deviationPct - expectedDeviation) < 0.0001,
       `deviationPct must be ~${expectedDeviation.toFixed(4)}, got ${payload.deviationPct}`,
     );
-    assert.equal(payload.previousListPriceCents, prec.list_price_cents,
+    assert.equal(payload.previousListPriceCents, skuOverrides.list_price_cents,
       'payload.previousListPriceCents must match fixture list_price_cents');
-    assert.equal(payload.newListPriceCents, prec.current_price_cents,
+    assert.equal(payload.newListPriceCents, skuOverrides.current_price_cents,
       'payload.newListPriceCents must match fixture current_price_cents');
   });
 });

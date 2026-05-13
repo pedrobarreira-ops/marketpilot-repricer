@@ -604,6 +604,75 @@ describe('scheduleRebuildForFailedSkus', () => {
       "writeAuditEvent must be called with eventType = 'pri01-fail-persistent' (Atenção) at 3-strike escalation");
   });
 
+  // AC9 (Story 7.9) — Three-strike re-fire suppression: already-frozen SKU must NOT
+  // re-emit pri01-fail-persistent event nor re-send critical alert on subsequent failures.
+  // The production code uses `alreadyFrozen = channelRows.some(r => r.frozen_for_pri01_persistent === true)`
+  // to gate the escalation block. This test verifies that gate works correctly.
+  it('three_strike_re_fire_suppression_for_already_frozen_sku', async () => {
+    let scheduleRebuildForFailedSkus;
+    try {
+      ({ scheduleRebuildForFailedSkus } = await import('../../../shared/mirakl/pri03-parser.js'));
+    } catch {
+      assert.fail('Module shared/mirakl/pri03-parser.js does not exist yet — implement it first');
+    }
+
+    // Setup: already frozen + 4th consecutive failure (past 3-strike threshold)
+    // frozen_for_pri01_persistent = true means alreadyFrozen=true → escalation block skipped
+    const alreadyFrozenRow = {
+      ...makeSkuChannelRow({ id: 'sc-already-frozen', consecutiveFailures: 4 }),
+      frozen_for_pri01_persistent: true,  // the suppression gate
+    };
+    const tx = makeMockTx([{ rows: [alreadyFrozenRow], rowCount: 1 }]);
+
+    // Invoke scheduleRebuildForFailedSkus — should NOT re-emit escalation side-effects
+    try {
+      await scheduleRebuildForFailedSkus({
+        tx,
+        customerMarketplaceId: 'cm-uuid-suppression',
+        failedSkus: [{ shopSku: 'EZ-ALREADY-FROZEN', errorCode: 'ERR', errorMessage: 'Re-fire suppression test.' }],
+        cycleId: 'cycle-suppression',
+      });
+    } catch {
+      // Best-effort — writeAuditEvent may throw without real DB; check tx calls below
+    }
+
+    // Assert: pri01-fail-persistent audit event must NOT be emitted for already-frozen SKU
+    const auditInserts = tx.calls.filter(c => {
+      const sql = c.sql.toLowerCase();
+      return sql.includes('insert') && sql.includes('audit_log');
+    });
+    const hasPersistentEvent = auditInserts.some(c => {
+      const paramsStr = JSON.stringify(c.params ?? []);
+      return paramsStr.includes('pri01-fail-persistent');
+    });
+    assert.ok(
+      !hasPersistentEvent,
+      "Already-frozen SKU must NOT re-emit 'pri01-fail-persistent' audit event on subsequent failures",
+    );
+
+    // Assert: freeze UPDATE must NOT be re-issued (frozen_for_pri01_persistent already true)
+    const refreezeUpdates = tx.calls.filter(c => {
+      const sql = c.sql.toLowerCase();
+      return sql.includes('update') && sql.includes('frozen_for_pri01_persistent');
+    });
+    assert.equal(
+      refreezeUpdates.length,
+      0,
+      `Already-frozen SKU must NOT be re-frozen (no UPDATE sku_channels SET frozen_for_pri01_persistent); ` +
+      `got ${refreezeUpdates.length} re-freeze UPDATE(s)`,
+    );
+
+    // Assert: rebuild INSERT must still be issued (frozen SKU still gets a rebuild row for retry)
+    const rebuildInserts = tx.calls.filter(c => {
+      const sql = c.sql.toLowerCase();
+      return sql.includes('insert') && sql.includes('pri01_staging');
+    });
+    assert.ok(
+      rebuildInserts.length >= 1,
+      `Even already-frozen SKUs get a rebuild staging INSERT (retry logic); got ${rebuildInserts.length}`,
+    );
+  });
+
   it('schedule_rebuild_three_strikes_sends_critical_alert', async () => {
     // This test verifies the source code contains the lazy-import pattern for sendCriticalAlert.
     // The actual call is best-effort and outside the tx boundary — we verify it structurally.
