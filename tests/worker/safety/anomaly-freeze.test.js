@@ -130,9 +130,13 @@ describe('freezeSkuForReview — happy path (AC8 test 1)', () => {
       c.sql.toLowerCase().includes('sku_channels')
     );
     assert.ok(updateCall, 'tx must issue UPDATE sku_channels');
+    // Code-review fix (Step 5): the previous assertion passed an arrow-function
+    // expression to assert.ok — functions are truthy, so the column-name check
+    // was vacuously passing regardless of the actual SQL. Replaced with a direct
+    // boolean expression that fails the test when the freeze column is missing.
     assert.ok(
-      c => c.sql.toLowerCase().includes('frozen_for_anomaly_review') || updateCall.sql.toLowerCase().includes('frozen'),
-      'UPDATE must set frozen_for_anomaly_review or frozen columns',
+      updateCall.sql.toLowerCase().includes('frozen_for_anomaly_review'),
+      `UPDATE must set frozen_for_anomaly_review column, got SQL: ${updateCall.sql}`,
     );
     assert.ok(
       updateCall.params.includes('sc-test-uuid') ||

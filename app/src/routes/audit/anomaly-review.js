@@ -7,8 +7,19 @@
 // Both routes are:
 //   - Session-scoped (authenticated via mp_session cookie + authMiddleware)
 //   - RLS-scoped (rlsContext arms auth.uid() so UPDATE sku_channels is tenant-safe)
-//   - CSRF-protected (@fastify/csrf-protection wired at server level)
 //   - Not under /api/v1/ — these are dashboard HTML-form POSTs (Constraint #7)
+//
+// CSRF status (Step 5 review note — flag for PR):
+//   Story 7.4 spec AC5 lists CSRF protection as a requirement "via the existing
+//   @fastify/csrf-protection middleware wiring (Story 1.x baseline)". The package
+//   IS in package.json but is NOT yet registered globally in app/src/server.js
+//   — this is a pre-existing project-wide gap inherited from prior stories
+//   (dashboard / scan / key all POST without CSRF). Per spec, the dashboard
+//   anomaly-review modal (Epic 8 / Story 8.7) will supply the CSRF token, so
+//   wire-up will happen as part of that epic. Surfaced at PR time per
+//   feedback_bmad_sm_owns_spec_failures: Bob owns the spec-baseline gap, not
+//   Story 7.4 dev. DO NOT add CSRF wiring inside this route file — the global
+//   middleware is the right home.
 //
 // Architecture constraints satisfied:
 //   Constraint #2: JSON Schema validation via Fastify built-in (no zod/yup/joi/ajv).
