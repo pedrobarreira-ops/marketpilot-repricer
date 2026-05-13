@@ -58,3 +58,12 @@ supabase-*-attempt.log
 
 # Review-process scratch artifacts (e.g. .review-N.M/ diff bundles)
 _bmad-output/implementation-artifacts/.review-*/
+
+# bad-review Phase 1 + BAD Step 6 scratch files written to worktree root.
+# 5-sighting pattern (pr73-body.tmp.md, pr76.diff, pr79.diff, pr93.diff,
+# pr95.diff) per deferred-work.md "Story 7.9 dispatch + bad-review halt-loop"
+# section — was blocking `git worktree remove` without --force. Closed here
+# pending upstream fix to write scratch to os.tmpdir() instead of worktree
+# root (bad-review SKILL.md Phase 1 step 2/8 + bad/step6-pr-ci.md PR-edit paths).
+pr*.diff
+pr*-body.tmp.md
