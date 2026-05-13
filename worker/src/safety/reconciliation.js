@@ -300,13 +300,19 @@ export async function runReconciliationPass ({ pool, logger, _deps = null }) {
       // -----------------------------------------------------------------------
       let currentPosition = null;
       if (filteredOffers.length > 0) {
-        // ownTotal = our current_price_cents + min_shipping_price_cents (if any)
-        // Mirror decide.js:167-169 simplified to 1 (winning) or 2 (contested).
-        const ownTotal         = (row.current_price_cents ?? 0) + (row.min_shipping_price_cents ?? 0);
-        const competitorLowest = filteredOffers[0].total_price;
+        // ownTotal = our current_price_cents + min_shipping_price_cents (if any).
+        // Mirror decide.js:164-169: BOTH sides of the comparison MUST be in
+        // integer cents. P11's filteredOffers[0].total_price is a JSON number
+        // in EUROS (per shared/mirakl/p11.js empirical contract); convert via
+        // toCents() at the boundary (Constraint #22) so we compare cents-to-cents.
+        // Comparing cents to euros silently misclassifies winning rows as losing
+        // (e.g. our 4500c = €45 vs competitor €50 raw = 50 → buggy 4500<=50 is
+        // false → currentPosition=2 → T3→T1 instead of the correct T3→T2a).
+        const ownTotalCents         = (row.current_price_cents ?? 0) + (row.min_shipping_price_cents ?? 0);
+        const competitorLowestCents = toCents(filteredOffers[0].total_price);
         // Position 1 if our total is ≤ lowest competitor (we are winning or tied).
         // Position 2 if our total is > lowest competitor (we are losing).
-        currentPosition = ownTotal <= competitorLowest ? 1 : 2;
+        currentPosition = ownTotalCents <= competitorLowestCents ? 1 : 2;
       }
 
       // -----------------------------------------------------------------------

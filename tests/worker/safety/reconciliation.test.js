@@ -268,16 +268,25 @@ describe('reconciliation — T3 new competitor winning T3→T2a (AC4 test 2)', (
       return { id: 'mock-audit-id' };
     };
 
-    // Competitor at 4999 total_price > our 4500 → we win at position 1
-    const competitorOffer = { active: true, total_price: 4999, shop_name: 'CompetitorA' };
+    // Competitor at €50.00 total_price (P11 returns EUROS not cents) vs our
+    // 4500 cents = €45.00 → we win at position 1.
+    // Numeric value 50 chosen deliberately to expose any cents-vs-euros unit
+    // mismatch: a buggy compare of `ownCents (4500) <= competitorEuros (50)`
+    // returns false → would route to losing branch. The correct compare
+    // converts competitor euros → cents first: `4500 <= 5000` → true → win.
+    const competitorOffer = { active: true, total_price: 50, shop_name: 'CompetitorA' };
     const mockP11Fetcher = async () => [competitorOffer];
     const mockSelfFilter = (rawOffers, _shopName) => ({ filteredOffers: rawOffers, collisionDetected: false });
-    const mockTierClassifier = async () => ({
-      tierTransitioned: true,
-      fromTier: '3',
-      toTier: '2a',
-      reason: 'won-1st-place-from-tier3',
-    });
+    const tierClassifierCalls = [];
+    const mockTierClassifier = async (args) => {
+      tierClassifierCalls.push(args);
+      return {
+        tierTransitioned: true,
+        fromTier: '3',
+        toTier: '2a',
+        reason: 'won-1st-place-from-tier3',
+      };
+    };
 
     const result = await runWithDeps(pool, logger, {
       p11Fetcher: mockP11Fetcher,
@@ -305,11 +314,28 @@ describe('reconciliation — T3 new competitor winning T3→T2a (AC4 test 2)', (
     // THEN: Call 2 — new-competitor-entered with canonical PayloadForNewCompetitorEntered shape
     const newCompetitorCall = auditWriterCalls.find(c => c.eventType === 'new-competitor-entered');
     assert.ok(newCompetitorCall, 'Second writeAuditEvent call must use eventType "new-competitor-entered"');
-    // competitorPriceCents = toCents(4999) = 499900
+    // competitorPriceCents = toCents(50) = 5000 (€50.00 → 5000 cents)
     assert.equal(
       newCompetitorCall.payload.competitorPriceCents,
-      499900,
-      'new-competitor-entered payload.competitorPriceCents must be toCents(4999) = 499900',
+      5000,
+      'new-competitor-entered payload.competitorPriceCents must be toCents(50) = 5000',
+    );
+
+    // THEN: applyTierClassification must have received currentPosition=1 (we win
+    // at €45 vs competitor €50). Catches cents-vs-euros unit-mismatch regressions
+    // in the ownTotal <= competitorLowest comparison inside runReconciliationPass.
+    assert.equal(tierClassifierCalls.length, 1, 'applyTierClassification called exactly once');
+    assert.equal(
+      tierClassifierCalls[0].currentPosition,
+      1,
+      'currentPosition must be 1 (winning) — our 4500 cents (€45) vs competitor €50 ' +
+      'requires unit-aligned comparison: toCents(50)=5000; 4500 <= 5000 → 1. ' +
+      'If this fails, the ownTotal vs competitorLowest comparison is mixing cents and euros.',
+    );
+    assert.equal(
+      tierClassifierCalls[0].hasCompetitors,
+      true,
+      'hasCompetitors must be true when filteredOffers.length > 0',
     );
     assert.equal(
       newCompetitorCall.payload.skuId,
@@ -367,16 +393,26 @@ describe('reconciliation — T3 new competitor losing T3→T1 (AC4 test 3)', () 
       return { id: 'mock-audit-id' };
     };
 
-    // Competitor at 4999 total_price < our 5500 → competitor wins, we are at position 2
-    const competitorOffer = { active: true, total_price: 4999, shop_name: 'CompetitorA' };
+    // Competitor at €40.00 total_price (P11 returns EUROS not cents) vs our
+    // 5500 cents = €55.00 → competitor wins, we lose at position 2.
+    // Numeric value 40 chosen deliberately to expose unit-mismatch regressions:
+    // a buggy `ownCents (5500) <= competitorEuros (40)` → false → 2 (right by
+    // luck because 5500 > 40 regardless of unit interpretation). The CORRECT
+    // unit-aligned compare: `5500 <= toCents(40)=4000` → false → 2 (right for
+    // the right reason).
+    const competitorOffer = { active: true, total_price: 40, shop_name: 'CompetitorA' };
     const mockP11Fetcher = async () => [competitorOffer];
     const mockSelfFilter = (rawOffers, _shopName) => ({ filteredOffers: rawOffers, collisionDetected: false });
-    const mockTierClassifier = async () => ({
-      tierTransitioned: true,
-      fromTier: '3',
-      toTier: '1',
-      reason: 'lost-1st-place-from-tier3',
-    });
+    const tierClassifierCalls = [];
+    const mockTierClassifier = async (args) => {
+      tierClassifierCalls.push(args);
+      return {
+        tierTransitioned: true,
+        fromTier: '3',
+        toTier: '1',
+        reason: 'lost-1st-place-from-tier3',
+      };
+    };
 
     const result = await runWithDeps(pool, logger, {
       p11Fetcher: mockP11Fetcher,
@@ -403,10 +439,21 @@ describe('reconciliation — T3 new competitor losing T3→T1 (AC4 test 3)', () 
     assert.ok(newCompetitorCall, 'Must emit new-competitor-entered event');
     assert.equal(
       newCompetitorCall.payload.competitorPriceCents,
-      499900,
-      'competitorPriceCents must be toCents(4999) = 499900',
+      4000,
+      'competitorPriceCents must be toCents(40) = 4000 (€40.00 → 4000 cents)',
     );
     assert.equal(newCompetitorCall.payload.skuId, 'sku-3', 'payload.skuId must match');
+
+    // THEN: applyTierClassification received currentPosition=2 (losing).
+    // Unit-mismatch regression check — see Test 2's identical assertion for rationale.
+    assert.equal(tierClassifierCalls.length, 1, 'applyTierClassification called exactly once');
+    assert.equal(
+      tierClassifierCalls[0].currentPosition,
+      2,
+      'currentPosition must be 2 (losing) — our 5500 cents (€55) vs competitor €40 ' +
+      'requires unit-aligned comparison: toCents(40)=4000; 5500 <= 4000 → false → 2. ' +
+      'If this fails, the ownTotal vs competitorLowest comparison is mixing cents and euros.',
+    );
 
     // THEN: last_checked_at bumped
     const updateCalls = client._calls.filter(c =>
