@@ -1,5 +1,5 @@
 # Story Dependency Graph
-_Last updated: 2026-05-13T16:00:00Z (Phase 0 pass 27 — Story 7.4 done via PR #94; Story 7.5 ready-for-dev; Ready cells recomputed)_
+_Last updated: 2026-05-13T19:30:00Z (Phase 0 pass 28 — Story 7.5 done via PR #95; Story 7.7 now Ready to Work; Ready cells recomputed; stale branches 7.4/7.5/7.9 deleted; stale worktrees cleaned)_
 
 ## Stories
 
@@ -35,12 +35,12 @@ _Last updated: 2026-05-13T16:00:00Z (Phase 0 pass 27 — Story 7.4 done via PR #
 | 7.2 | 7 | worker/src/engine/decide.js — full AD8 decision flow with filter chain via self-filter | done | #28 | #91 | merged | 7.1, 3.2, 6.1 | ✅ Yes (done) |
 | 7.3 | 7 | worker/src/engine/cooperative-absorb.js — STEP 2 absorption + skip-on-pending | done | #29 | #91 | merged | 7.2 | ✅ Yes (done) |
 | 7.4 | 7 | worker/src/safety/anomaly-freeze.js + audit anomaly SKU accept/reject endpoints | done | #30 | #94 | merged | 7.2, 9.0 | ✅ Yes (done) |
-| 7.5 | 7 | worker/src/engine/tier-classify.js — full transitions + atomic T2a→T2b write per F1 | ready-for-dev | #31 | — | — | 7.2 | ✅ Yes |
+| 7.5 | 7 | worker/src/engine/tier-classify.js — full transitions + atomic T2a→T2b write per F1 | done | #31 | #95 | merged | 7.2 | ✅ Yes (done) |
 | 7.6 | 7 | worker/src/safety/circuit-breaker.js — per-SKU 15% + per-cycle 20% | done | #32 | #91 | merged | 7.2 | ✅ Yes (done) |
-| 7.7 | 7 | worker/src/safety/reconciliation.js — Tier 3 daily pass = nightly reconciliation | backlog | #33 | — | — | 7.5 | ❌ No (7.5 not done) |
+| 7.7 | 7 | worker/src/safety/reconciliation.js — Tier 3 daily pass = nightly reconciliation | ready-for-dev | #33 | — | — | 7.5 | ✅ Yes |
 | 7.8 | 7 | END-TO-END INTEGRATION GATE — full cycle test on all 17 P11 fixtures (atomicity bundle gate AD7+AD8+AD9+AD11) | done | #34 | #91 | merged | 6.1, 7.2, 7.3, 7.6 | ✅ Yes (done) |
 | 7.9 | 7 | Bundle-C cleanup chore — 9 test-tightening + spec-reconciliation follow-ups | done | #92 | #93 | merged | 7.8 (implicit: cleanup of Bundle C modules) | ✅ Yes (done) |
-| 8.1 | 8 | Dashboard root state-aware view + sticky header chrome | backlog | #35 | — | — | 4.9, epic 7 complete | ❌ No (epic 7 not complete — 7.4, 7.5, 7.7 not done) |
+| 8.1 | 8 | Dashboard root state-aware view + sticky header chrome | backlog | #35 | — | — | 4.9, epic 7 complete | ❌ No (epic 7 not complete — 7.7 not done) |
 | 8.2 | 8 | KPI cards row (3 status cards + secondary catalog-value lines) | backlog | #36 | — | — | 8.1, 9.2 | ❌ No (epic 7 not complete) |
 | 8.3 | 8 | PT/ES channel toggle pill in sticky header | backlog | #37 | — | — | 8.1 | ❌ No (epic 7 not complete) |
 | 8.4 | 8 | Margin editor inline panel with worked-profit-example | backlog | #38 | — | — | 8.1 | ❌ No (epic 7 not complete) |
