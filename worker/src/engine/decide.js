@@ -12,6 +12,7 @@ import { filterCompetitorOffers } from '../../../shared/mirakl/self-filter.js';
 import { roundFloorCents, roundCeilingCents, toCents } from '../../../shared/money/index.js';
 import { EVENT_TYPES } from '../../../shared/audit/event-types.js';
 import { createWorkerLogger } from '../../../shared/logger.js';
+import { applyTierClassification } from './tier-classify.js';
 
 // NOTE: decide.js does NOT import writeAuditEvent.
 // Audit events are returned in the auditEvents[] array and emitted by the caller (cycle-assembly.js).
@@ -98,9 +99,14 @@ export async function decideForSkuChannel ({ skuChannel, customerMarketplace, ow
   // p11RawOffers is never read again past this point.
 
   if (filteredOffers.length === 0) {
-    // No competitors after filtering → Tier 3 path
-    // Story 7.5 handles tier column DB writes; engine returns the event here.
+    // No competitors after filtering → Tier 3 path.
+    // Tier transition fires via applyTierClassification (Story 7.5) BELOW; engine returns the event
+    // slug in auditEvents per Pattern C — cycle-assembly's emit loop INSERTs the audit_log row.
     logger.debug({ skuChannelId: skuChannel.id }, 'engine: HOLD — no competitors after filter (Tier 3)');
+    await applyTierClassification({ tx, skuChannel, currentPosition: null, hasCompetitors: false });
+    // Return value intentionally ignored: STEP 1 always includes TIER_TRANSITION in auditEvents
+    // unconditionally (matches fixture p11-tier3-no-competitors.json _expected.auditEvent='tier-transition'
+    // for the steady-state T3-stays-T3 case per SCP Amendment 4 + Bundle C 48/48 floor).
     return {
       action: 'HOLD',
       newPriceCents: null,
@@ -211,6 +217,26 @@ export async function decideForSkuChannel ({ skuChannel, customerMarketplace, ow
         decisionReason = 'already-best';
       }
     }
+  }
+
+  // -------------------------------------------------------------------------
+  // STEP 4b — Tier-classification wire-up (Story 7.5)
+  // Fires AFTER the ownPosition-driven CASE A / CASE B branching sets decisionAction
+  // + decisionAuditEvents, and BEFORE the STEP 5 CB check.
+  // hasCompetitors: true — STEP 4 only executes when filteredOffers.length > 0
+  // (STEP 1's early-return at filteredOffers.length === 0 does NOT fire here).
+  // Statement ordering (Path I autocommit): UPDATE in applyTierClassification autocommits;
+  // if it throws, control never reaches STEP 5 and no tier-transition audit row is emitted.
+  // -------------------------------------------------------------------------
+
+  const tierResult = await applyTierClassification({
+    tx,
+    skuChannel,
+    currentPosition: ownPosition,
+    hasCompetitors: true,
+  });
+  if (tierResult.tierTransitioned) {
+    decisionAuditEvents = [...decisionAuditEvents, EVENT_TYPES.TIER_TRANSITION];
   }
 
   // -------------------------------------------------------------------------

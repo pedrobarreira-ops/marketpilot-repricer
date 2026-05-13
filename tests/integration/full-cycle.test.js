@@ -78,7 +78,7 @@ function loadFixture (name) {
  * @returns {object}
  */
 function buildMockSkuChannel (fixtureMeta = {}, baseOverrides = {}) {
-  return {
+  const raw = {
     id: 'sc-uuid-test',
     sku_id: 'sku-uuid-test',
     customer_marketplace_id: 'cm-uuid-test',
@@ -102,6 +102,26 @@ function buildMockSkuChannel (fixtureMeta = {}, baseOverrides = {}) {
     ...baseOverrides,
     ...(fixtureMeta.skuChannel_overrides ?? {}),  // fixture metadata wins
   };
+
+  // AC3 (Story 7.5): resolve angle-bracket sentinels in date fields.
+  // Sentinel format: "<set in test: new Date(Date.now() - N*60*60*1000).toISOString()>"
+  // The only sentinel currently used is for last_won_at in p11-tier2a-recently-won-stays-watched.json
+  // (2 hours ago — within the 4-hour T2a→T2b promotion window, so T2a stays T2a).
+  // This substitution must be backward-compatible: other 16 fixtures do not use sentinels.
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value === 'string' && value.startsWith('<set in test:') && value.endsWith('>')) {
+      // Resolve the known sentinel: "new Date(Date.now() - N*60*60*1000).toISOString()"
+      // Parse the hours multiplier (N) from the sentinel expression.
+      const hoursMatch = value.match(/Date\.now\(\)\s*-\s*(\d+)\s*\*\s*60\s*\*\s*60\s*\*\s*1000/);
+      if (hoursMatch) {
+        const hoursAgo = parseInt(hoursMatch[1], 10);
+        raw[key] = new Date(Date.now() - hoursAgo * 60 * 60 * 1000).toISOString();
+      }
+      // If sentinel does not match the known pattern, leave the value as-is (fail loudly in tests).
+    }
+  }
+
+  return raw;
 }
 
 /**
