@@ -102,8 +102,51 @@ You also have access to two BAD config values from `.claude/settings.json`:
    where `{bundle}` is `merge_blocks:<story-key>:bundle` (e.g. `C`) and
    `{until_story_short}` is the dotted short form of `merge_blocks:<story-key>:until_story`
    (e.g. `7-8-end-to-end-...` → `7.8`). Stories absent from `merge_blocks:`
-   skip this step. Eliminates the manual `gh pr edit` workaround for stacked
-   PRs (Q3 demoted to W4 watch at Epic 5 retro 2026-05-08).
+   fall through to the SOLO-PR DEFENSIVE TOUCH block immediately below.
+   Eliminates the manual `gh pr edit` workaround for stacked PRs (Q3 demoted
+   to W4 watch at Epic 5 retro 2026-05-08).
+
+   AUTO-INJECT SKIP-LIVE-SMOKE MARKER FOR SOLO-PR DEFENSIVE TOUCH — for stories
+   NOT in `merge_blocks:` (the block above), check whether the PR diff touches
+   `worker/src/safety/`, `worker/src/engine/`, or `shared/mirakl/`. Run:
+       git -C {worktree_path} diff main --name-only | grep -E "^(worker/src/safety/|worker/src/engine/|shared/mirakl/)"
+   If the output is EMPTY → skip this step (no Live Smoke concern). If
+   non-empty, the matched paths could trigger bad-review's Phase 1 step 7
+   guard; scan the diff CONTENT for Mirakl-API-surface tokens to decide
+   between auto-inject and HALT:
+       git -C {worktree_path} diff main -- worker/src/safety/ worker/src/engine/ shared/mirakl/ \
+         | grep -nE "fetch\(|axios\.|request\(|/products|/offers|/inventory|/orders|/listings|X-API-KEY|X-Mirakl-|\bP11\b|\bPRI0[123]\b|\bOF2[14]\b|\bA01\b|\bPC01\b"
+   - ZERO token matches → defensive-only diff (e.g. narrowed-catch tweak,
+     static-import cut-over, internal SSoT extraction with no new HTTP
+     surface). Auto-inject this exact line as the LAST line of the PR body
+     before submission:
+         [Skip-Live-Smoke: {matched_paths} touched but no Mirakl API surface signals in diff (no HTTP-client / URL / header / endpoint-code tokens). Affects: {file_list}. Diff scope: defensive-only.]
+     where `{matched_paths}` is the comma-joined list of matched path
+     prefixes (e.g. `worker/src/engine/, worker/src/safety/`) and `{file_list}`
+     is the verbatim output of the first grep command above.
+   - ONE OR MORE token matches → real Mirakl-surface change detected. HALT to
+     coordinator. Report the matched tokens verbatim + their file:line locations
+     from the second grep. The operator must either supply a real
+     `## Live Smoke Evidence` section (with `npm run mirakl:verify` output) OR
+     explicitly authorize a manually-edited Skip-Live-Smoke marker BEFORE the
+     PR opens. Do NOT auto-inject in this branch; do NOT proceed to step 5 —
+     unaudited Mirakl-surface changes must never ship past Step 6 silently.
+
+   Why this branch exists: PRs #93 (Story 7.9 Bundle C cleanup) / #94 (Story
+   7.4 anomaly-freeze) / #95 (Story 7.5 tier-classify) all touched
+   worker/src/{safety,engine}/ or shared/mirakl/ defensively (narrowed-catch
+   patterns, SSoT extractions, static-import cut-overs, decide.js wire-ups)
+   with zero new Mirakl HTTP surface — but the bundle-stacked auto-inject
+   above only fires for stories in `merge_blocks:`, so bad-review's Phase 1
+   step 7 Live Smoke guard halted each time. Manual `gh api PATCH` marker
+   injection was the workaround across 3 PRs. 3-sighting pattern closed per
+   deferred-work.md line 442 (filed Bundle C close-out retro 2026-05-13;
+   threshold crossed 2026-05-13 on PR #95). Shifts the halt point from
+   bad-review (where it derails the audit) to Step 6 (where it's part of
+   normal flow). False-positive HALTs (e.g. a comment string contains a
+   matched token) are acceptable — operator-in-loop is the catch and the cost
+   equals the current manual-injection state; false-negative auto-injects on
+   real API-surface changes are the failure mode worth biasing against.
 
 5. CI — read `RUN_CI_LOCALLY` from `_bmad/config.yaml` BEFORE any other CI action (Q2, Epic 5 retro: Story 5.2 Step 6 hung Monitor on no-checks-reported because RUN_CI_LOCALLY=true skips GitHub Actions entirely; the Monitor branch must not even be considered when true).
 
