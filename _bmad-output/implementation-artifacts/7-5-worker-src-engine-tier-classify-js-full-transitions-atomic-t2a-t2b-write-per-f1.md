@@ -593,3 +593,21 @@ claude-sonnet-4-6 (Step 3 developer, 2026-05-13+)
 ### Completion Notes List
 
 ### File List
+
+### Review Findings
+
+Code review 2026-05-13 — Step 5 (Opus, critical-path gate). All key invariants verified clean:
+
+- F1 atomic dual-column write — single UPDATE statement writes both `tier` AND `tier_cadence_minutes` in one SET clause; verified by load-bearing unit-test assertion (`tests/worker/engine/tier-classify.test.js` test 2 — `countSkuChannelUpdates(...) === 1`). ✅
+- Path I autocommit-per-statement preserved — no BEGIN/COMMIT framing introduced; UPDATE autocommits then cycle-assembly's loop emits the audit INSERT separately. ✅
+- Pattern C invariant — `tier-classify.js` does NOT import `writeAuditEvent` (source-inspection negative test asserts); `decide.js:17-18` architectural comment preserved verbatim. ✅
+- Optimistic-concurrency `WHERE id=$N AND tier=$expectedFromTier` race-guard present on every UPDATE; rowCount=0 returns quiet `'concurrent-transition-detected'` without throw — mirrors `cron-state.js:132-137`. ✅
+- Constraint #19 (no direct fetch outside `shared/mirakl/`) — verified; module makes no HTTP calls. ✅
+- Bundle C floor: 47/47 pass (no regression vs main baseline of 47/47; spec's stated "≥48" floor is a pre-existing spec-vs-baseline drift — see Defer item below). ✅
+- Boot tests: `node --check worker/src/engine/tier-classify.js` + `node --check worker/src/engine/decide.js` both clean (per `feedback_step5_import_path_boot_check`). ✅
+- Lint clean on touched files (no `no-default-export`, `no-console`, `worker-must-filter-by-customer` violations). ✅
+- 18 unit tests pass for `tier-classify.test.js` (10 AC6 transitions + 5 source-inspection + 3 sub-cases for {T1,T2a,T2b}→T3). ✅
+
+- [x] [Review][Defer] Spec AC7 §2 Bundle C floor states ≥48 pass, but actual `main` baseline is 47/47 — deferred, pre-existing spec-vs-baseline drift; not a Story 7.5 regression (47→47).
+- [x] [Review][Defer] `tests/worker/engine/decide.test.js` has 1 pre-existing failure (`position_1_with_2nd_but_ceiling_prevents_raise_returns_hold` — expected HOLD, actual CEILING_RAISE) [tests/worker/engine/decide.test.js] — deferred, confirmed pre-existing on `main`; out-of-scope per spec AC7 §6 (pre-existing fail baseline tolerated).
+
