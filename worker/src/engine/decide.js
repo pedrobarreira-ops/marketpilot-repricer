@@ -128,7 +128,12 @@ export async function decideForSkuChannel ({ skuChannel, customerMarketplace, ow
     logger.debug({ skuChannelId: skuChannel.id }, 'engine: cooperative-absorb stub (7.3 not shipped)');
   }
   if (absorb.skipped || absorb.frozen) {
-    return { action: 'SKIP', newPriceCents: null, auditEvents: [], reason: 'cooperative-absorb-skip' };
+    // AC4 (Story 7.4): when the freeze path fires, propagate the auditEvent slug
+    // ('anomaly-freeze') so full-cycle.test.js can assert it in result.auditEvents.
+    // absorb.auditEvent is set by absorbExternalChange on the freeze path (non-null
+    // when freezeSkuForReview returns { eventType: EVENT_TYPES.ANOMALY_FREEZE }).
+    const freezeAuditEvents = absorb.auditEvent ? [absorb.auditEvent] : [];
+    return { action: 'SKIP', newPriceCents: null, auditEvents: freezeAuditEvents, reason: 'cooperative-absorb-skip' };
   }
 
   // -------------------------------------------------------------------------

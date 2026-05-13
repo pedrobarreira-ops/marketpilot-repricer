@@ -8,6 +8,7 @@
 //   AC#4 — Convention assertion: every customer-scoped table in `db/seed/test/two-customers.sql`
 //           is also covered in the regression suite config array.
 //   AC#5 — No customer-scoped migration shipped without a companion RLS policy.
+//   AC#7 (Story 7.4) — Anomaly-review endpoints cross-tenant RLS blocking (404 per epic AC#4).
 //
 // Tables covered at Epic 2 baseline:
 //   - customers
@@ -25,6 +26,13 @@
 // Local-only: requires .env.test pointing at local Supabase docker.
 // Run with: node --env-file=.env.test --test tests/integration/rls-regression.test.js
 // Or via:   npm run test:rls
+
+// Story 7.4 AC7: anomaly-review.js imports anomaly-freeze.js → resend/client.js,
+// which throws at module load if RESEND_API_KEY is missing. Stub it before imports.
+// (memory: project_resend_env_stub_import_pattern)
+if (!process.env.RESEND_API_KEY) {
+  process.env.RESEND_API_KEY = 'test-stub-key-rls-regression';
+}
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

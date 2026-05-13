@@ -1,12 +1,12 @@
 {
-  "_note": "Cooperative absorption anomaly freeze: current_price=1000 vs last_set_price=2500 (deviation=60% > 40%). Real absorbExternalChange fires anomaly-freeze BEFORE per-SKU CB check. Engine returns SKIP. anomaly-freeze Atenção emitted. Critical alert sent. --- SCP AMENDMENT 8 DEFERRAL (Path C): SCP-2026-05-11 Amendment 8 specifies auditEvent='anomaly-freeze' and priority='atencao'. These are set to null here because worker/src/safety/anomaly-freeze.js (Story 7.4) has not shipped on this branch. cooperative-absorb.js resolves freezeSkuForReview via dynamic import with ERR_MODULE_NOT_FOUND fallback to a no-op stub. The no-op stub emits no audit event, so auditEvent=null is a structural truth of bundle-c-integrated as of this branch, NOT a fake-gate finding. The auditEvent='anomaly-freeze' assertion is deferred to Story 7.4 dispatch when worker/src/safety/anomaly-freeze.js ships. decideForSkuChannel does not pass freezeFn to absorbExternalChange (it calls mod.absorbExternalChange without the freezeFn param), so test-side injection via Path A is not available without modifying production code. Path B (test-helper shim + module resolver) was considered but would be too invasive for a gate-test story. Path C is the correct deferral contract.",
+  "_note": "Cooperative absorption anomaly freeze: current_price=1000 vs last_set_price=2500 (deviation=60% > 40%). Real absorbExternalChange (Story 7.3) fires freezeSkuForReview (Story 7.4) before any per-SKU CB check. Engine returns SKIP, anomaly-freeze Atenção emitted (priority=atencao via DB trigger), critical alert sent via mock Resend. Fixture flipped 2026-05-13 by Story 7.4.",
   "_expected": {
     "action": "SKIP",
     "newPriceCents": null,
     "absorbed": false,
     "frozen": true,
-    "auditEvent": null,
-    "priority": null
+    "auditEvent": "anomaly-freeze",
+    "priority": "atencao"
   },
   "_fixture_meta": {
     "skuChannel_overrides": {

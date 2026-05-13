@@ -18,6 +18,7 @@ import { scanReadyRoutes } from './routes/onboarding/scan-ready.js';
 import { marginRoutes } from './routes/onboarding/margin.js';
 import { scanFailedRoutes } from './routes/interceptions/scan-failed.js';
 import { dashboardRoutes } from './routes/dashboard/index.js';
+import { anomalyReviewRoutes } from './routes/audit/anomaly-review.js';
 
 getEnv();
 
@@ -81,6 +82,10 @@ try {
   // Auth + RLS + interception hooks applied inside the plugin scope.
   // Epic 8 stories will expand this to a full state-aware dashboard.
   await fastify.register(dashboardRoutes);
+
+  // Story 7.4: Anomaly-review endpoints — customer accept/reject for frozen SKUs.
+  // Auth + RLS hooks applied inside the plugin scope.
+  await fastify.register(anomalyReviewRoutes);
 
   await fastify.listen({ port: Number(process.env.PORT) || 3000, host: '0.0.0.0' });
 } catch (err) {
