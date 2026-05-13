@@ -624,7 +624,11 @@ describe('scheduleRebuildForFailedSkus', () => {
     };
     const tx = makeMockTx([{ rows: [alreadyFrozenRow], rowCount: 1 }]);
 
-    // Invoke scheduleRebuildForFailedSkus — should NOT re-emit escalation side-effects
+    // Invoke scheduleRebuildForFailedSkus — should NOT re-emit escalation side-effects.
+    // Narrow catch: only swallow expected mock-tx limitations (no real DB connection for
+    // writeAuditEvent's internal queries that fall through the mock). A genuine assertion
+    // failure or unexpected error code (e.g., TypeError from a refactor regression) MUST
+    // propagate so the test fails loudly rather than silently passing on a broken function.
     try {
       await scheduleRebuildForFailedSkus({
         tx,
@@ -632,8 +636,18 @@ describe('scheduleRebuildForFailedSkus', () => {
         failedSkus: [{ shopSku: 'EZ-ALREADY-FROZEN', errorCode: 'ERR', errorMessage: 'Re-fire suppression test.' }],
         cycleId: 'cycle-suppression',
       });
-    } catch {
-      // Best-effort — writeAuditEvent may throw without real DB; check tx calls below
+    } catch (err) {
+      // Re-throw anything that doesn't look like a mock-tx boundary error.
+      // Mock-tx limitations typically surface as TypeError on `.rows`/`.rowCount` access
+      // or as "Unexpected query" assertions. Any other error (real regression) re-throws.
+      const isMockTxBoundary = err && (
+        /rows|rowCount|Unexpected query|query\\.toLowerCase is not a function/i.test(err.message ?? '') ||
+        err.code === 'ERR_ASSERTION' && /tx\\.calls|mock/i.test(err.message ?? '')
+      );
+      if (!isMockTxBoundary) {
+        throw err;
+      }
+      // else: expected mock-tx boundary; assertions on tx.calls below carry the verification
     }
 
     // Assert: pri01-fail-persistent audit event must NOT be emitted for already-frozen SKU

@@ -208,8 +208,16 @@ describe('AC3 — Bundle C pending_import_id atomicity invariant (all real modul
   // Sub-test 1b (Story 7.9 AC4): N>1 batch — markStagingPending sets pending_import_id on ALL N rows
   // Extends sub-test 1's N=1 base case. Verifies that with N staging rows + N channel rows,
   // every participating sku_channel row receives an UPDATE with the correct importId.
-  // The implementation does per-channel UPDATEs (one per row); this sub-test asserts
-  // all N rows are covered (non-trivial when N > 1).
+  //
+  // SPEC/IMPL RECONCILIATION (Story 7.9 AC4):
+  //   Spec wording asked for "exactly one UPDATE query is captured (pendingUpdates.length === 1)
+  //   despite N rows" (single batch UPDATE). The implementation at shared/mirakl/pri01-writer.js
+  //   does per-channel UPDATEs in a `for (const ch of channelRows)` loop (lines 283-298), which
+  //   is the actual shipped Bundle C behavior. This sub-test asserts the implemented per-row
+  //   pattern AND the underlying behavioral invariant (every channel row gets the correct
+  //   importId stamped, no row is dropped). The "atomicity" guarantee is provided by the tx
+  //   boundary, not by single-statement batching. If a future story switches to a batch UPDATE
+  //   (e.g., `WHERE id = ANY($::uuid[])`), this assertion will need updating — by design.
   test('sub-test 1b: REAL markStagingPending covers ALL N rows (N>1 batch correctness)', async () => {
     const cycleId = 'cycle-uuid-ac4-1b';
     const importId = 'import-uuid-ac4-1b';
