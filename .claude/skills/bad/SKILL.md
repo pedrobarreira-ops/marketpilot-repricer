@@ -711,14 +711,13 @@ Using the assessment report from Step 2, follow the applicable branch:
      ```bash
      gh pr diff {N} --name-only | grep "supabase/migrations/"
      ```
-     Capture the output as `MIGRATION_FILES_LIST` (may be empty). This data-grounds the
-     file list — Phase 5.5a receives it directly rather than re-querying GitHub with `{N}`,
-     which can be stale in a sequential multi-PR loop (root cause of PR #73 migration miss).
+     Capture as `MIGRATION_FILES_LIST` (may be empty) — pre-computed to avoid stale GitHub re-queries in multi-PR loops (PR #73 miss 2026-05-07). The analyst also runs a remote-sync pre-check (Bundle C close-out retro Q2 2026-05-13 — catches local-only migrations from manual-merge bypass paths) so it needs `{repo_root}`.
 
      Spawn `MODEL_STANDARD` (yolo mode):
      ```
      You are the Phase 5.5 migration analyst for PR #{N}.
      {N}: {PR-number}
+     {repo_root}: {repo_root}
      MIGRATION_FILES_LIST:
      {MIGRATION_FILES_LIST — paste verbatim, or "(none)" if empty}
 
@@ -729,17 +728,15 @@ Using the assessment report from Step 2, follow the applicable branch:
 
      - If `requires_confirmation: true` — halt and print:
        ```
-       ⚠️  Destructive migration detected in PR #{N}.
+       ⚠️  Migration confirmation required for PR #{N}.
 
        {dangerous_ops_description from subagent output}
 
-       This cannot be undone once applied to the database.
-
-       [C] Confirmed — push migrations and run smoke tests
+       [C] Confirmed — proceed to Phase 5.5b (db push --include-all + verify + smoke)
        [S] Stop — do NOT push migrations
        ```
-       📣 **Notify:** `⚠️ Destructive migration in PR #{N} — your confirmation required.`
-       On **[S]**: halt. Print `BAD stopped — migrations NOT pushed. Push manually when ready.`
+       📣 **Notify:** `⚠️ Migration confirmation required on PR #{N}.`
+       On **[S]**: halt. Print `BAD stopped — migrations NOT pushed. Resolve manually then re-run /bad.`
        On **[C]**: proceed to Phase 5.5b.
 
      - If `requires_confirmation: false` — proceed to Phase 5.5b immediately.

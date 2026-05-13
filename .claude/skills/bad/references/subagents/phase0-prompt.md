@@ -26,10 +26,15 @@ STEPS:
 
 1. Read `_bmad-output/implementation-artifacts/sprint-status.yaml`. Note current story
    statuses. Compare against the existing graph (if any) to identify new stories.
-   Also read the top-level `merge_blocks:` block (sibling of `development_status:`,
-   NOT inside it). Save as MERGE_BLOCKS — a map of `story_key → {until_story,
-   bundle, reason}`. Used in step 6 for the atomicity-bundle exception. Stories
-   absent from `merge_blocks:` are unblocked — that's the common case.
+   Also read TWO top-level blocks (siblings of `development_status:`, NOT inside it):
+   - `merge_blocks:` — save as MERGE_BLOCKS, a map of `story_key → {until_story,
+     bundle, reason}`. Used in step 6 for the atomicity-bundle exception.
+   - `bundle_dispatch_orders:` — save as BUNDLE_DISPATCH_ORDERS, a map of
+     `bundle_key → [story_key, story_key, ...]` declaring the linear dispatch
+     chain per bundle. Used in step 6 to find each bundle member's immediate
+     predecessor for linear-dispatch enforcement. May be absent if no atomicity
+     bundles are declared yet — that's the common case for projects without bundles.
+   Stories absent from `merge_blocks:` are unblocked — that's the common case.
 
 2. Read `_bmad-output/planning-artifacts/epics.md` for dependency relationships of
    new stories. (Skip if no new stories.)
@@ -99,14 +104,20 @@ STEPS:
    data is identical. Always re-evaluate using the current rule text.
 
    **For the atomicity-bundle exception specifically:** when MERGE_BLOCKS
-   indicates a story qualifies, the Ready cell suffix needs the actual GitHub
-   PR branch name of the highest-numbered unmerged bundle-sibling upstream.
-   Look it up with:
-       gh pr view <upstream-PR-number> --json headRefName -q .headRefName
+   indicates a story qualifies, look up its **immediate predecessor** in
+   BUNDLE_DISPATCH_ORDERS (the entry directly above it in the bundle's chain).
+   The Ready cell suffix needs the predecessor's PR branch name (or `main` if
+   the story is the first member of its bundle, OR if the predecessor is
+   already merged/`done`). Look it up with:
+       gh pr view <predecessor-PR-number> --json headRefName -q .headRefName
    The PR branch format (`story-5.1-master-cron-dispatcher`) differs from
    the sprint-status story-key format (`5-1-master-cron-dispatcher-...-eslint-rule`)
    — use the value `gh pr view` returns verbatim. Set `base_branch` in the
-   ready_stories report to that exact branch name.
+   ready_stories report to that branch (or `main` for bundle-first-member).
+   If the predecessor is NOT yet in `review` state, the story is NOT Ready —
+   mark `❌ No (bundle predecessor X not yet in review — linear-dispatch gate)`.
+   Linear-dispatch enforcement prevents parallel-dispatch errors (Bundle C
+   PR #90 fake-gate, recovered via SCP-2026-05-11).
 
 7. Pull latest main (if step 5 didn't already do so):
      git pull origin main

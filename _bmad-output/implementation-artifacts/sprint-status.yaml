@@ -78,7 +78,8 @@
 # by design; pre-dates the rule).
 
 generated: 2026-05-01
-last_updated: 2026-05-11  # Phase 0 reconciliation pass 24 (2026-05-11): Story 7.8 flipped review → ready-for-dev (PR #90 CLOSED, no worktree, no branch — SCP-2026-05-11 recovery). base_branch override: bundle-c-integrated (contains 7.2+7.3+7.6 code including cooperative-absorb.js). Dependency graph updated.
+last_updated: 2026-05-13  # bmad-retrospective: Bundle C close-out retro logged at bundle-c-close-out-retro-2026-05-13.md (joint close-out for Epic 5 + Epic 6 scoped retros from 2026-05-08 + 2026-05-10 — production-correctness, joint-correctness, live-smoke verdicts all CLOSED ✅ via PR #91 mega-merge 45/45 integration tests against real Bundle C modules). 12 sprint-status flips applied this retro: (a) 8 Bundle C participant stories review → done (5.1, 5.2, 6.1, 6.2, 6.3, 7.2, 7.3, 7.6 — PR #91 mega-merge squash 89b2378 supersedes individual PRs #81-#85, #87-#89); (b) epic-5 + epic-6 in-progress → done (all stories complete); (c) epic-5-retrospective + epic-6-retrospective optional → done (Bundle C close-out logged). 9 action items: Q1 P0 codify bundle_dispatch_orders + Phase 0 enforcement (bundle dispatch topology must be linear; parallel-dispatch within bundle = dispatch error per Bob's ruling 2026-05-11) + Q2 P0 extend Phase 5.5a to verify migration application against remote (Bundle C 4 migrations sat local-only ~12h post-merge until manual db push --include-all) + Q3 PR body remove "Files Changed" line (4-sighting hallucination — recommended path b: remove failure surface) + Q4 subagent guardrail-override discipline (2-sighting: fake-gate rationalization + force-push deviation; halt-and-ask pattern) + Q5 bad-review Phase 2 inline-fallback banner (3-sighting; /bad-review must run top-level not nested via BAD) + Q6 bad-review banner-on-stale MCP (2-sighting mid-flight token expiry on PR #87) + Q7 Bundle-C-cleanup chore PR (9 small follow-ups bundled — ships before Story 7.4) + Q8 DECIDED path (a) two-phase rollout (Phase 1 immediate: node --test tests/integration/*.test.js to GitHub Actions; Phase 2 post-Q7 cleanup: full npm test) + Q9 memory entry for synthetic integrated-branch recovery pattern (written this retro). 8 watch items: W1 bundle dispatch enforcement on next bundle / W2 28/546 unit fails (23 pre-existing + 5 Bundle-C-introduced) / W3 Worten scan worker hardening (Epic 4 carry-forward) / W4 scan.js bare fetch / W5 pri01_staging RLS USING gap / W6 cooperative-absorb anomaly-freeze stub-fallback (Story 7.4 spec decision) / W7 bypass-aware middleware in margin.js / W8 max_discount_pct sentinel + key.js placeholder. Epic 5+6 retro action items HELD: Q1+Q2+Q4 from Epic 5 retro across 8 Bundle C dispatches + 1 course-correction redispatch + 1 fake-gate recovery redispatch zero recurrence; Q1+Q5 from Epic 6 retro tracked into Q5+Q6 above (Q5 promoted from W1 watch; Q6 promoted from Q5 Epic 6 retro partial); Q3 deferred (no [WIRE-UP] marker usage yet); Q4 captured via memory entries feedback_correct_course_validated_for_spec_failures + feedback_bmad_sm_owns_spec_failures. /bmad-correct-course now twice-validated end-to-end (Stories 6.3 wire-up + 7.8 fake-gate recovery). Synthetic integrated-branch recovery pattern (bundle-c-integrated via single git merge --no-ff of 7.3 into 7.6 tip) validated; memory captured at reference_synthetic_integrated_branch_recovery. Mega-PR merge model proven superior to cascade (preserves atomicity across all 8 stories in one squash commit). Operational cleanup pending (not retro action): close PRs #81-#85 + #87-#89 as superseded; git branch -D bundle-c-integrated; clean 8 prior worktrees. Epic 7 retro stays DEFERRED (Stories 7.4 anomaly-freeze + 7.5 tier-classify + 7.7 reconciliation backlog). Context-budget audit clean (TOTAL 34.6k tokens; bad/SKILL.md near 980/1000 — Q1+Q2+Q3+Q4 patches must be net line-budget-neutral).
+prev_updated: 2026-05-11  # Phase 0 reconciliation pass 24 (2026-05-11): Story 7.8 flipped review → ready-for-dev (PR #90 CLOSED, no worktree, no branch — SCP-2026-05-11 recovery). base_branch override: bundle-c-integrated (contains 7.2+7.3+7.6 code including cooperative-absorb.js). Dependency graph updated.
 project: marketpilot-repricer  # updated by bmad-create-story: Story 1.1 sharded 2026-05-01; Story 1.2 sharded 2026-05-01; Story 1.3 sharded 2026-05-02; Story 1.4 sharded 2026-05-02; Story 1.5 sharded 2026-05-03; Story 1.5 → review 2026-05-03; Story 1.5 → done 2026-05-03 (post-review); Story 2.1 sharded 2026-05-03 (Bob) → ready-for-dev
 project_key: NOKEY
 tracking_system: file-system
@@ -139,32 +140,32 @@ development_status:
   # =========================================================================
   # EPIC 5 -- Cron Dispatcher & State Machine  (architecture S-I phase 5)
   # =========================================================================
-  epic-5: in-progress
-  5-1-master-cron-dispatcher-sql-per-customer-advisory-locks-worker-must-filter-by-customer-eslint-rule: review  # ESLint: worker-must-filter-by-customer ships here; BAD subagent must retrofit `// safe: cross-customer cron` to Story 9.1's monthly-partition-create.js; bmad-create-story: Story 5.1 sharded 2026-05-08 (Bob); PR #81 OPEN — rolled back done→review by Phase 0 reconciliation 2026-05-08 (push-race: sprint-status flipped done on local but PR not yet merged)
-  5-2-pri01-staging-schema-cycle-assembly-skeleton: review  # bmad-create-story: Story 5.2 sharded 2026-05-08 (Bob); worktree forks from story-5.1-master-cron-dispatcher; atdd-done 2026-05-08 (BAD coordinator); dev-done 2026-05-08; review 2026-05-08 (PR #82 OPEN — rolled back done→review by Phase 0 reconciliation 2026-05-08 pass 13: push-race, sprint-status flipped done on local but PR not yet merged)
-  epic-5-retrospective: optional
+  epic-5: done  # bmad-retrospective: flipped in-progress → done 2026-05-13 (Bundle C close-out retro); all stories shipped through PR #91 mega-merge (squash 89b2378, 2026-05-11); joint-correctness verdict ✅ via 45/45 integration tests against real Bundle C modules
+  5-1-master-cron-dispatcher-sql-per-customer-advisory-locks-worker-must-filter-by-customer-eslint-rule: done  # ESLint: worker-must-filter-by-customer ships here; BAD subagent must retrofit `// safe: cross-customer cron` to Story 9.1's monthly-partition-create.js; bmad-create-story: Story 5.1 sharded 2026-05-08 (Bob); flipped review → done 2026-05-13 (Bundle C close-out retro — PR #91 mega-merge supersedes PR #81)
+  5-2-pri01-staging-schema-cycle-assembly-skeleton: done  # bmad-create-story: Story 5.2 sharded 2026-05-08 (Bob); worktree forks from story-5.1-master-cron-dispatcher; flipped review → done 2026-05-13 (Bundle C close-out retro — PR #91 mega-merge supersedes PR #82)
+  epic-5-retrospective: done  # 2026-05-13 — Bundle C close-out retro logged at bundle-c-close-out-retro-2026-05-13.md (joint close-out for Epic 5 + Epic 6); 2026-05-08 scoped BAD-pipeline retro at epic-5-retro-bad-pipeline-2026-05-08.md is preserved as the BAD-pipeline-scope record; production-correctness + live-smoke + joint-correctness verdicts closed ✅ here
 
   # =========================================================================
   # EPIC 6 -- PRI01 Writer Plumbing  (architecture S-I phase 6)
   # Numerical order chosen over S-I phase 5/6 strict ordering: writer (6.1) ships
   # before engine (7.2) since engine imports buildPri01Csv from the writer SSoT.
   # =========================================================================
-  epic-6: in-progress
-  6-1-shared-mirakl-pri01-writer-js-per-sku-aggregation-multipart-submit-pending-import-id-atomicity-no-raw-csv-building-eslint-rule: review  # ATOMICITY BUNDLE C (1/4 -- AD7); ESLint: no-raw-CSV-building ships here; bmad-create-story: Story 6.1 sharded 2026-05-08 (Bob); worktree forks from story-5.2-pri01-staging-schema-cycle-assembly-skeleton (atomicity-bundle exception); BAD Step 2 ATDD scaffolds + golden CSV fixtures committed 2026-05-08
-  6-2-shared-mirakl-pri02-poller-js-worker-src-jobs-pri02-poll-js-cron-entry-complete-failed-handling: review  # ATOMICITY BUNDLE C (2/4 -- AD7 poller half); bmad-create-story: Story 6.2 sharded 2026-05-08 (Bob); worktree forks from story-6.1-pri01-writer-aggregation-multipart-submit (atomicity-bundle stacked dispatch exception); atdd-done 2026-05-08 (BAD coordinator) — 21 failing tests committed at ce7bfd8; dev-done 2026-05-08 (BAD coordinator) — 20/20 ATDD passing
-  6-3-shared-mirakl-pri03-parser-js-per-sku-rebuild-semantics: review  # ATOMICITY BUNDLE C (3/4 -- AD7 PRI03 parser + per-SKU rebuild); bmad-create-story: Story 6.3 sharded 2026-05-08 (Bob); worktree forks from story-6.2-pri02-poller-cron-handler (atomicity-bundle stacked dispatch exception); AD12 freeze design choice: Option (b) frozen_for_pri01_persistent parallel boolean; COURSE CORRECTION 2026-05-09 (bmad-correct-course): rolled review → atdd-done after /bad-review on PR #85 caught production wire-up gap (scheduleRebuildForFailedSkus dead code) + counter double-count latent bug — spec amended with AC#5 (poller→parser→rebuild wire-up), AC#6 (csv_line_number migration 202605091000 + writer persistence), AC#7 (counter ownership = poller, parser drops increment); Phase 0 bundle-stacked exception will pick it up; /bad will dispatch Step 3 onto existing branch (additive commits on 5653abe, no reset); PR #85 stays open, merge-block to 7-8 unchanged; cross-story files modified in PR #85 stacked diff: pri01-writer.js (Story 6.1), pri02-poller.js (Story 6.2), new migration, pri03-parser.js; dev-done 2026-05-09 (BAD additive commit 451e06b) — 80/80 affected tests pass, ESLint clean
-  epic-6-retrospective: optional
+  epic-6: done  # bmad-retrospective: flipped in-progress → done 2026-05-13 (Bundle C close-out retro); all 3 stories shipped through PR #91 mega-merge (squash 89b2378, 2026-05-11); joint-correctness verdict ✅ via 45/45 integration tests against real Bundle C modules
+  6-1-shared-mirakl-pri01-writer-js-per-sku-aggregation-multipart-submit-pending-import-id-atomicity-no-raw-csv-building-eslint-rule: done  # ATOMICITY BUNDLE C (1/4 -- AD7); ESLint: no-raw-CSV-building ships here; bmad-create-story: Story 6.1 sharded 2026-05-08 (Bob); flipped review → done 2026-05-13 (Bundle C close-out retro — PR #91 mega-merge supersedes PR #83)
+  6-2-shared-mirakl-pri02-poller-js-worker-src-jobs-pri02-poll-js-cron-entry-complete-failed-handling: done  # ATOMICITY BUNDLE C (2/4 -- AD7 poller half); bmad-create-story: Story 6.2 sharded 2026-05-08 (Bob); flipped review → done 2026-05-13 (Bundle C close-out retro — PR #91 mega-merge supersedes PR #84)
+  6-3-shared-mirakl-pri03-parser-js-per-sku-rebuild-semantics: done  # ATOMICITY BUNDLE C (3/4 -- AD7 PRI03 parser + per-SKU rebuild); bmad-create-story: Story 6.3 sharded 2026-05-08 (Bob); COURSE CORRECTION 2026-05-09 (bmad-correct-course) — first validated use of /bmad-correct-course in project; AC#5/6/7 additive amendments after /bad-review caught wire-up gap; flipped review → done 2026-05-13 (Bundle C close-out retro — PR #91 mega-merge supersedes PR #85)
+  epic-6-retrospective: done  # 2026-05-13 — Bundle C close-out retro logged at bundle-c-close-out-retro-2026-05-13.md (joint close-out for Epic 5 + Epic 6); 2026-05-10 scoped BAD-pipeline retro at epic-6-retro-bad-pipeline-2026-05-10.md is preserved as the BAD-pipeline-scope record; production-correctness + counter-ownership-in-prod + live-smoke + joint-correctness verdicts closed ✅ here
 
   # =========================================================================
   # EPIC 7 -- Engine Decision & Safety  (architecture S-I phase 5, ships after Epic 6)
   # =========================================================================
   epic-7: in-progress
   7-1-shared-money-index-js-no-float-price-eslint-rule: done  # ESLint: no-float-price ships here
-  7-2-worker-src-engine-decide-js-full-ad8-decision-flow-with-filter-chain-via-self-filter: review  # ATOMICITY BUNDLE C (2/4 -- AD8); bmad-create-story: Story 7.2 sharded 2026-05-11 (Bob); worktree forked from story-6.3-pri03-parser-per-sku-rebuild (bundle-stacked dispatch); dev-done 2026-05-11 (BAD Step 3 commits 38a7557 + d93e4bb — 36 ATDD tests pass, AD8 6-step flow complete)
-  7-3-worker-src-engine-cooperative-absorb-js-step-2-absorption-skip-on-pending: review  # ATOMICITY BUNDLE C (3/4 -- AD9)
+  7-2-worker-src-engine-decide-js-full-ad8-decision-flow-with-filter-chain-via-self-filter: done  # ATOMICITY BUNDLE C (2/4 -- AD8); bmad-create-story: Story 7.2 sharded 2026-05-11 (Bob); flipped review → done 2026-05-13 (Bundle C close-out retro — PR #91 mega-merge supersedes PR #87)
+  7-3-worker-src-engine-cooperative-absorb-js-step-2-absorption-skip-on-pending: done  # ATOMICITY BUNDLE C (3/4 -- AD9); flipped review → done 2026-05-13 (Bundle C close-out retro — PR #91 mega-merge supersedes PR #88)
   7-4-worker-src-safety-anomaly-freeze-js-audit-anomaly-sku-accept-reject-endpoints: backlog
   7-5-worker-src-engine-tier-classify-js-full-transitions-atomic-t2a-t2b-write-per-f1: backlog
-  7-6-worker-src-safety-circuit-breaker-js-per-sku-15-per-cycle-20: review  # ATOMICITY BUNDLE C (4/4 -- AD11); bmad-create-story: Story 7.6 sharded 2026-05-11 (Bob); worktree forked from story-7.2-engine-decide-ad8-flow (bundle-stacked dispatch exception); BAD Step 3 Develop done 2026-05-11; PR #89 OPEN (Phase 0 reconciliation 2026-05-11 pass 23)
+  7-6-worker-src-safety-circuit-breaker-js-per-sku-15-per-cycle-20: done  # ATOMICITY BUNDLE C (4/4 -- AD11); bmad-create-story: Story 7.6 sharded 2026-05-11 (Bob); flipped review → done 2026-05-13 (Bundle C close-out retro — PR #91 mega-merge supersedes PR #89)
   7-7-worker-src-safety-reconciliation-js-tier-3-daily-pass-nightly-reconciliation: backlog
   7-8-end-to-end-integration-gate-full-cycle-test-on-all-17-p11-fixtures-atomicity-bundle-gate-for-ad7-ad8-ad9-ad11: done  # ATOMICITY BUNDLE C GATE; merged via PR #91 mega-merge 2026-05-11 (squash commit 89b2378); 45/45 integration tests pass against real Bundle C modules; 8 deferred findings logged from /bad-review (deferred-work.md "PR #91 review" section); supersedes PRs #81-#85, #87-#89 (close-as-superseded post-merge cleanup pending); bundle-c-integrated synthetic branch + 8 prior worktrees pending cleanup per SCP-2026-05-11 §6.
   epic-7-retrospective: optional
@@ -350,6 +351,43 @@ merge_blocks:
     until_story: 7-8-end-to-end-integration-gate-full-cycle-test-on-all-17-p11-fixtures-atomicity-bundle-gate-for-ad7-ad8-ad9-ad11
     bundle: C
     reason: "Bundle C participant (AD11) — atomicity gate at 7.8 must pass before circuit-breaker ships."
+
+# =============================================================================
+# BUNDLE DISPATCH ORDERS — Phase 0 atomicity-bundle linear dispatch enforcement
+# =============================================================================
+# For each atomicity bundle (rows in `merge_blocks:` sharing the same
+# `until_story`), this block declares the SERIAL ORDER in which bundle members
+# must dispatch. Phase 0 enforces:
+#   (a) Bundle member N is Ready ONLY when its immediate predecessor in this
+#       list is in `review` state (or beyond) — NOT when any-higher-numbered
+#       bundle sibling is in `review`. Predecessor not in review → ❌ No
+#       (bundle predecessor X not yet in review).
+#   (b) When the atomicity-bundle exception fires for member N, the new
+#       worktree forks from the PR branch of N's IMMEDIATE PREDECESSOR in this
+#       list — NOT from the highest-numbered unmerged sibling.
+#
+# Why: parallel-dispatch within a bundle is a dispatch ERROR. Bundle C's
+# Story 7.3 was parallel-dispatched from 7.2 instead of stacking onto 7.6;
+# 7.8's worktree then forked from 7.6's tip which was missing
+# cooperative-absorb.js → PR #90 fake-gate (recovered via SCP-2026-05-11).
+# Bob's ruling 2026-05-11 + Bundle C close-out retro 2026-05-13 Q1.
+#
+# Future bundles (D, E, ...): sprint-planning MUST declare bundle_dispatch_orders
+# at the time the bundle's merge_blocks block is created. Bob's audit 2026-05-11
+# §5 identified two future bundle candidates: Story 12.1 transactional
+# cycle-outcome; Stories 11.5+10.3 Moloni-survival.
+# =============================================================================
+bundle_dispatch_orders:
+  C:
+    - 5-1-master-cron-dispatcher-sql-per-customer-advisory-locks-worker-must-filter-by-customer-eslint-rule
+    - 5-2-pri01-staging-schema-cycle-assembly-skeleton
+    - 6-1-shared-mirakl-pri01-writer-js-per-sku-aggregation-multipart-submit-pending-import-id-atomicity-no-raw-csv-building-eslint-rule
+    - 6-2-shared-mirakl-pri02-poller-js-worker-src-jobs-pri02-poll-js-cron-entry-complete-failed-handling
+    - 6-3-shared-mirakl-pri03-parser-js-per-sku-rebuild-semantics
+    - 7-2-worker-src-engine-decide-js-full-ad8-decision-flow-with-filter-chain-via-self-filter
+    - 7-3-worker-src-engine-cooperative-absorb-js-step-2-absorption-skip-on-pending
+    - 7-6-worker-src-safety-circuit-breaker-js-per-sku-15-per-cycle-20
+    - 7-8-end-to-end-integration-gate-full-cycle-test-on-all-17-p11-fixtures-atomicity-bundle-gate-for-ad7-ad8-ad9-ad11
 
 # =============================================================================
 # INTEGRATION TEST REQUIRED — Phase 4.5 BAD gate (Epic 1 retro Item 2)
