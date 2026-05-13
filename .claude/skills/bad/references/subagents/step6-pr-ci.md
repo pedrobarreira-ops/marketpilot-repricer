@@ -2,6 +2,8 @@
 
 Auto-approve all tool calls (yolo mode).
 
+**Guardrail-override discipline (Q4, Bundle C close-out retro 2026-05-13)**: when a guardrail in this prompt conflicts with what your task requires, HALT and surface to the coordinator with a clear description of the conflict. Do NOT override based on own reasoning. Two sightings so far — Story 7.8 dev's "acceptable transient behavior for this branch" rationalization (PR #90 fake-gate) and PR #91 Step 6's `--force-with-lease` deviation. Both were technically defensible but lost operator agency. The force-push-when-orphan-remote case is now explicitly codified below (search "FORCE-PUSH EXCEPTION"); for any OTHER guardrail conflict, HALT.
+
 The coordinator's dispatch prompt provides:
 - `{number}` and `{short_description}` (story identifiers)
 - Working directory at `{repo_root}/{WORKTREE_BASE_PATH}/story-{number}-{short_description}`
@@ -19,6 +21,8 @@ You also have access to two BAD config values from `.claude/settings.json`:
    If the result is NOT story-{number}-{short_description}, stash changes, checkout the
    correct branch, and re-apply. Never push to main or create a new branch.
 
+   FORCE-PUSH EXCEPTION (codified at Bundle C close-out retro 2026-05-13 Q4 — PR #91 recovery): `git push --force-with-lease` is ALLOWED only when ALL of these hold: (a) `git fetch origin` shows the remote branch tip is NOT an ancestor of local HEAD (`git merge-base --is-ancestor origin/{branch} HEAD` returns non-zero), AND (b) the upstream PR that pushed the divergent history has been CLOSED (`gh pr view <upstream-PR> --json state -q .state` returns `CLOSED`), AND (c) you are recovering from a documented SCP (Sprint Change Proposal) or coordinator-authorized re-dispatch. Use `--force-with-lease` NEVER plain `--force`. Log the exception verbatim in your Step 6 report so the coordinator can verify. Outside these conditions, any push-related issue → HALT per guardrail-override discipline above; do NOT use `--force` or `--force-with-lease`.
+
 3. Look up the GitHub issue number for this story:
    Read the story's section in `_bmad-output/planning-artifacts/epics.md` and extract
    the `**GH Issue:**` field. Save as `gh_issue_number`. If the field is absent
@@ -31,14 +35,18 @@ You also have access to two BAD config values from `.claude/settings.json`:
 
    PR BODY DATA-GROUNDING RULE — BEFORE drafting the body, run these commands
    in the worktree and COPY from their outputs. Do NOT reason about
-   file counts, file lists, env var names, or CI status — read them.
+   file lists, env var names, or CI status — read them.
 
-     1. File-count + file list (always run first):
-          git -C {worktree_path} diff main --stat
+   DO NOT include a "Files Changed" count line (e.g., "5 files changed,
+   142 insertions(+), 18 deletions(-)") anywhere in the PR body. GitHub displays
+   files-changed counts directly on the PR page; the line was a 4-sighting
+   hallucination source (PRs #86/#87/#88/#89/#91 at Bundle C close-out retro
+   2026-05-13 Q3) — removed as a failure surface entirely.
+
+     1. File list (for filename verification only — no count claims):
           git -C {worktree_path} diff main --name-only
-        Use the EXACT line from `--stat` (e.g. "5 files changed, 142 insertions(+), 18 deletions(-)")
-        for any "X files changed" claim. Use `--name-only` output verbatim for any
-        list of changed files. Never invent file paths or hand-count.
+        Use output verbatim for any specific filename cited in the body.
+        Never invent file paths.
 
      2. Env var names referenced in the diff:
           git -C {worktree_path} diff main | grep -oE "process\.env\.[A-Z_][A-Z0-9_]*" | sort -u
@@ -66,23 +74,20 @@ You also have access to two BAD config values from `.claude/settings.json`:
    PR TITLE can be the story slug as-is.
 
    Why both the data-grounding rule AND the post-draft check exist: PRs #64
-   and #65 (Epic 2) both shipped with data-grounded errors that the
-   post-draft prose check alone didn't catch — "16 files changed" (actual: 15),
-   invented "DATABASE_URL + SUPABASE_SERVICE_ROLE_KEY" pair (only
+   and #65 (Epic 2) both shipped with errors the prose check alone didn't catch
+   — invented "DATABASE_URL + SUPABASE_SERVICE_ROLE_KEY" pair (only
    SUPABASE_SERVICE_ROLE_DATABASE_URL existed), and "GitHub Actions skipped:
-   RUN_CI_LOCALLY=true" claim while CI actually ran green. Reading command
-   outputs first removes the temptation to reason about facts that have a
-   ground-truth source.
+   RUN_CI_LOCALLY=true" while CI actually ran green. Read command outputs
+   first; don't reason about facts that have a ground-truth source.
 
    COUNT-CATEGORY LABELLING — when citing counts in the PR body (tests, ACs,
-   assertions, changed files, findings), explicitly label what's being counted.
-   Do NOT conflate categories. Examples of imprecise phrasing that has slipped
-   past this guard: "the test file covers 10 acceptance criteria" when it
-   actually covers 2 ACs in 10 scan assertions; "8 tests added" when 8 includes
-   both test cases and sub-assertions. Correct form: "X test cases", "Y ACs
-   covered", "Z scan assertions across N ACs", "K files changed". Added at
-   Epic 5 retro (2026-04-20) because the specifics-only rule above doesn't
-   catch counting semantics.
+   assertions, findings), explicitly label what's being counted. Do NOT
+   conflate categories. Examples of imprecise phrasing that has slipped past
+   this guard: "covers 10 acceptance criteria" when actually 2 ACs in 10 scan
+   assertions; "8 tests added" when 8 includes both test cases and
+   sub-assertions. Correct form: "X test cases", "Y ACs covered", "Z scan
+   assertions across N ACs". Added at Epic 5 retro because the specifics-only
+   rule doesn't catch counting semantics.
 
    AUTO-INJECT SKIP-LIVE-SMOKE MARKER FOR BUNDLE-STACKED PRs — read
    `_bmad-output/implementation-artifacts/sprint-status.yaml` and check whether

@@ -24,6 +24,8 @@ You are a **coordinator**. You delegate every step to subagents via the **Agent 
 
 **Everything else** — file reads, git operations, gh commands, disk writes — happens inside Agent tool subagents with fresh context windows.
 
+**Subagent Dispatch Preamble (Q4, Bundle C close-out retro 2026-05-13):** every subagent dispatch implicitly carries this directive: *"When a guardrail in your prompt conflicts with what your task requires, HALT and surface to coordinator. Do NOT override based on own reasoning."* Subagent .md instruction files at the highest-risk sighting locations (step3-develop, step6-pr-ci) include this directive verbatim at top of file. Two documented sightings: Story 7.8 dev fake-gate rationalization, PR #91 Step 6 `--force-with-lease` deviation. 3rd sighting promotes the discipline from documentation to automated coordinator-side guard.
+
 ## Startup: Capture Channel Context
 
 Before doing anything else, determine how to send notifications:
@@ -641,16 +643,16 @@ Using the assessment report from Step 2, follow the applicable branch:
 
    How do you want to proceed?
 
-   [R] Run /bad-review on the NEWEST open PR only (recommended)
-       Spawns bad-review on PR #{newest-PR-number} only — the one BAD just
-       shipped this batch. Older open PRs were already audited in prior
-       batches and have no new commits since, so re-auditing them costs
-       Opus tokens for no new findings.
-   [A] Audit ALL open PRs
-       Use only if prior audits are stale OR you want fresh cross-PR checks.
-       Iterates each open PR sequentially (~5-10 min Opus + ~100k tokens per PR).
-   [S] Stop BAD
-       Don't run bad-review. You can run it manually in a new session.
+   [R] Run /bad-review on the NEWEST open PR only — inline (loses 4-way independence)
+       Spawns bad-review on PR #{newest-PR-number} nested in this session.
+       ⚠ Per Q5 (Bundle C close-out retro 2026-05-13) and `feedback_nested_subagent_dispatch_limit`
+       memory: nested dispatch loses the four-way fresh-context independence
+       property — 3 sightings confirmed (PRs #84/#85/#87). Audit still produces
+       real findings but as a single-voice deep-dive. Prefer [S] then run
+       `/bad-review` in a fresh session unless turnaround matters more.
+   [A] Audit ALL open PRs (same independence caveat as [R])
+   [S] Stop BAD (RECOMMENDED for full Phase 2 independence)
+       Don't run bad-review inline. Run it manually in a fresh top-level session.
    ```
    📣 **Notify:** `⏸ BAD halted — batch complete. [R] audit newest, [A] audit all, or [S] stop.`
 
@@ -958,19 +960,8 @@ Read `references/coordinator/pattern-gh-curl-fallback.md` when any `gh` command 
 
 ---
 
-## TODO — design needed before BAD runs Story 1.6+
+## Resolved project-local customizations
 
-The following items are flagged in `_bmad-output/implementation-artifacts/bad-customization-notes.md`
-but require design before they can be encoded as gates. Do NOT run BAD on
-stories these items affect until designed:
-
-1. **Bundle C auto-merge gate** — block auto-merge of Stories 5.1, 5.2, 6.1, 6.2,
-   6.3, 7.2, 7.3, 7.6 to main until Story 7.8's atomicity-bundle gate test passes.
-   Likely mechanism: `block_auto_merge_until_story` field in sprint-status.yaml.
-
-> **Resolved 2026-05-03:** calendar-early sequencing (Stories 9.0/9.1 between
-> Epic 2 and Epic 3) and the Epic-Start Test Design re-entry guard for Epic 9
-> are now implemented. See Phase 1 selection rules + Epic-Start trigger above,
-> and the two top-level blocks in sprint-status.yaml: `calendar_early_overrides:`
-> (the per-story exception) and `epic_test_design:` (the durable Epic-Start flag,
-> map of epic number → `pending` | `done`).
+- **Calendar-early sequencing + Epic-Start Test Design re-entry guard** (2026-05-03): Stories 9.0/9.1 between Epic 2 and Epic 3; Story 7.1 before Epic 5. Implemented via `calendar_early_overrides:` + `epic_test_design:` blocks in sprint-status.yaml. See Phase 1 selection rules + Epic-Start trigger above.
+- **Bundle auto-merge gate** (2026-05-08): block auto-merge of bundle members until the gate `until_story` lands. Implemented via `merge_blocks:` block in sprint-status.yaml + Phase 3 step 2 filter above. Bundle C closed via PR #91 mega-merge 2026-05-11.
+- **Bundle dispatch linear-order enforcement** (2026-05-13, Bundle C close-out retro Q1): all bundle members dispatch serially per declared chain; no parallel-dispatch. Implemented via `bundle_dispatch_orders:` block in sprint-status.yaml + Phase 0 Ready to Work Rules update (see `references/subagents/phase0-graph.md`).

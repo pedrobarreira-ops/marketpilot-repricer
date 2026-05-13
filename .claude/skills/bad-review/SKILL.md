@@ -184,6 +184,8 @@ code-vs-spec audit.
 
 Launch all four in a **single message** (parallel execution). Each is self-contained — subagents have no prior context. Use the Explore agent type unless otherwise noted.
 
+**Inline-fallback discipline (Q5 path b, Bundle C close-out retro 2026-05-13):** if the Agent tool is unavailable in your context (typically because you were spawned nested via BAD Phase 4 R-mode rather than via top-level `/bad-review`), you CANNOT spawn the 4 parallel subagents. The four-way fresh-context independence property — the load-bearing mechanism of this phase — is LOST. Three sightings confirmed: PR #84 (inherited Opus), PR #85 (Agent unavailable), PR #87 (full tool-trace zero Agent calls). When this happens, do TWO things: (1) emit this banner at the TOP of your verdict report — `⚠ bad-review Phase 2 ran in INLINE-FALLBACK mode — four-way fresh-context independence LOST. Audit is a single-voice deep-dive; manually verify findings against spec.` (2) run the 4 prompt files inline against the gathered context with audit discipline, clearing context between dimensions via explicit recap. Pedro's `/bad-review` invocations should ALWAYS be top-level (fresh session), NOT nested via `[R] inline bad-review` in BAD Phase 4 — per `feedback_nested_subagent_dispatch_limit` memory.
+
 ### Subagent A: Code vs spec
 
 **Model: `opus`** — judgment-heavy AC coverage classification (✓/⚠️/✗ per AC requires reading code intent vs spec intent). Use the Agent tool's `model: "opus"` parameter regardless of `subagent_type`.

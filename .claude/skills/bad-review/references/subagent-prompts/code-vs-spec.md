@@ -16,6 +16,8 @@ Also flag:
   - Any AC that is internally contradictory or contradicts Mirakl MCP
     (see `references/mcp-forbidden-patterns.md` in this skill)
 
+**Banner-on-stale MCP (Q6, Bundle C close-out retro 2026-05-13):** if you flag a "contradicts Mirakl MCP" finding WITHOUT successfully invoking an `mcp__mirakl__*` tool this turn (authenticate-only response counts as failure), prefix the finding with `⚠ Mirakl claim NOT MCP-verified (training-data fallback)`. Subagent B (mcp-alignment) owns Mirakl verification; this subagent only flags spec-vs-code mismatches, but if those mismatches reference Mirakl behavior, the verification status must be visible.
+
 Output format (use exactly this structure, stay under 400 words):
 
 ## AC Coverage
