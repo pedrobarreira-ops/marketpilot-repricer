@@ -5,6 +5,7 @@ Status: ready-for-dev
 <!-- Sharded 2026-05-13 by Bob (`bmad-create-story`) per Bundle C close-out retro §12 Session 3 ordering (LAST Epic 7 story before epic retro) + Pedro's 2026-05-13 brief (3-sighting mechanism-trace + Step 6 SOLO-PR DEFENSIVE TOUCH pre-stage + Bundle C floor 47/47 correction). -->
 <!-- Source: _bmad-output/planning-artifacts/epics-distillate/04-epic-7-engine-safety.md Story 7.7 + SCP-2026-05-13 Path I autocommit ratification + deferred-work.md line 467 (3-sighting mechanism-trace) + line 472 (payload-shape gap) + line 481 (Bundle C floor 47/47 spec drift). -->
 <!-- NOT a Bundle C participant — not in `bundle_dispatch_orders:` or `merge_blocks:` in sprint-status.yaml. Solo dispatch from main. Ships AFTER Story 7.5 (done via PR #95 squash 6d6313a 2026-05-13 — `applyTierClassification` is on `main`). Last Epic 7 story before `bmad-retrospective` fires. -->
+<!-- Endpoints verified against Mirakl MCP and architecture-distillate empirical facts (2026-05-13). P11 GET /api/products/offers: product_references=EAN|{ean}, channel_codes, pricing_channel_code params confirmed; products[].offers[].total_price JSON field confirmed (number, "price + min shipping"); shop_name self-identification confirmed; total_price > 0 filter confirmed. No drift found vs spec. -->
 
 ## Story
 
