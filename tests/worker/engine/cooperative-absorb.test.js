@@ -18,13 +18,23 @@
 // Run with: node --test tests/worker/engine/cooperative-absorb.test.js
 // Or via:   npm run test:unit
 
+// Story 7.4: cooperative-absorb.js now statically imports anomaly-freeze.js,
+// which transitively imports shared/resend/client.js. resend/client.js throws
+// at module-load time if RESEND_API_KEY is not set. Stub it BEFORE any imports.
+// (memory: project_resend_env_stub_import_pattern)
+process.env.RESEND_API_KEY = process.env.RESEND_API_KEY ?? 'test-stub-key-cooperative-absorb';
+
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { absorbExternalChange } from '../../../worker/src/engine/cooperative-absorb.js';
+// MUST use `await import` (not plain `import`) because cooperative-absorb.js
+// now statically imports anomaly-freeze.js → shared/resend/client.js which
+// throws at module load if RESEND_API_KEY is missing. The `process.env` stub
+// above must execute before the module loads — `await import` ensures this.
+const { absorbExternalChange } = await import('../../../worker/src/engine/cooperative-absorb.js');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = join(__dirname, '../../fixtures/p11');

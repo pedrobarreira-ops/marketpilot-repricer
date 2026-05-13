@@ -21,6 +21,10 @@
 import { writeAuditEvent } from '../../../shared/audit/writer.js';
 import { EVENT_TYPES } from '../../../shared/audit/event-types.js';
 import { createWorkerLogger } from '../../../shared/logger.js';
+// Story 7.4 shipped anomaly-freeze.js — static import replaces the dynamic-import
+// stub-fallback that existed while Story 7.4 was unshipped (SCP Amendment 7).
+// freezeFn injection on absorbExternalChange is PRESERVED for unit tests only.
+import { freezeSkuForReview } from '../safety/anomaly-freeze.js';
 
 const logger = createWorkerLogger();
 
@@ -32,6 +36,7 @@ const DEFAULT_ANOMALY_THRESHOLD_PCT = 0.40;
  * @property {boolean} absorbed - true when external change was absorbed as new baseline
  * @property {boolean} frozen  - true when deviation exceeded threshold and SKU was frozen
  * @property {boolean} [skipped] - true when pending_import_id was set (in-flight — skip signal)
+ * @property {string} [auditEvent] - EVENT_TYPES slug of the freeze event emitted (present when frozen=true)
  */
 
 /**
@@ -41,11 +46,18 @@ const DEFAULT_ANOMALY_THRESHOLD_PCT = 0.40;
  * IMPORTANT: Mutates skuChannel.list_price_cents on absorption so that
  * decide.js STEP 3 computes floor/ceiling from the absorbed (new) list price.
  *
+ * customerEmail resolution (Path A — Story 7.4 decision):
+ *   When a freeze is triggered, absorbExternalChange resolves the customer email
+ *   via a JOIN on customers → customer_marketplaces (using customerMarketplaceId).
+ *   This keeps freezeSkuForReview pure (no extra SELECT inside the freeze module)
+ *   and makes the data-flow explicit. freezes are rare (>40% deviation events are
+ *   exceptional), so the extra SELECT has negligible performance impact.
+ *
  * @param {object}        params
  * @param {object}        params.tx                  - transaction-capable DB client (must be active)
  * @param {object}        params.skuChannel           - sku_channels row (MUTATED on absorption: list_price_cents updated)
  * @param {object}        params.customerMarketplace  - customer_marketplaces row
- * @param {Function|null} [params.freezeFn]           - optional injected freeze function (for unit tests)
+ * @param {Function|null} [params.freezeFn]           - optional injected freeze function (for unit tests; production uses static import)
  * @returns {Promise<AbsorbResult>}
  */
 export async function absorbExternalChange ({ tx, skuChannel, customerMarketplace, freezeFn = null }) {
@@ -93,7 +105,8 @@ export async function absorbExternalChange ({ tx, skuChannel, customerMarketplac
   );
 
   // ------------------------------------------------------------------
-  // ABOVE THRESHOLD — anomaly freeze (calls Story 7.4 via stub/injection)
+  // ABOVE THRESHOLD — anomaly freeze (Story 7.4 static import — SCP Amendment 7)
+  // freezeFn injection preserved for unit tests; production always uses static import.
   // ------------------------------------------------------------------
   if (deviationPct > threshold) {
     logger.warn(
@@ -101,34 +114,46 @@ export async function absorbExternalChange ({ tx, skuChannel, customerMarketplac
       'cooperative-absorb: deviation exceeds threshold — freezing SKU for anomaly review',
     );
 
-    // Resolve freezeSkuForReview:
-    //   - Use injected freezeFn when provided (unit tests inject a mock).
-    //   - Fall back to dynamic import of Story 7.4 module; stub gracefully
-    //     when Story 7.4 has not shipped yet (ERR_MODULE_NOT_FOUND).
-    //   - Real runtime errors (DB failures, syntax errors in 7.4) MUST propagate.
-    const doFreeze = freezeFn ?? await (async () => {
-      let fn = async () => {
-        logger.debug({ skuChannelId }, 'cooperative-absorb: anomaly-freeze stub (7.4 not shipped)');
-      };
-      try {
-        const mod = await import('../safety/anomaly-freeze.js');
-        fn = mod.freezeSkuForReview;
-      } catch (err) {
-        if (err && err.code !== 'ERR_MODULE_NOT_FOUND') throw err;
-      }
-      return fn;
-    })();
+    // Resolve the customer email (Path A — see JSDoc above):
+    // SELECT via customers JOIN customer_marketplaces using customerMarketplaceId.
+    // Falls back to empty string on lookup failure (best-effort; Resend is non-blocking).
+    let customerEmail = '';
+    try {
+      const { rows: emailRows } = await tx.query(
+        `SELECT c.email
+         FROM customers c
+         JOIN customer_marketplaces cm ON cm.customer_id = c.id
+         WHERE cm.id = $1
+         LIMIT 1`,
+        [customerMarketplaceId],
+      );
+      customerEmail = emailRows[0]?.email ?? '';
+    } catch (emailErr) {
+      logger.warn(
+        { skuChannelId, customerMarketplaceId, err_name: emailErr?.name },
+        'cooperative-absorb: customerEmail lookup failed — sending alert without recipient (best-effort)',
+      );
+    }
 
-    await doFreeze({
+    // Use injected freezeFn (unit tests) or the statically-imported production function.
+    const doFreeze = freezeFn ?? freezeSkuForReview;
+
+    const freezeResult = await doFreeze({
       tx,
       skuChannelId,
+      skuId,
       customerMarketplaceId,
       deviationPct,
       currentPriceCents,
       listPriceCents,
+      customerEmail,
     });
 
-    return { absorbed: false, frozen: true };
+    // Propagate the freeze event slug into auditEvent so decide.js can surface
+    // it in result.auditEvents (AC4 — fixture oracle must see 'anomaly-freeze').
+    const auditEvent = freezeResult?.eventType ?? null;
+
+    return { absorbed: false, frozen: true, auditEvent };
   }
 
   // ------------------------------------------------------------------
