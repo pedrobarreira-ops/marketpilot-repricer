@@ -256,8 +256,11 @@ export async function clearPendingImport ({
       let fetchAndParseErrorReport;
       try {
         ({ fetchAndParseErrorReport } = await import('./pri03-parser.js'));
-      } catch {
-        fetchAndParseErrorReport = null; // Story 6.3 not yet deployed
+      } catch (err) {
+        if (err && err.code !== 'ERR_MODULE_NOT_FOUND') {
+          throw err;
+        }
+        fetchAndParseErrorReport = null; // Story 6.3 not yet deployed (pre-Bundle-C state)
       }
       if (fetchAndParseErrorReport) {
         // Query csv_line_number and shop_sku from pri01_staging JOIN skus.

@@ -205,6 +205,78 @@ describe('AC3 — Bundle C pending_import_id atomicity invariant (all real modul
     );
   });
 
+  // Sub-test 1b (Story 7.9 AC4): N>1 batch — markStagingPending sets pending_import_id on ALL N rows
+  // Extends sub-test 1's N=1 base case. Verifies that with N staging rows + N channel rows,
+  // every participating sku_channel row receives an UPDATE with the correct importId.
+  //
+  // SPEC/IMPL RECONCILIATION (Story 7.9 AC4):
+  //   Spec wording asked for "exactly one UPDATE query is captured (pendingUpdates.length === 1)
+  //   despite N rows" (single batch UPDATE). The implementation at shared/mirakl/pri01-writer.js
+  //   does per-channel UPDATEs in a `for (const ch of channelRows)` loop (lines 283-298), which
+  //   is the actual shipped Bundle C behavior. This sub-test asserts the implemented per-row
+  //   pattern AND the underlying behavioral invariant (every channel row gets the correct
+  //   importId stamped, no row is dropped). The "atomicity" guarantee is provided by the tx
+  //   boundary, not by single-statement batching. If a future story switches to a batch UPDATE
+  //   (e.g., `WHERE id = ANY($::uuid[])`), this assertion will need updating — by design.
+  test('sub-test 1b: REAL markStagingPending covers ALL N rows (N>1 batch correctness)', async () => {
+    const cycleId = 'cycle-uuid-ac4-1b';
+    const importId = 'import-uuid-ac4-1b';
+    const customerMarketplaceId = 'cm-uuid-invariant-test';
+
+    // N=3 staging rows across different sku_ids and channels
+    const stagingRows = [
+      { id: 'staging-uuid-1b-1', sku_id: 'sku-uuid-1b-1', channel_code: 'WRT_PT_ONLINE', new_price_cents: 2900, shop_sku: 'SKU-001' },
+      { id: 'staging-uuid-1b-2', sku_id: 'sku-uuid-1b-2', channel_code: 'WRT_PT_ONLINE', new_price_cents: 1500, shop_sku: 'SKU-002' },
+      { id: 'staging-uuid-1b-3', sku_id: 'sku-uuid-1b-3', channel_code: 'WRT_PT_ONLINE', new_price_cents: 3200, shop_sku: 'SKU-003' },
+    ];
+
+    // N=3 corresponding sku_channel rows
+    const channelRows = [
+      { id: 'sc-uuid-1b-1', sku_id: 'sku-uuid-1b-1', channel_code: 'WRT_PT_ONLINE', last_set_price_cents: 3000 },
+      { id: 'sc-uuid-1b-2', sku_id: 'sku-uuid-1b-2', channel_code: 'WRT_PT_ONLINE', last_set_price_cents: 1600 },
+      { id: 'sc-uuid-1b-3', sku_id: 'sku-uuid-1b-3', channel_code: 'WRT_PT_ONLINE', last_set_price_cents: 3100 },
+    ];
+
+    const tx = buildCapturingTx({ stagingRows, channelRows });
+
+    // Call REAL markStagingPending with N=3 rows
+    await markStagingPending({ tx, cycleId, importId, customerMarketplaceId });
+
+    // Assert: all N=3 channel rows received an UPDATE sku_channels SET pending_import_id
+    const pendingUpdates = tx._queries.filter(q =>
+      q.sql.includes('UPDATE sku_channels') && q.sql.includes('pending_import_id'),
+    );
+
+    // With N=3 channels, there must be exactly N=3 UPDATE queries (one per channel row).
+    // This is non-trivial: N=1 trivially passes whether the impl is batch or per-row.
+    assert.equal(
+      pendingUpdates.length,
+      channelRows.length,
+      `markStagingPending must issue exactly ${channelRows.length} UPDATE sku_channels queries for ${channelRows.length} channel rows; ` +
+      `got ${pendingUpdates.length}. queries=${JSON.stringify(tx._queries.map(q => q.sql.substring(0, 60)))}`,
+    );
+
+    // Assert all N UPDATEs include the importId as the pending_import_id value
+    for (const updateQuery of pendingUpdates) {
+      assert.ok(
+        updateQuery.params && updateQuery.params.includes(importId),
+        `Every UPDATE sku_channels must include importId=${importId} in params; got ${JSON.stringify(updateQuery.params)}`,
+      );
+    }
+
+    // Assert each channel row's ID appears in exactly one UPDATE's WHERE clause params
+    for (const ch of channelRows) {
+      const matchingUpdate = pendingUpdates.find(q =>
+        q.params && q.params.includes(ch.id),
+      );
+      assert.ok(
+        matchingUpdate,
+        `Channel row id=${ch.id} must appear in an UPDATE sku_channels WHERE id=$N param; ` +
+        `none found in ${JSON.stringify(pendingUpdates.map(q => q.params))}`,
+      );
+    }
+  });
+
   // Sub-test 2: REAL decideForSkuChannel SKIPs when pending_import_id is set
   test('sub-test 2: REAL decideForSkuChannel returns SKIP with reason=pending-import when pending_import_id set', async () => {
     const skuChannel = buildSkuChannel({ pending_import_id: 'some-import-uuid-pending' });

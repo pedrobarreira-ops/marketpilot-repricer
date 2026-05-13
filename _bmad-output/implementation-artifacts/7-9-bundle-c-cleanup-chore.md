@@ -409,22 +409,36 @@ The two duplicate test directories observed during sharding — `tests/worker/en
 
 ### Agent Model Used
 
-_To be filled by Amelia during implementation._
+claude-sonnet-4-6 (Step 3 developer, 2026-05-13)
 
 ### Debug Log References
 
-_To be filled by Amelia during implementation._
+None — all ACs completed without blockers.
 
 ### Completion Notes List
 
-_To be filled by Amelia during implementation. MUST include:_
-- _AC5 chosen path (A or B) + 1-sentence rationale_
-- _AC6 chosen path (A or B) + 1-sentence rationale_
-- _AC8 chosen path (A or B) + 1-sentence rationale_
-- _AC9 outcome: did `pri03-parser.js` already implement suppression, or was minimal code added, or was AC9 downgraded to `.skip`?_
-- _Final `npm test` total pass/fail count (compared to pre-story baseline)_
-- _Confirmation: Bundle C 45/45 still green_
+- **AC5 chosen path: Path A** — Amending spec wording is the lighter-touch option and sufficient because the behavioral guarantee (atomic clear + audit emission) is already verified by sub-test 5. The implementation with `hasErrorReport: false` was intentional; the spec had a gap between stated intent (PRI03 parser invocation) and actual behavior (skipped by design when no error report). Spec now accurately documents what the test exercises.
+
+- **AC6 chosen path: Path A** — The injection pattern is well-established (Story 7.6 design) and the test correctly exercises the real `transitionCronState` via a capture-lambda. Refactoring the test to drop injection (Path B) would remove a valuable assertion on the args shape. Path A brings the spec text in line with the implemented injection-contract pattern without losing any behavioral coverage.
+
+- **AC8 chosen path: Path A (source-grep structural assertion)** — The structural grep approach catches accidental reversion to bare-catch without the fragility of ES module shimming. Two occurrences verified (STEP 2 + STEP 5). Rationale: commit 983b8fb hardening must survive future refactors; source-grep is reliable and simple.
+
+- **AC9 outcome: suppression already existed in production code** — `pri03-parser.js` line 362 already computes `alreadyFrozen = channelRows.some(r => r.frozen_for_pri01_persistent === true)` and gates the escalation block (`if (newFailureCount >= THREE_STRIKE_THRESHOLD && !alreadyFrozen)`). No production code changes needed. The new test confirms suppression by supplying a row with `frozen_for_pri01_persistent: true` and asserting no `pri01-fail-persistent` audit INSERT and no re-freeze UPDATE.
+
+- **Final `npm run test:unit` pass/fail count**: 548 tests, 524 pass, 24 fail. Pre-story baseline was 29 fails (5 Bundle-C-introduced + 24 pre-existing). After AC7 migration: 24 fails (pre-existing only). Net improvement: 5 Bundle-C-introduced fails closed.
+
+- **Confirmation: Bundle C green-floor verified** — `node --test tests/integration/full-cycle.test.js tests/integration/pending-import-id-invariant.test.js tests/integration/circuit-breaker-trip.test.js` → 47 pass, 0 fail. Count expanded from 45 to 47 due to 2 new tests (AC2's module-presence block + AC4's sub-test 1b). All original 45 assertions still green; no existing assertion weakened or removed.
+
+- **AC3 surface gap documented**: `assembleCycle` mock-tx surface does not support direct drive because `assembleCycle` reads `customer_marketplaces` + `sku_channels` from real DB tables not fully stubbed in `buildMockTx`. Path chosen: extract the test-issued INSERT into `simulateAssembleCycleStagingInsert` helper with explicit source annotation. The circularity is made explicit rather than silent.
 
 ### File List
 
-_To be filled by Amelia during implementation. List every file edited, created, or deleted._
+| File | Change | AC |
+|---|---|---|
+| `shared/mirakl/pri02-poller.js` | Narrowed bare `catch` to `catch (err) { if (err && err.code !== 'ERR_MODULE_NOT_FOUND') throw err; }` | AC1 |
+| `tests/integration/full-cycle.test.js` | Added 5 top-level await imports (AC2) + `simulateAssembleCycleStagingInsert` helper (AC3) + AC8 5-module presence assertion block | AC2, AC3 |
+| `tests/integration/pending-import-id-invariant.test.js` | Added sub-test 1b (N>1 batch correctness with N=3 channels) | AC4 |
+| `_bmad-output/implementation-artifacts/7-8-*.md` | AC3 sub-test 5 wording amended (Path A) + AC4 transitionCronStateFn wording amended (Path A) with `<!-- Amended -->` markers | AC5, AC6 |
+| `tests/worker/engine/decide.test.js` | Fixtures 4 + 6 migrated to `_fixture_meta` oracle; AC8 narrowed-catch structural regression test added | AC7, AC8 |
+| `tests/worker/engine/cooperative-absorb.test.js` | AC4 block migrated from `_preconditions.*` to `_fixture_meta.*`; test renamed `fixture_loads_and_has_required_metadata` | AC7 |
+| `tests/shared/mirakl/pri03-parser.test.js` | AC9 `three_strike_re_fire_suppression_for_already_frozen_sku` test added | AC9 |

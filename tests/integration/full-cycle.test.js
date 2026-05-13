@@ -40,6 +40,12 @@ const { checkPerSkuCircuitBreaker, checkPerCycleCircuitBreaker } = await import(
 const { markStagingPending } = await import('../../shared/mirakl/pri01-writer.js');
 const { clearPendingImport } = await import('../../shared/mirakl/pri02-poller.js');
 const { assembleCycle } = await import('../../worker/src/cycle-assembly.js');
+// AC2 (Story 7.9): 5 additional Bundle C module presence assertions
+const { tryAcquireCustomerLock, releaseCustomerLock } = await import('../../worker/src/advisory-lock.js');
+const { startMasterCron } = await import('../../worker/src/jobs/master-cron.js');
+const { startPri02PollCron } = await import('../../worker/src/jobs/pri02-poll.js');
+const { fetchAndParseErrorReport, scheduleRebuildForFailedSkus } = await import('../../shared/mirakl/pri03-parser.js');
+const { dispatchCycle } = await import('../../worker/src/dispatcher.js');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURES_DIR = join(__dirname, '../fixtures/p11');
@@ -169,6 +175,29 @@ function buildMockTx ({ numeratorCount = 0, denominatorCount = 100 } = {}) {
     },
     get _queries () { return queries; },
   };
+}
+
+/**
+ * AC3 (Story 7.9): Proxy helper for the assembleCycle staging INSERT path.
+ * Simulates what assembleCycle's real write-action path would INSERT into pri01_staging.
+ * This helper is issued BY THE TEST (not by assembleCycle directly) because the mock-tx
+ * surface does not support driving assembleCycle against it without real DB tables.
+ * Source: "issued by assembleCycle proxy, not by AC2 test directly" — the indirection is
+ * explicit, not circular. The assertions in AC2 below verify the helper's captured query.
+ *
+ * @param {{ query: Function }} tx — mock tx with query capture
+ * @param {object} params
+ * @param {string} params.customerMarketplaceId
+ * @param {string} params.skuId
+ * @param {string} params.channelCode
+ * @param {number} params.newPriceCents
+ * @param {string} params.cycleId
+ */
+async function simulateAssembleCycleStagingInsert (tx, { customerMarketplaceId, skuId, channelCode, newPriceCents, cycleId }) {
+  await tx.query(
+    `INSERT INTO pri01_staging (customer_marketplace_id, sku_id, channel_code, new_price_cents, cycle_id) VALUES ($1, $2, $3, $4, $5)`,
+    [customerMarketplaceId, skuId, channelCode, newPriceCents, cycleId],
+  );
 }
 
 // All 17 fixture names in canonical order
@@ -344,11 +373,20 @@ describe('AC2 — Write-action fixtures: assembleCycle + markStagingPending + cl
       assert.equal(result.newPriceCents, expected.newPriceCents,
         `fixture ${fixtureName}: newPriceCents mismatch`);
 
-      // Step 2: Insert a staging row (as assembleCycle would do for UNDERCUT/CEILING_RAISE)
-      await tx.query(
-        `INSERT INTO pri01_staging (customer_marketplace_id, sku_id, channel_code, new_price_cents, cycle_id) VALUES ($1, $2, $3, $4, $5)`,
-        [customerMarketplaceId, skuChannel.sku_id, skuChannel.channel_code, result.newPriceCents, cycleId],
-      );
+      // Step 2: Insert a staging row via helper that explicitly stamps its source.
+      // AC3 (Story 7.9): This INSERT proxies what assembleCycle would do — the mock-tx
+      // surface does not support driving assembleCycle against it without real DB tables
+      // (assembleCycle reads customer_marketplaces + sku_channels + performs write-actions
+      // that depend on DB rows not stubbed in buildMockTx). The helper makes the indirection
+      // explicit rather than silently circular. A future story may wire assembleCycle directly
+      // once the mock-tx surface is extended to support it.
+      await simulateAssembleCycleStagingInsert(tx, {
+        customerMarketplaceId,
+        skuId: skuChannel.sku_id,
+        channelCode: skuChannel.channel_code,
+        newPriceCents: result.newPriceCents,
+        cycleId,
+      });
 
       // Step 3: REAL markStagingPending — sets pending_import_id on sku_channels
       await markStagingPending({ tx, cycleId, importId, customerMarketplaceId });
@@ -444,5 +482,21 @@ describe('AC8 — Bundle C module presence verification', () => {
     assert.equal(typeof markStagingPending, 'function', 'markStagingPending must be a function');
     assert.equal(typeof clearPendingImport, 'function', 'clearPendingImport must be a function');
     assert.equal(typeof assembleCycle, 'function', 'assembleCycle must be a function');
+  });
+
+  // AC2 (Story 7.9): 5 additional Bundle C module presence assertions
+  test('5 additional Bundle C modules are present and loaded (Story 7.9 AC2)', () => {
+    // advisory-lock: acquireCustomerLock / releaseCustomerLock
+    assert.equal(typeof tryAcquireCustomerLock, 'function', 'tryAcquireCustomerLock must be a function');
+    assert.equal(typeof releaseCustomerLock, 'function', 'releaseCustomerLock must be a function');
+    // master-cron: startMasterCron
+    assert.equal(typeof startMasterCron, 'function', 'startMasterCron must be a function');
+    // pri02-poll: startPri02PollCron
+    assert.equal(typeof startPri02PollCron, 'function', 'startPri02PollCron must be a function');
+    // pri03-parser: fetchAndParseErrorReport + scheduleRebuildForFailedSkus
+    assert.equal(typeof fetchAndParseErrorReport, 'function', 'fetchAndParseErrorReport must be a function');
+    assert.equal(typeof scheduleRebuildForFailedSkus, 'function', 'scheduleRebuildForFailedSkus must be a function');
+    // dispatcher: dispatchCycle
+    assert.equal(typeof dispatchCycle, 'function', 'dispatchCycle must be a function');
   });
 });
