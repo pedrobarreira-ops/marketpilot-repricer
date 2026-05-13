@@ -42,6 +42,18 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SOURCE_PATH = join(__dirname, '../../../worker/src/safety/reconciliation.js');
 
+// Stub MASTER_KEY_BASE64 BEFORE runReconciliationPass is first called.
+// reconciliation.js's getMasterKey() lazily calls loadMasterKey() on the first
+// pass, which reads this env var. The stub provides a valid 32-byte base64 key
+// so getMasterKey() succeeds in unit tests (real crypto never fires because
+// all tests inject decryptFn: () => 'mock-api-key' to bypass AES-256-GCM).
+// Pattern mirrors the RESEND_API_KEY stub in anomaly-freeze.test.js — set env
+// before any code path that reads it can run.
+if (!process.env.MASTER_KEY_BASE64) {
+  // 32 bytes of 0x61 ('a') encoded as base64 — valid AES-256 key size.
+  process.env.MASTER_KEY_BASE64 = Buffer.from('a'.repeat(32)).toString('base64');
+}
+
 // ---------------------------------------------------------------------------
 // DI-injectable mock implementations
 // ---------------------------------------------------------------------------
@@ -195,6 +207,7 @@ describe('reconciliation — T3 no competitors (AC4 test 1)', () => {
       selfFilter: mockSelfFilter,
       auditWriter: mockAuditWriter,
       tierClassifier: mockTierClassifier,
+      decryptFn: () => 'mock-api-key',
     });
 
     // THEN: ZERO writeAuditEvent calls (no transition on steady-state T3)
@@ -271,6 +284,7 @@ describe('reconciliation — T3 new competitor winning T3→T2a (AC4 test 2)', (
       selfFilter: mockSelfFilter,
       auditWriter: mockAuditWriter,
       tierClassifier: mockTierClassifier,
+      decryptFn: () => 'mock-api-key',
     });
 
     // THEN: writeAuditEvent called EXACTLY twice
@@ -369,6 +383,7 @@ describe('reconciliation — T3 new competitor losing T3→T1 (AC4 test 3)', () 
       selfFilter: mockSelfFilter,
       auditWriter: mockAuditWriter,
       tierClassifier: mockTierClassifier,
+      decryptFn: () => 'mock-api-key',
     });
 
     // THEN: 2 audit events emitted
@@ -436,6 +451,7 @@ describe('reconciliation — stale-state detection (AC3, AC4 test 4)', () => {
       selfFilter: mockSelfFilter,
       auditWriter: mockAuditWriter,
       tierClassifier: mockTierClassifier,
+      decryptFn: () => 'mock-api-key',
     });
 
     // THEN: logger.warn called at least once with stale-state message
@@ -510,6 +526,7 @@ describe('reconciliation — shop-name collision (AC4 test 5)', () => {
       selfFilter: mockSelfFilter,
       auditWriter: mockAuditWriter,
       tierClassifier: mockTierClassifier,
+      decryptFn: () => 'mock-api-key',
     });
 
     // THEN: logger.warn called (collision warning)
@@ -569,6 +586,7 @@ describe('reconciliation — optimistic-concurrency race-loser (AC4 test 6)', ()
       selfFilter: mockSelfFilter,
       auditWriter: mockAuditWriter,
       tierClassifier: mockTierClassifier,
+      decryptFn: () => 'mock-api-key',
     });
 
     // THEN: logger.warn called (race-loss warning)
@@ -616,6 +634,7 @@ describe('reconciliation — cross-customer iteration (AC4 test 7)', () => {
       selfFilter: mockSelfFilter,
       auditWriter: mockAuditWriter,
       tierClassifier: mockTierClassifier,
+      decryptFn: () => 'mock-api-key',
     });
 
     // THEN: all 3 rows evaluated across both customers
