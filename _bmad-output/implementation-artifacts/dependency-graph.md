@@ -1,5 +1,5 @@
 # Story Dependency Graph
-_Last updated: 2026-05-13T00:00:00Z (Phase 0 pass 25 — Bundle C close-out reconciliation)_
+_Last updated: 2026-05-13T12:00:00Z (Phase 0 pass 26 — Story 7.9 done via PR #93; Story 7.4 ready-for-dev; Ready cells recomputed)_
 
 ## Stories
 
@@ -34,13 +34,13 @@ _Last updated: 2026-05-13T00:00:00Z (Phase 0 pass 25 — Bundle C close-out reco
 | 7.1 | 7 | shared/money/index.js + no-float-price ESLint rule (CALENDAR-EARLY) | done | #27 | #86 | merged | 1.1 (calendar-early: after_epic=1) | ✅ Yes (done) |
 | 7.2 | 7 | worker/src/engine/decide.js — full AD8 decision flow with filter chain via self-filter | done | #28 | #91 | merged | 7.1, 3.2, 6.1 | ✅ Yes (done) |
 | 7.3 | 7 | worker/src/engine/cooperative-absorb.js — STEP 2 absorption + skip-on-pending | done | #29 | #91 | merged | 7.2 | ✅ Yes (done) |
-| 7.4 | 7 | worker/src/safety/anomaly-freeze.js + audit anomaly SKU accept/reject endpoints | backlog | #30 | — | — | 7.2, 9.0 | ✅ Yes |
+| 7.4 | 7 | worker/src/safety/anomaly-freeze.js + audit anomaly SKU accept/reject endpoints | ready-for-dev | #30 | — | — | 7.2, 9.0 | ✅ Yes |
 | 7.5 | 7 | worker/src/engine/tier-classify.js — full transitions + atomic T2a→T2b write per F1 | backlog | #31 | — | — | 7.2 | ✅ Yes |
 | 7.6 | 7 | worker/src/safety/circuit-breaker.js — per-SKU 15% + per-cycle 20% | done | #32 | #91 | merged | 7.2 | ✅ Yes (done) |
 | 7.7 | 7 | worker/src/safety/reconciliation.js — Tier 3 daily pass = nightly reconciliation | backlog | #33 | — | — | 7.5 | ❌ No (7.5 not done) |
 | 7.8 | 7 | END-TO-END INTEGRATION GATE — full cycle test on all 17 P11 fixtures (atomicity bundle gate AD7+AD8+AD9+AD11) | done | #34 | #91 | merged | 6.1, 7.2, 7.3, 7.6 | ✅ Yes (done) |
-| 7.9 | 7 | Bundle-C cleanup chore — 9 test-tightening + spec-reconciliation follow-ups | ready-for-dev | #92 | — | — | 7.8 (implicit: cleanup of Bundle C modules) | ✅ Yes |
-| 8.1 | 8 | Dashboard root state-aware view + sticky header chrome | backlog | #35 | — | — | 4.9, epic 7 complete | ❌ No (epic 7 not complete — 7.4, 7.5, 7.7, 7.9 not done) |
+| 7.9 | 7 | Bundle-C cleanup chore — 9 test-tightening + spec-reconciliation follow-ups | done | #92 | #93 | merged | 7.8 (implicit: cleanup of Bundle C modules) | ✅ Yes (done) |
+| 8.1 | 8 | Dashboard root state-aware view + sticky header chrome | backlog | #35 | — | — | 4.9, epic 7 complete | ❌ No (epic 7 not complete — 7.4, 7.5, 7.7 not done) |
 | 8.2 | 8 | KPI cards row (3 status cards + secondary catalog-value lines) | backlog | #36 | — | — | 8.1, 9.2 | ❌ No (epic 7 not complete) |
 | 8.3 | 8 | PT/ES channel toggle pill in sticky header | backlog | #37 | — | — | 8.1 | ❌ No (epic 7 not complete) |
 | 8.4 | 8 | Margin editor inline panel with worked-profit-example | backlog | #38 | — | — | 8.1 | ❌ No (epic 7 not complete) |
@@ -131,39 +131,40 @@ _Last updated: 2026-05-13T00:00:00Z (Phase 0 pass 25 — Bundle C close-out reco
 
 ## Notes
 
-### Current State (Phase 0 pass 25 — 2026-05-13 Bundle C close-out reconciliation)
+### Current State (Phase 0 pass 26 — 2026-05-13 Story 7.9 done)
 
 - **BUNDLE C COMPLETE**: PR #91 (Bundle C atomicity gate — Story 7.8 + all 8 participants) merged 2026-05-11T20:06:22Z. This mega-merge (squash commit 89b2378) supersedes individual PRs #81-#89 (all CLOSED). All 8 Bundle C participants (5.1, 5.2, 6.1, 6.2, 6.3, 7.2, 7.3, 7.6) + gate 7.8 are `done`. 45/45 integration tests passed against real Bundle C modules.
-- Epic 1 complete (5/5 stories done — pre-BAD direct commits to main, no PRs).
-- Epic 1 retrospective complete (2026-05-03).
+- **Story 7.9 DONE**: PR #93 (story-7.9-bundle-c-cleanup-chore) merged 2026-05-13T11:26:42Z. 9 follow-ups: narrowed-catch retroactive, AC8 5-module presence, staging INSERT circularity, N>1 batch atomicity, AC3/AC4 reconciliation, unit-test _expected oracle migration, decide.js regression, 3-strike re-fire test. Closed 5 Bundle-C-introduced unit-test fails.
+- Epic 1 complete (5/5 stories done — pre-BAD direct commits to main, no PRs). Epic 1 retrospective complete (2026-05-03).
 - Epic 2 complete (2/2 stories done). Epic 2 retrospective complete (2026-05-04).
 - Calendar-early: Story 9.0 merged (PR #66). Story 9.1 merged (PR #67). epic-9: in-progress (9.0 + 9.1 done; 9.2-9.6 backlog).
 - Epic 3 complete (3/3 stories done). Epic 3 retrospective complete (2026-05-06). Live smoke ✅.
 - Epic 4 complete (9/9 stories done). Epic 4 retrospective complete (2026-05-08). Atomicity Bundle B held and cleared.
 - **Epic 5 COMPLETE** (2/2 stories done via PR #91 mega-merge). Epic 5 retrospective done (Bundle C close-out retro 2026-05-13).
 - **Epic 6 COMPLETE** (3/3 stories done via PR #91 mega-merge). Epic 6 retrospective done (Bundle C close-out retro 2026-05-13).
-- Epic 7: in-progress. 7.1 + 7.2 + 7.3 + 7.6 + 7.8 done. **7.4 READY** (deps 7.2+9.0 done; epic 6 complete). **7.5 READY** (dep 7.2 done; epic 6 complete). **7.9 READY** (ready-for-dev; dispatches from main; GH Issue #92 created this pass). 7.7 blocked on 7.5.
-- Story 7.9: Bundle-C cleanup chore. GH Issue #92 created this pass. No PR yet. Dispatches normally from main (NOT a Bundle C participant; not in bundle_dispatch_orders or merge_blocks).
-- No active worktrees (all Bundle C worktrees cleaned up per SCP-2026-05-11 §6 and retro).
+- Epic 7: in-progress. 7.1 + 7.2 + 7.3 + 7.6 + 7.8 + 7.9 done. **7.4 READY** (ready-for-dev, deps 7.2+9.0 done; epics 1-6 complete). **7.5 READY** (backlog, dep 7.2 done; epics 1-6 complete). 7.7 blocked on 7.5.
+- No active worktrees (all Bundle C worktrees cleaned up; Story 7.9 worktree cleaned per post-merge).
 
-### Ready-to-Work Analysis (Pass 25)
+### Ready-to-Work Analysis (Pass 26)
 
-**Newly Ready (post-Bundle-C-close):**
-- **7.4** — deps 7.2 (done/PR #91) + 9.0 (done/PR #66). All lower epics (1-6) done. Standard epic-ordering satisfied. ✅ Yes.
-- **7.5** — dep 7.2 (done/PR #91). All lower epics (1-6) done. Standard epic-ordering satisfied. ✅ Yes.
-- **7.9** — dep 7.8 (done/PR #91). All lower epics (1-6) done. Not in merge_blocks. Not in calendar_early_overrides. Status: ready-for-dev. ✅ Yes.
+**Ready to dispatch:**
+- **7.4** — status: ready-for-dev (story file exists). Deps 7.2 (done/PR#91 merged) + 9.0 (done/PR#66 merged). Epics 1-6 all done. Not in merge_blocks, not in calendar_early_overrides. ✅ Yes.
+- **7.5** — status: backlog (needs sharding). Dep 7.2 (done/PR#91 merged). Epics 1-6 all done. Not in merge_blocks, not in calendar_early_overrides. ✅ Yes.
+
+**Done this pass:**
+- **7.9** — PR #93 merged 2026-05-13T11:26:42Z. ✅ Yes (done).
 
 **Still blocked:**
 - **7.7** — dep 7.5 (backlog, not done). ❌ No (7.5 not done).
-- **8.x** — all require epic 7 complete (7.4, 7.5, 7.7, 7.9 not done). ❌ No (epic 7 not complete).
+- **8.x** — all require epic 7 complete (7.4, 7.5, 7.7 not done). ❌ No (epic 7 not complete).
 - **9.2-9.6** — require epic 8 complete. ❌ No.
 - **10.x, 11.x, 12.x** — blocked further downstream.
 
 ### Parallelization Opportunities
 
-- **Immediate batch (3 stories):** 7.4, 7.5, and 7.9 are all Ready to Work from `main`. These can dispatch in parallel.
-  - 7.4 (backlog → needs sharding first) + 7.5 (backlog → needs sharding first) + 7.9 (already ready-for-dev).
-  - 7.9 should dispatch first per retro §12 Session 2 ordering (ships before Story 7.4).
+- **Immediate batch (2 stories):** 7.4 (ready-for-dev) and 7.5 (backlog → needs sharding) are both Ready to Work from `main`. These can dispatch in parallel.
+  - 7.4 already has a story file — can dispatch immediately.
+  - 7.5 needs Bob to shard first (bmad-create-story).
 - Once 7.4 and 7.5 are done, 7.7 becomes Ready (dep: 7.5 done). Then Epic 7 closes, unblocking all of Epic 8 (12 stories with significant parallelism — 8.3-8.12 can mostly run in parallel after 8.1 ships).
 
 ### Merge Blocks (atomicity constraints)
