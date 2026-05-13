@@ -435,7 +435,7 @@ describe('reconciliation — stale-state detection (AC3, AC4 test 4)', () => {
       last_checked_at: new Date(Date.now() - 50 * 60 * 60 * 1000).toISOString(), // 50h ago
     });
 
-    const { pool } = buildMockPool({
+    const { pool, client } = buildMockPool({
       selectResult: { rows: [skuChannel], rowCount: 1 },
     });
     const { logger, warns } = buildMockLogger();
@@ -483,6 +483,20 @@ describe('reconciliation — stale-state detection (AC3, AC4 test 4)', () => {
     // THEN: Row still receives its standard UPDATE last_checked_at (drift detection does NOT skip the row)
     // (no-competitor branch still bumps last_checked_at per AC3 scope guard)
     assert.equal(result.skusEvaluated, 1, 'skusEvaluated must be 1 (stale row not skipped)');
+
+    // THEN: UPDATE last_checked_at was issued for the stale row — AC3 explicit
+    // contract: "The row still receives its standard `UPDATE last_checked_at = NOW()`
+    // at the end of this row's iteration". The same-pass P11 call IS the recovery.
+    const updateCalls = client._calls.filter(c =>
+      c.sql.trim().toUpperCase().startsWith('UPDATE') &&
+      c.sql.toLowerCase().includes('sku_channels') &&
+      c.sql.toLowerCase().includes('last_checked_at')
+    );
+    assert.equal(
+      updateCalls.length,
+      1,
+      'AC3 contract: stale row must still receive its UPDATE last_checked_at (drift detection is observability-only — does NOT skip the row)',
+    );
 
     // THEN: ZERO audit events (stale-state is observability only, NOT in AD20 taxonomy)
     assert.equal(auditWriterCalls.length, 0, 'stale-state must NOT emit any audit events (AC3 — observability only)');
