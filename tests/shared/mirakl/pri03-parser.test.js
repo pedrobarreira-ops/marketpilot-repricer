@@ -640,9 +640,14 @@ describe('scheduleRebuildForFailedSkus', () => {
       // Re-throw anything that doesn't look like a mock-tx boundary error.
       // Mock-tx limitations typically surface as TypeError on `.rows`/`.rowCount` access
       // or as "Unexpected query" assertions. Any other error (real regression) re-throws.
+      // Note: `\.` escapes the dot to match a literal period in the error message
+      // (`query.toLowerCase is not a function`, `tx.calls`). Earlier `\\.` was a
+      // regex bug — it matched a literal backslash + any-char, which never appears
+      // in real error messages, so the predicate would incorrectly re-throw expected
+      // mock-tx boundary errors.
       const isMockTxBoundary = err && (
-        /rows|rowCount|Unexpected query|query\\.toLowerCase is not a function/i.test(err.message ?? '') ||
-        err.code === 'ERR_ASSERTION' && /tx\\.calls|mock/i.test(err.message ?? '')
+        /rows|rowCount|Unexpected query|query\.toLowerCase is not a function/i.test(err.message ?? '') ||
+        err.code === 'ERR_ASSERTION' && /tx\.calls|mock/i.test(err.message ?? '')
       );
       if (!isMockTxBoundary) {
         throw err;
