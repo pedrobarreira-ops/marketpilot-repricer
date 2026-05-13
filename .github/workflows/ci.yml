@@ -99,3 +99,65 @@ jobs:
 
       - name: Run ESLint
         run: npm run lint
+
+  integration-tests:
+    # Bundle C close-out retro 2026-05-13 Q8 Phase 1 (path a, two-phase rollout).
+    # Adds CI-enforced safety floor for all integration tests in tests/integration/.
+    # Catches the gap surfaced by PR #91 mega-merge — Bundle C atomicity invariants
+    # (45 tests across full-cycle/pending-import-id-invariant/circuit-breaker-trip)
+    # had no GitHub-level enforcement; only bad-review's local-fallback verified them.
+    #
+    # Phase 2 (post-Q7 Bundle-C-cleanup PR): expand to full `npm test` once Story 7.2
+    # + 7.3 unit-test _expected drift is fixed (5 new fails). The 23 pre-existing
+    # unit fails (W2 watch) are pre-Go-Live stabilization scope.
+    name: Integration Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start Supabase local stack
+        run: supabase start
+
+      - name: Compose .env.test from Supabase status
+        shell: bash
+        env:
+          MASTER_KEY_BASE64: ${{ secrets.MASTER_KEY_BASE64 }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          set -e
+          supabase status -o env > /tmp/sb_env
+          set -a
+          . /tmp/sb_env
+          set +a
+          cat > .env.test <<ENVEOF
+          SUPABASE_URL=$API_URL
+          SUPABASE_ANON_KEY=$ANON_KEY
+          SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY
+          SUPABASE_SERVICE_ROLE_DATABASE_URL=$DB_URL
+          MASTER_KEY_BASE64=$MASTER_KEY_BASE64
+          RESEND_API_KEY=$RESEND_API_KEY
+          ENVEOF
+
+      - name: Run integration tests
+        # Glob matches all .test.js files in tests/integration/ — covers Bundle C
+        # atomicity tests (full-cycle, pending-import-id-invariant, circuit-breaker-trip)
+        # AND existing Supabase-dependent tests (signup-flow, admin-middleware,
+        # audit-log-partition, rls-regression, etc.). --test-concurrency=1 mirrors
+        # the existing test:integration script to avoid Supabase contention.
+        run: node --env-file=.env.test --test --test-concurrency=1 tests/integration/*.test.js
