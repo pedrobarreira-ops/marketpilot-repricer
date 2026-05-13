@@ -104,7 +104,17 @@ STEPS:
    data is identical. Always re-evaluate using the current rule text.
 
    **For the atomicity-bundle exception specifically:** when MERGE_BLOCKS
-   indicates a story qualifies, look up its **immediate predecessor** in
+   indicates a story qualifies, first verify a list in BUNDLE_DISPATCH_ORDERS
+   contains the story-key. If NO list contains it (declared in merge_blocks
+   but missing from bundle_dispatch_orders), HALT with a clear warning:
+   the bundle's dispatch chain was never declared at sprint-planning time
+   and Phase 0 has no safe way to derive the predecessor. Surface the
+   bundle's `until_story` and ask Pedro to add the chain to
+   bundle_dispatch_orders before re-running. Do NOT silently fall back to
+   any prior rule (e.g., "highest-numbered unmerged sibling") — that is
+   the exact failure mode that caused Bundle C's PR #90 fake-gate.
+
+   Otherwise look up the story's **immediate predecessor** in
    BUNDLE_DISPATCH_ORDERS (the entry directly above it in the bundle's chain).
    The Ready cell suffix needs the predecessor's PR branch name (or `main` if
    the story is the first member of its bundle, OR if the predecessor is
