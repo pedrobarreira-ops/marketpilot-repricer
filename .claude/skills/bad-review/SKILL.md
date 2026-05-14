@@ -307,6 +307,13 @@ the technical sections below. Three required lines:
 Keep this section to 4-6 lines total. The technical sections below are for
 Claude or for follow-up reading; this TL;DR is what Pedro acts on.
 
+**Vocabulary in TL;DR + technical sections** — when describing cron timing,
+distinguish "scheduler tick" (the 5-min wake-up cadence of the main cron
+loop) from "per-SKU cadence" (the 15/45/1440-min tier-specific re-check
+interval applied at SKU level). Never write "5-minute cron" as if it were
+the per-SKU scan rate; Tier 3 SKUs are visited every 1440 min (nightly)
+even though the scheduler ticks every 5 min.
+
 ## Prior deferred context  ← include only if PRIOR_DEFERRED_ITEMS is non-empty
 Prior deferred items that touch this story-family (from deferred-work.md):
 - **<title from existing entry>** [source section] — summarise in one line.
