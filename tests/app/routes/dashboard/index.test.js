@@ -353,6 +353,36 @@ describe('dashboard-root-interception-redirect', () => {
       await app.close();
     }
   });
+
+  test('paused_by_account_grace_period_renders_dashboard_no_banner_no_crash', async () => {
+    // Given: cron_state = PAUSED_BY_ACCOUNT_GRACE_PERIOD (legal state per spec, no banner today)
+    // When:  GET /
+    // Then:  200; layout renders (header + main); no danger banner since dashboard.eta
+    //        currently has no PAUSED_BY_ACCOUNT_GRACE_PERIOD branch — must not crash.
+    // Behavioural intent: AC#1 lists this state as a render-through; defensive coverage
+    // ensures it doesn't fall into a stray banner condition by accident.
+    const db = makeDb([
+      [interceptRow('PAUSED_BY_ACCOUNT_GRACE_PERIOD')],
+      [dashboardRow('PAUSED_BY_ACCOUNT_GRACE_PERIOD')],
+    ]);
+    const app = await buildApp({ db });
+    try {
+      const res = await app.inject({ method: 'GET', url: '/' });
+      assert.equal(res.statusCode, 200,
+        `expected 200 for PAUSED_BY_ACCOUNT_GRACE_PERIOD; got ${res.statusCode}`);
+      const html = res.body;
+      // Sticky header + main slot present (full chrome renders)
+      assert.ok(html.includes('mp-sticky-header'), 'grace-period state must still render sticky header');
+      assert.ok(html.includes('id="main-content"'), 'grace-period state must render the main slot');
+      // Must NOT accidentally render a danger or pause banner
+      assert.ok(!html.includes('mp-banner-danger'),
+        'grace-period must NOT render danger banner (no spec mapping today)');
+      assert.ok(!html.includes('pause_circle'),
+        'grace-period must NOT render pause_circle icon');
+    } finally {
+      await app.close();
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -404,6 +434,49 @@ describe('dashboard-layout', () => {
       assert.ok(html.includes('id="main-content"'), 'layout must include id="main-content" on main element');
       // Footer with role=contentinfo
       assert.ok(html.includes('role="contentinfo"'), 'layout must include footer with role="contentinfo"');
+    } finally {
+      await app.close();
+    }
+  });
+
+  test('layout_css_defines_sticky_header_backdrop_filter_blur_12px', async () => {
+    // AC#2 — verify the CSS rule itself (not just the class on HTML) so a future refactor
+    // that removes backdrop-filter from layout.css does not silently regress the §10.1 chrome.
+    const { readFile } = await import('node:fs/promises');
+    const { join, dirname } = await import('node:path');
+    const { fileURLToPath } = await import('node:url');
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const cssPath = join(__dirname, '../../../../public/css/layout.css');
+    const src = await readFile(cssPath, 'utf8');
+    // Match either backdrop-filter or -webkit-backdrop-filter with blur(12px)
+    const hasBackdropBlur = /(-webkit-)?backdrop-filter\s*:\s*blur\(\s*12px\s*\)/.test(src);
+    assert.ok(hasBackdropBlur,
+      'public/css/layout.css must define backdrop-filter: blur(12px) on the sticky header (§10.1)');
+    // Verify 85% bg opacity rule per §10.1
+    assert.ok(
+      /background-color\s*:\s*rgba\(\s*255\s*,\s*255\s*,\s*255\s*,\s*0\.85\s*\)/.test(src) ||
+        src.includes('background-color: rgba(255, 255, 255, 0.85)'),
+      'public/css/layout.css must define 85% white bg on the sticky header (§10.1)'
+    );
+  });
+
+  test('dashboard_body_renders_kpi_shimmer_loading_skeleton_with_aria_busy', async () => {
+    // AC#3 Loading state — even pre-Story-8.2 KPI placeholders, shimmer skeletons must
+    // be announced as busy to assistive tech. Behavioural assertion: 3 placeholders + aria-busy.
+    const db = makeDb([
+      [interceptRow('ACTIVE')],
+      [dashboardRow('ACTIVE')],
+    ]);
+    const app = await buildApp({ db });
+    try {
+      const res = await app.inject({ method: 'GET', url: '/' });
+      assert.equal(res.statusCode, 200);
+      const html = res.body;
+      const shimmerCount = (html.match(/mp-kpi-shimmer/g) ?? []).length;
+      assert.ok(shimmerCount >= 3,
+        `dashboard must render at least 3 mp-kpi-shimmer placeholders; found ${shimmerCount}`);
+      assert.ok(html.includes('aria-busy="true"'),
+        'KPI shimmer placeholders must carry aria-busy="true" for screen readers (NFR-A1)');
     } finally {
       await app.close();
     }
