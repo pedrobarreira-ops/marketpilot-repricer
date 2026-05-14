@@ -34,8 +34,12 @@
     </p>
     <a href="/audit" class="mp-banner-cta">Rever <%= anomalyCount %> eventos</a>
   </div>
-<% } else if (sustainedTransient) { %>
-  <!-- §9.9 — grey neutral banner, schedule icon. Precedence #4. Informational only — no CTA. -->
+<% } else if (sustainedTransient && cronState === 'ACTIVE') { %>
+  <!-- §9.9 — grey neutral banner, schedule icon. Precedence #4. Informational only — no CTA.
+       AC#3 gate: sustained_transient banner applies only when cron_state = ACTIVE.
+       Story 12.1's classifier only sets sustained_transient_active = TRUE in ACTIVE state,
+       but the explicit gate is defensive against future drift (e.g., stale flag carried
+       through a state transition). -->
   <div class="mp-banner mp-banner-neutral" role="status">
     <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
     <p class="mp-banner-text">

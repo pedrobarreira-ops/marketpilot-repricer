@@ -91,9 +91,9 @@
 
 /* ── Banner zone ─────────────────────────────────────────────────────────── */
 
-.mp-banner-zone {
-  /* Renders banners above the main content — populated by dashboard.eta */
-}
+/* Banner zone is a structural slot above the main content. No declarations
+ * needed today — Story 8.8 will populate visual rules when banners.eta lands.
+ * The empty class is intentional so the HTML hook is stable across stories. */
 
 /* ── Main body slot ──────────────────────────────────────────────────────── */
 

@@ -83,6 +83,14 @@ function writeInterceptionFlag (req, reply, flag) {
 
   // Production path: set a signed cookie (httpOnly, sameSite=lax).
   // The flag persists until state transitions again — keyed by state+since pair.
+  //
+  // Failure mode (UX-DR32 fail-open): if signCookie throws (e.g. COOKIE_SECRET
+  // missing / @fastify/cookie not configured for signing), the flag is not
+  // persisted. The customer then sees the interception redirect on every visit
+  // until the cookie can be written. Log at error level so this is visible in
+  // ops dashboards — the catch is required so the redirect itself still fires
+  // (interception fail-open is worse than the redirect succeeding once and
+  // failing to be remembered).
   try {
     const signed = reply.signCookie(JSON.stringify(flag));
     reply.setCookie(INTERCEPTION_COOKIE_NAME, signed, {
@@ -92,7 +100,10 @@ function writeInterceptionFlag (req, reply, flag) {
       path: '/',
     });
   } catch (err) {
-    req.log.warn({ err }, 'interception-redirect: failed to write interception cookie');
+    req.log.error(
+      { err, state: flag.state },
+      'interception-redirect: failed to write interception cookie — customer will see interception on every visit until cookie signing is restored'
+    );
   }
 }
 
