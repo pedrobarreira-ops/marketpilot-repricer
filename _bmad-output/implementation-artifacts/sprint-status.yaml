@@ -179,7 +179,7 @@ development_status:
   # EPIC 8 -- Customer Dashboard & Surfaces  (architecture S-I phase 8)
   # =========================================================================
   epic-8: in-progress
-  8-1-dashboard-root-state-aware-view-sticky-header-chrome: review  # bmad-create-story: Story 8.1 sharded 2026-05-14 (Bob); BAD Step 1 subagent; Pattern A (7 state stubs); interception-redirect.js extended; sticky header chrome; Bundle B atomicity participant; 7 ACs; test scaffolds from Epic-Start
+  8-1-dashboard-root-state-aware-view-sticky-header-chrome: done  # bmad-create-story: Story 8.1 sharded 2026-05-14 (Bob); BAD Step 1 subagent; Pattern A (7 state stubs); interception-redirect.js extended; sticky header chrome; Bundle B atomicity participant; 7 ACs; test scaffolds from Epic-Start; flipped review → done 2026-05-14 (post-merge reconciliation after /bad-review on PR #98)
   8-2-kpi-cards-row-3-status-cards-from-free-report-family-secondary-catalog-value-lines: backlog
   8-3-pt-es-channel-toggle-pill-in-sticky-header: backlog
   8-4-margin-editor-inline-panel-with-worked-profit-example: backlog
