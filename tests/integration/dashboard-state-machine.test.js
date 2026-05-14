@@ -12,11 +12,19 @@
 //   - Two test customers seeded (customer A + customer B) with distinct UUIDs
 //
 // Run with: node --test tests/integration/dashboard-state-machine.test.js
+//
+// NODE_ENV guard: dashboard/index.js has bypass guards that require NODE_ENV=test
+// when req.user is pre-set by a global preHandler (to prevent auth bypass in production).
+// Set NODE_ENV=test before imports so the rlsContext bypass fires correctly in integration.
+if (!process.env.NODE_ENV || process.env.NODE_ENV !== 'test') {
+  process.env.NODE_ENV = 'test';
+}
 
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';
 import { randomUUID } from 'node:crypto';
+import { createClient } from '@supabase/supabase-js';
 
 const INTEGRATION_ENABLED = Boolean(process.env.SUPABASE_SERVICE_ROLE_DATABASE_URL);
 
@@ -109,32 +117,68 @@ async function getServiceRoleClient () {
   return serviceRoleClient;
 }
 
-// Test customer seed data
-const TEST_CUSTOMER_A_ID = randomUUID();
-const TEST_CUSTOMER_B_ID = randomUUID();
+/** Lazily constructed Supabase admin client (service-role key). */
+let _supabaseAdmin = null;
+function getSupabaseAdmin () {
+  if (_supabaseAdmin === null) {
+    _supabaseAdmin = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+  }
+  return _supabaseAdmin;
+}
+
+// Test customer seed data — customer IDs are assigned by Supabase admin API at seed time.
+// These are populated in the `before` hook and used throughout the tests.
+let TEST_CUSTOMER_A_ID = null;
+let TEST_CUSTOMER_B_ID = null;
 const TEST_CM_A_ID = randomUUID();
 const TEST_CM_B_ID = randomUUID();
 
+const TEST_EMAIL_A = `dashsm-a-${randomUUID()}@integration.test`;
+const TEST_EMAIL_B = `dashsm-b-${randomUUID()}@integration.test`;
+
 /**
  * Seed a minimal customer + customer_marketplace row for integration testing.
- * Uses service-role client to bypass RLS.
+ * Creates the auth user via Supabase admin API (triggers handle_new_auth_user
+ * which populates public.customers + public.customer_profiles automatically).
+ * Returns the assigned customer UUID.
  */
-async function seedTestCustomer (client, customerId, customerMarketplaceId, cronState) {
-  // Insert into auth.users (Supabase)
-  await client.query(
-    `INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at, created_at, updated_at)
-     VALUES ($1, $2, 'test-hash', NOW(), NOW(), NOW())
-     ON CONFLICT (id) DO NOTHING`,
-    [customerId, `test-${customerId}@integration.test`]
-  );
-  // Insert customer_marketplaces row
+async function seedTestCustomer (email, customerMarketplaceId, cronState) {
+  const supabaseAdmin = getSupabaseAdmin();
+  const { data, error } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    password: `Seed-${randomUUID()}`,
+    user_metadata: { first_name: 'Test', last_name: 'Customer', company_name: 'Test Corp' },
+    email_confirm: true,
+  });
+  if (error) throw new Error(`seedTestCustomer: failed to create auth user — ${error.message}`);
+  const customerId = data.user.id;
+
+  const client = await getServiceRoleClient();
+  // Insert customer_marketplaces row using the auth-assigned customer UUID.
+  // Required NOT NULL columns: operator, marketplace_instance_url.
+  // F4 CHECK constraint: non-PROVISIONING states require A01/PC01 columns to be non-NULL.
+  // Seed with minimal valid values to satisfy the constraint for any starting cron_state.
   await client.query(
     `INSERT INTO customer_marketplaces
-       (id, customer_id, cron_state, max_discount_pct, max_increase_pct, updated_at)
-     VALUES ($1, $2, $3::cron_state_enum, 0.02, 0.05, NOW())
-     ON CONFLICT (id) DO UPDATE SET cron_state = $3::cron_state_enum, updated_at = NOW()`,
+       (id, customer_id, cron_state, operator, marketplace_instance_url, max_discount_pct, updated_at,
+        shop_id, shop_name, shop_state, currency_iso_code, is_professional, channels,
+        channel_pricing_mode, operator_csv_delimiter, offer_prices_decimals,
+        discount_period_required, competitive_pricing_tool, scheduled_pricing,
+        volume_pricing, multi_currency, order_tax_mode, platform_features_snapshot, last_pc01_pulled_at)
+     VALUES ($1, $2, $3::cron_state, 'WORTEN', 'https://marketplace.worten.pt', 0.02, NOW(),
+        19706, 'Test Shop', 'OPEN', 'EUR', true, ARRAY['WRT_PT_ONLINE'],
+        'SINGLE', 'COMMA', 2,
+        false, true, false,
+        false, false, 'TAX_EXCLUDED', '{}', NOW())
+     ON CONFLICT (id) DO UPDATE
+       SET cron_state = $3::cron_state, updated_at = NOW()`,
     [customerMarketplaceId, customerId, cronState]
   );
+  return customerId;
 }
 
 /**
@@ -142,7 +186,7 @@ async function seedTestCustomer (client, customerId, customerMarketplaceId, cron
  */
 async function updateCronState (client, customerMarketplaceId, cronState) {
   await client.query(
-    `UPDATE customer_marketplaces SET cron_state = $1::cron_state_enum, updated_at = NOW()
+    `UPDATE customer_marketplaces SET cron_state = $1::cron_state, updated_at = NOW()
      WHERE id = $2`,
     [cronState, customerMarketplaceId]
   );
@@ -151,14 +195,30 @@ async function updateCronState (client, customerMarketplaceId, cronState) {
 /**
  * Build a Fastify app for integration tests using REAL DB connections.
  * Auth is injected via req.user (bypasses real JWT validation for test isolation).
+ * req.db is pre-injected as a service-role pg client (bypasses RLS; route handler
+ * already filters by WHERE cm.customer_id = $1 with req.user.id, so data isolation
+ * is preserved by the application query, not by row-level security policy, in this test).
  */
 async function buildIntegrationApp ({ userId, session = {} } = {}) {
   const fastify = Fastify({ logger: false });
 
-  // Inject user without real JWT validation (integration tests seed customers directly)
+  // Inject user + fresh service-role DB client without real JWT validation.
+  // NODE_ENV=test is required by authMiddlewareConditional + rlsContextConditional
+  // bypass guards when req.user / req.db are pre-set (see dashboard/index.js comments).
+  // A fresh pg.Client is created per request to avoid the releaseRlsClient onResponse
+  // hook (which calls req.db.release() → client.end()) closing the shared service-role
+  // singleton client between tests.
   fastify.addHook('preHandler', async (req) => {
     req.user = { id: userId, access_token: 'integration-test-token', email: `test-${userId}@integration.test` };
     req.session = { ...session };
+    // Create a fresh pg.Client per request — isolated from the shared serviceRoleClient.
+    const { default: pg } = await import('pg');
+    const perRequestClient = new pg.Client({ connectionString: process.env.SUPABASE_SERVICE_ROLE_DATABASE_URL });
+    await perRequestClient.connect();
+    req.db = {
+      query: (sql, params) => perRequestClient.query(sql, params),
+      release: async () => { await perRequestClient.end(); },
+    };
   });
 
   // Register view engine
@@ -191,25 +251,24 @@ async function buildIntegrationApp ({ userId, session = {} } = {}) {
 describe('dashboard-state-machine-integration', () => {
   before(async () => {
     if (!INTEGRATION_ENABLED) return;
-    const client = await getServiceRoleClient();
     // Seed customer A (DRY_RUN initial state)
-    await seedTestCustomer(client, TEST_CUSTOMER_A_ID, TEST_CM_A_ID, 'DRY_RUN');
+    TEST_CUSTOMER_A_ID = await seedTestCustomer(TEST_EMAIL_A, TEST_CM_A_ID, 'DRY_RUN');
     // Seed customer B (ACTIVE initial state) for RLS test
-    await seedTestCustomer(client, TEST_CUSTOMER_B_ID, TEST_CM_B_ID, 'ACTIVE');
+    TEST_CUSTOMER_B_ID = await seedTestCustomer(TEST_EMAIL_B, TEST_CM_B_ID, 'ACTIVE');
   });
 
   after(async () => {
     if (!INTEGRATION_ENABLED) return;
     const client = await getServiceRoleClient();
-    // Teardown: clean up seeded rows
+    // Teardown: clean up seeded rows (customer_marketplaces first — FK dep)
     await client.query(
       'DELETE FROM customer_marketplaces WHERE id = ANY($1)',
       [[TEST_CM_A_ID, TEST_CM_B_ID]]
     );
-    await client.query(
-      'DELETE FROM auth.users WHERE id = ANY($1)',
-      [[TEST_CUSTOMER_A_ID, TEST_CUSTOMER_B_ID]]
-    );
+    // Delete auth users via admin API (triggers reverse-cascade on public.customers)
+    const supabaseAdmin = getSupabaseAdmin();
+    if (TEST_CUSTOMER_A_ID) await supabaseAdmin.auth.admin.deleteUser(TEST_CUSTOMER_A_ID);
+    if (TEST_CUSTOMER_B_ID) await supabaseAdmin.auth.admin.deleteUser(TEST_CUSTOMER_B_ID);
     if (serviceRoleClient) {
       await serviceRoleClient.release();
       serviceRoleClient = null;
