@@ -105,6 +105,7 @@ WHERE sc.tier = '3'
   AND sc.frozen_for_anomaly_review = false
   AND sc.frozen_for_pri01_persistent = false
   AND sc.pending_import_id IS NULL
+  AND s.excluded_at IS NULL
 `;
 
 // ---------------------------------------------------------------------------
