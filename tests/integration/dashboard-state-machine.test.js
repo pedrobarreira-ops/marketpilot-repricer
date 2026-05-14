@@ -52,10 +52,14 @@ const STATE_ASSERTIONS = {
     redirectTo: null,
   },
   PAUSED_BY_PAYMENT_FAILURE: {
-    statusCode: 200,
-    contains: ['mp-banner-danger', 'Atualizar pagamento'],
-    notContains: ['pause_circle'],
-    redirectTo: null,
+    // First login post-state-transition: redirect to /payment-failed (UX-DR3, UX-DR32).
+    // Subsequent visits in same state render dashboard with persistent red banner —
+    // covered by ux_dr3_interception_triggers_only_once_per_state_transition below
+    // (the parametric loop only exercises the first-visit case per state).
+    statusCode: 302,
+    contains: [],
+    notContains: [],
+    redirectTo: '/payment-failed',
   },
   PAUSED_BY_CIRCUIT_BREAKER: {
     statusCode: 200,
@@ -315,6 +319,57 @@ describe('dashboard-state-machine-integration', () => {
       // Persistent red banner must be visible on the dashboard
       assert.ok(html.includes('mp-banner-danger'),
         'UX-DR32: subsequent visit must show persistent red danger banner on dashboard');
+    } finally {
+      await appSecond.close();
+    }
+  });
+
+  test('ux_dr3_payment_failure_interception_triggers_only_once_per_state_transition', async () => {
+    if (!INTEGRATION_ENABLED) return;
+
+    const client = await getServiceRoleClient();
+    // Transition customer A to PAUSED_BY_PAYMENT_FAILURE
+    await updateCronState(client, TEST_CM_A_ID, 'PAUSED_BY_PAYMENT_FAILURE');
+
+    // First login: no session flag → expect 302 → /payment-failed
+    const appFirst = await buildIntegrationApp({
+      userId: TEST_CUSTOMER_A_ID,
+      session: {},
+    });
+    try {
+      const firstRes = await appFirst.inject({ method: 'GET', url: '/' });
+      assert.equal(firstRes.statusCode, 302,
+        `UX-DR32: first PAUSED_BY_PAYMENT_FAILURE visit must redirect (302); got ${firstRes.statusCode}`);
+      assert.equal(firstRes.headers.location, '/payment-failed',
+        'UX-DR32: first visit must redirect to /payment-failed');
+    } finally {
+      await appFirst.close();
+    }
+
+    const { rows } = await client.query(
+      'SELECT updated_at FROM customer_marketplaces WHERE id = $1',
+      [TEST_CM_A_ID]
+    );
+    const stateUpdatedAt = rows[0]?.updated_at;
+
+    const appSecond = await buildIntegrationApp({
+      userId: TEST_CUSTOMER_A_ID,
+      session: {
+        shownInterceptionFor: {
+          state: 'PAUSED_BY_PAYMENT_FAILURE',
+          since: stateUpdatedAt?.toISOString(),
+        },
+      },
+    });
+    try {
+      const secondRes = await appSecond.inject({ method: 'GET', url: '/' });
+      assert.equal(secondRes.statusCode, 200,
+        `UX-DR32: subsequent PAUSED_BY_PAYMENT_FAILURE visit must return 200; got ${secondRes.statusCode}`);
+      const html = secondRes.body;
+      assert.ok(html.includes('mp-banner-danger'),
+        'UX-DR32: subsequent visit must show persistent red danger banner');
+      assert.ok(html.includes('Atualizar pagamento'),
+        'UX-DR32: subsequent visit must show "Atualizar pagamento" CTA');
     } finally {
       await appSecond.close();
     }

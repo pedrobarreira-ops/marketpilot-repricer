@@ -10,7 +10,7 @@
     "start:app": "node app/src/server.js",
     "start:worker": "node worker/src/index.js",
     "test": "node --test",
-    "test:unit": "node --test \"tests/unit/**/*.test.js\" \"tests/worker/**/*.test.js\" \"tests/shared/crypto/**/*.test.js\" \"tests/shared/money/**/*.test.js\" \"tests/shared/audit/**/*.test.js\" \"tests/shared/state/**/*.test.js\" \"tests/shared/mirakl/**/*.test.js\" \"tests/shared/logger/**/*.test.js\" \"tests/app/routes/onboarding/margin.test.js\" \"tests/app/routes/dashboard/dry-run-minimal.test.js\" \"tests/app/routes/onboarding/key.test.js\"",
+    "test:unit": "node --test \"tests/unit/**/*.test.js\" \"tests/worker/**/*.test.js\" \"tests/shared/crypto/**/*.test.js\" \"tests/shared/money/**/*.test.js\" \"tests/shared/audit/**/*.test.js\" \"tests/shared/state/**/*.test.js\" \"tests/shared/mirakl/**/*.test.js\" \"tests/shared/logger/**/*.test.js\" \"tests/app/routes/onboarding/margin.test.js\" \"tests/app/routes/dashboard/dry-run-minimal.test.js\" \"tests/app/routes/dashboard/index.test.js\" \"tests/app/routes/onboarding/key.test.js\"",
     "test:integration": "node --env-file=.env.test --test --test-concurrency=1 tests/integration/signup-flow.test.js tests/integration/admin-middleware.test.js tests/shared/db/clients.test.js tests/integration/rls-regression.test.js tests/integration/audit-log-partition.test.js tests/shared/state/cron-state.test.js",
     "test:smoke": "node --env-file=.env.test --test tests/integration/scaffold-smoke.test.js",
     "test:rls": "node --env-file=.env.test --test --test-concurrency=1 tests/integration/rls-regression.test.js && node --env-file=.env.test scripts/rls-regression-suite.js",

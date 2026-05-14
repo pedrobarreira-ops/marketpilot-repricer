@@ -229,19 +229,52 @@ describe('dashboard-root-interception-redirect', () => {
     }
   });
 
-  test('paused_by_payment_failure_renders_red_banner_with_warning_icon', async () => {
-    // Given: cron_state = PAUSED_BY_PAYMENT_FAILURE
+  test('paused_by_payment_failure_redirects_to_payment_failed_page_first_login', async () => {
+    // Given: cron_state = PAUSED_BY_PAYMENT_FAILURE AND first login post-state-transition
+    //        (no session.shownInterceptionFor flag set)
     // When:  GET /
-    // Then:  200; red danger banner; "warning" filled icon (NOT pause_circle — UX-DR5);
-    //        "Atualizar pagamento" CTA; KPI cards greyed
+    // Then:  302 → /payment-failed (UX-DR3 + UX-DR32 first-time interception)
+    //        Story 8.9 ships the destination page; Story 8.1 owns the redirect.
+    const stateUpdatedAt = new Date('2026-05-14T10:00:00Z');
     const db = makeDb([
-      [interceptRow('PAUSED_BY_PAYMENT_FAILURE')],
-      [dashboardRow('PAUSED_BY_PAYMENT_FAILURE')],
+      [interceptRow('PAUSED_BY_PAYMENT_FAILURE', { stateUpdatedAt })],
+      // dashboard handler should NOT run — intercept fires
     ]);
-    const app = await buildApp({ db });
+    // No session flag → first login
+    const app = await buildApp({ db, session: {} });
     try {
       const res = await app.inject({ method: 'GET', url: '/' });
-      assert.equal(res.statusCode, 200, `expected 200 for PAUSED_BY_PAYMENT_FAILURE; got ${res.statusCode}`);
+      assert.equal(res.statusCode, 302,
+        `expected 302 for PAUSED_BY_PAYMENT_FAILURE first login; got ${res.statusCode}`);
+      assert.equal(res.headers.location, '/payment-failed',
+        'must redirect to /payment-failed (Story 8.9 owns destination)');
+    } finally {
+      await app.close();
+    }
+  });
+
+  test('paused_by_payment_failure_renders_red_banner_with_warning_icon_subsequent_visit', async () => {
+    // Given: cron_state = PAUSED_BY_PAYMENT_FAILURE AND interception already shown
+    //        (req.session.shownInterceptionFor matches state + since)
+    // When:  GET /
+    // Then:  200; red danger banner; "warning" filled icon (NOT pause_circle — UX-DR5);
+    //        "Atualizar pagamento" CTA; KPI cards greyed (UX-DR32 once-per-transition).
+    const stateUpdatedAt = new Date('2026-05-14T10:00:00Z');
+    const db = makeDb([
+      [interceptRow('PAUSED_BY_PAYMENT_FAILURE', { stateUpdatedAt })],
+      [dashboardRow('PAUSED_BY_PAYMENT_FAILURE', { stateUpdatedAt })],
+    ]);
+    // Session flag set → subsequent visit, interception already shown
+    const session = {
+      shownInterceptionFor: {
+        state: 'PAUSED_BY_PAYMENT_FAILURE',
+        since: stateUpdatedAt.toISOString(),
+      },
+    };
+    const app = await buildApp({ db, session });
+    try {
+      const res = await app.inject({ method: 'GET', url: '/' });
+      assert.equal(res.statusCode, 200, `expected 200 for PAUSED_BY_PAYMENT_FAILURE subsequent visit; got ${res.statusCode}`);
       const html = res.body;
       // "warning" filled icon (UX-DR5 — MUST differ from pause_circle)
       assert.ok(html.includes('>warning<'), '"warning" icon must be present for payment failure state');
@@ -550,13 +583,22 @@ describe('dashboard-banner-precedence', () => {
   test('multiple_banner_conditions_only_highest_precedence_renders', async () => {
     // Given: cron_state = PAUSED_BY_PAYMENT_FAILURE AND anomaly_count = 5
     //        (payment_failure precedence #1 > anomaly_attention precedence #3)
+    //        Subsequent visit (interception already shown — UX-DR32) to reach
+    //        the dashboard render path where banner precedence applies.
     // When:  GET /
     // Then:  ONLY payment_failure banner renders; anomaly banner does NOT render
+    const stateUpdatedAt = new Date('2026-05-14T10:00:00Z');
     const db = makeDb([
-      [interceptRow('PAUSED_BY_PAYMENT_FAILURE')],
-      [dashboardRow('PAUSED_BY_PAYMENT_FAILURE', { anomalyCount: 5 })],
+      [interceptRow('PAUSED_BY_PAYMENT_FAILURE', { stateUpdatedAt })],
+      [dashboardRow('PAUSED_BY_PAYMENT_FAILURE', { anomalyCount: 5, stateUpdatedAt })],
     ]);
-    const app = await buildApp({ db });
+    const session = {
+      shownInterceptionFor: {
+        state: 'PAUSED_BY_PAYMENT_FAILURE',
+        since: stateUpdatedAt.toISOString(),
+      },
+    };
+    const app = await buildApp({ db, session });
     try {
       const res = await app.inject({ method: 'GET', url: '/' });
       assert.equal(res.statusCode, 200);
@@ -577,15 +619,23 @@ describe('dashboard-banner-precedence', () => {
   });
 
   test('lower_precedence_banner_reappears_when_higher_clears', async () => {
-    // Given: First request: PAUSED_BY_PAYMENT_FAILURE with anomaly_count = 3
+    // Given: First request: PAUSED_BY_PAYMENT_FAILURE (subsequent visit — interception
+    //        already shown so we reach the dashboard render path) + anomaly_count = 3
     //        Second request: ACTIVE (payment_failure cleared) with anomaly_count = 3
     // When:  GET / twice with different DB state
     // Then:  Second request shows anomaly_attention banner (was hidden behind payment_failure)
+    const stateUpdatedAt = new Date('2026-05-14T10:00:00Z');
     const app1 = await buildApp({
       db: makeDb([
-        [interceptRow('PAUSED_BY_PAYMENT_FAILURE')],
-        [dashboardRow('PAUSED_BY_PAYMENT_FAILURE', { anomalyCount: 3 })],
+        [interceptRow('PAUSED_BY_PAYMENT_FAILURE', { stateUpdatedAt })],
+        [dashboardRow('PAUSED_BY_PAYMENT_FAILURE', { anomalyCount: 3, stateUpdatedAt })],
       ]),
+      session: {
+        shownInterceptionFor: {
+          state: 'PAUSED_BY_PAYMENT_FAILURE',
+          since: stateUpdatedAt.toISOString(),
+        },
+      },
     });
     const app2 = await buildApp({
       db: makeDb([
@@ -617,6 +667,37 @@ describe('dashboard-banner-precedence', () => {
 // ---------------------------------------------------------------------------
 
 describe('dashboard-interception-once-semantics', () => {
+  test('payment_failure_interception_fires_only_first_time_subsequent_visits_show_dashboard', async () => {
+    // Given: cron_state = PAUSED_BY_PAYMENT_FAILURE; session already shows interception was shown
+    // When:  GET /
+    // Then:  200 (not redirect); persistent red danger banner; no redirect to /payment-failed
+    // Per UX-DR32: interception fires only ONCE per state-transition
+    const stateUpdatedAt = new Date('2026-05-14T10:00:00Z');
+    const db = makeDb([
+      [interceptRow('PAUSED_BY_PAYMENT_FAILURE', { stateUpdatedAt })],
+      [dashboardRow('PAUSED_BY_PAYMENT_FAILURE', { stateUpdatedAt })],
+    ]);
+    const session = {
+      shownInterceptionFor: {
+        state: 'PAUSED_BY_PAYMENT_FAILURE',
+        since: stateUpdatedAt.toISOString(),
+      },
+    };
+    const app = await buildApp({ db, session });
+    try {
+      const res = await app.inject({ method: 'GET', url: '/' });
+      assert.equal(res.statusCode, 200,
+        `subsequent PAUSED_BY_PAYMENT_FAILURE visit must return 200 (not redirect); got ${res.statusCode}`);
+      const html = res.body;
+      assert.ok(html.includes('mp-banner-danger'),
+        'PAUSED_BY_PAYMENT_FAILURE subsequent visit must show red danger banner');
+      assert.ok(html.includes('Atualizar pagamento'),
+        'subsequent visit must show "Atualizar pagamento" CTA');
+    } finally {
+      await app.close();
+    }
+  });
+
   test('key_revoked_interception_fires_only_first_time_subsequent_visits_show_dashboard', async () => {
     // Given: cron_state = PAUSED_BY_KEY_REVOKED; session already shows interception was shown
     //        (req.session.shownInterceptionFor = { state: 'PAUSED_BY_KEY_REVOKED', since: <iso> })
@@ -681,15 +762,24 @@ describe('dashboard-keyboard-accessibility', () => {
   });
 
   test('no_focus_traps_in_dashboard_layout', async () => {
-    // Given: dashboard with no open modal
+    // Given: dashboard with no open modal (PAUSED_BY_PAYMENT_FAILURE subsequent
+    //        visit so we reach the dashboard render path — first-time visit
+    //        redirects to /payment-failed per UX-DR32).
     // When:  HTML inspected
     // Then:  Red banners use role="alert"; grey/blue banners use role="status"
     //        Icon-only buttons carry aria-label attributes
+    const stateUpdatedAt = new Date('2026-05-14T10:00:00Z');
     const db = makeDb([
-      [interceptRow('PAUSED_BY_PAYMENT_FAILURE')],
-      [dashboardRow('PAUSED_BY_PAYMENT_FAILURE')],
+      [interceptRow('PAUSED_BY_PAYMENT_FAILURE', { stateUpdatedAt })],
+      [dashboardRow('PAUSED_BY_PAYMENT_FAILURE', { stateUpdatedAt })],
     ]);
-    const app = await buildApp({ db });
+    const session = {
+      shownInterceptionFor: {
+        state: 'PAUSED_BY_PAYMENT_FAILURE',
+        since: stateUpdatedAt.toISOString(),
+      },
+    };
+    const app = await buildApp({ db, session });
     try {
       const res = await app.inject({ method: 'GET', url: '/' });
       assert.equal(res.statusCode, 200);

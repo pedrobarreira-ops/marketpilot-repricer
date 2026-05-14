@@ -28,6 +28,15 @@
 // Signed cookie containing { state, since } JSON — avoids a new session dep.
 const INTERCEPTION_COOKIE_NAME = 'mp_interception';
 
+// Story 8.1 — Epic 8 interception targets (UX-DR3, UX-DR32).
+// Spec AC#1: first login post-state-transition → 302 to interception page.
+// Subsequent visits in same state → pass through (dashboard banner only).
+// Pages themselves are owned by Story 8.9.
+const INTERCEPTION_TARGETS = {
+  PAUSED_BY_KEY_REVOKED: '/key-revoked',
+  PAUSED_BY_PAYMENT_FAILURE: '/payment-failed',
+};
+
 /**
  * Read the shownInterceptionFor tracking object from req.session or cookie.
  * Unit tests inject req.session directly via a global preHandler.
@@ -152,44 +161,47 @@ export async function interceptionRedirect (req, reply) {
     }
 
     // ── Story 8.1: Epic 8 interceptions (UX-DR3, UX-DR32) ────────────────────
-    // PAUSED_BY_KEY_REVOKED triggers a one-time interception redirect to /key-revoked
-    // on the first login post-state-transition. Subsequent visits in the same state
+    // PAUSED_BY_KEY_REVOKED and PAUSED_BY_PAYMENT_FAILURE each trigger a one-time
+    // interception redirect to /key-revoked or /payment-failed respectively, on
+    // the first login post-state-transition. Subsequent visits in the same state
     // render the dashboard with a persistent red banner (no second redirect).
     //
-    // PAUSED_BY_PAYMENT_FAILURE renders the dashboard directly with a red danger
-    // banner (no interception redirect) — the "Atualizar pagamento" CTA on the
-    // dashboard is the action mechanism. Epic 11 billing wires the Stripe portal.
+    // The interception pages themselves ship in Story 8.9 (see Epic-8 distillate
+    // §Story 8.9 — `app/src/routes/interceptions/key-revoked.js` + payment-failed.js).
+    // Story 8.1's responsibility is the upstream redirect; Story 8.9 owns the
+    // destination pages and their action CTAs (Stripe portal for payment-failed,
+    // rotation flow for key-revoked).
     //
-    // Once-per-transition tracking: compare req.session.shownInterceptionFor
-    // against { state: cronState, since: stateUpdatedAt.toISOString() }.
-    // If they match, the interception was already shown — pass through.
-    if (cronState === 'PAUSED_BY_KEY_REVOKED') {
-      const target = '/key-revoked';
+    // Once-per-transition tracking: compare the read interception flag against
+    // { state: cronState, since: stateUpdatedAt.toISOString() }. If they match,
+    // the interception was already shown — pass through.
+    const interceptionTarget = INTERCEPTION_TARGETS[cronState];
+    if (interceptionTarget) {
       const since = stateUpdatedAt instanceof Date
         ? stateUpdatedAt.toISOString()
         : String(stateUpdatedAt);
 
       const existingFlag = readInterceptionFlag(req);
       const alreadyShown =
-        existingFlag?.state === 'PAUSED_BY_KEY_REVOKED' && existingFlag?.since === since;
+        existingFlag?.state === cronState && existingFlag?.since === since;
 
       if (alreadyShown) {
         // Subsequent visit in same state — pass through to render `/` with banner.
         req.log.info(
           { user_id: customerId, cron_state: cronState },
-          'interception-redirect: PAUSED_BY_KEY_REVOKED interception already shown; rendering dashboard with banner'
+          'interception-redirect: interception already shown; rendering dashboard with banner'
         );
       } else {
         // First login post-state-transition — redirect to interception page.
         // Mark as shown so subsequent visits skip the redirect (UX-DR32).
-        const flag = { state: 'PAUSED_BY_KEY_REVOKED', since };
+        const flag = { state: cronState, since };
         writeInterceptionFlag(req, reply, flag);
 
         req.log.info(
-          { user_id: customerId, cron_state: cronState, target },
-          'interception-redirect: PAUSED_BY_KEY_REVOKED interception triggered'
+          { user_id: customerId, cron_state: cronState, target: interceptionTarget },
+          'interception-redirect: interception triggered'
         );
-        return reply.redirect(target, 302);
+        return reply.redirect(interceptionTarget, 302);
       }
     }
   }
