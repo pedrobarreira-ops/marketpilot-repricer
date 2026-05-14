@@ -12,17 +12,19 @@ The coordinator's dispatch prompt provides:
 
 ---
 
-1. Create (or reuse) the worktree, forking from `{base_branch}`:
-     git worktree add {WORKTREE_BASE_PATH}/story-{number}-{short_description} \
-       -b story-{number}-{short_description} {base_branch}
-   If the worktree/branch already exists, switch to it, then absorb upstream
-   changes by merging `{base_branch}`:
-     git merge {base_branch}
-   For the typical case `{base_branch}` is `main`. For bundle-stacked dispatch
-   it will be an upstream bundle sibling's branch (e.g.
-   `story-5.1-master-cron-dispatcher-...`); merging that branch absorbs any
-   commits the upstream subagent has pushed since dispatch began. Resolve any
-   conflicts before continuing.
+1. Verify the worktree exists (Bob's `/bmad-create-story` creates it at shard
+   time per F2 Epic 7 retro 2026-05-14):
+     test -d {repo_root}/{WORKTREE_BASE_PATH}/story-{number}-{short_description}
+   If missing, HALT with `❌ Story {number}: worktree missing at
+   {WORKTREE_BASE_PATH}/story-{number}-{short_description}. Bob's
+   /bmad-create-story owns worktree creation at shard time — re-shard or
+   create manually before re-running BAD.`
+
+   For bundle-stacked dispatch (`{base_branch}` is an upstream sibling's PR
+   branch, not `main`): absorb upstream commits by merging:
+     git -C {repo_root}/{WORKTREE_BASE_PATH}/story-{number}-{short_description} merge {base_branch}
+   Resolve any conflicts before continuing. Skip this merge if `{base_branch}`
+   is `main` (the typical solo-dispatch case).
 
 2. Change into the worktree directory:
      cd {repo_root}/{WORKTREE_BASE_PATH}/story-{number}-{short_description}
