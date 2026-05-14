@@ -13,11 +13,24 @@
   /* Surface + line + ink tokens (Story 4.9 minimal palette) */
   --mp-surface: #ffffff;
   --mp-line: oklch(88% 0.01 255);
+  --mp-line-soft: oklch(95% 0.005 255);
   --mp-ink-3: oklch(48% 0.02 255);
+
+  /* Primary navy (buttons, logo) */
+  --mp-primary: oklch(38% 0.14 255);
+  --mp-primary-2: oklch(45% 0.16 255);
 
   /* Info (blue) — used by the dry-run banner per UX skeleton §9.5 */
   --mp-info: oklch(58% 0.14 255);
   --mp-info-soft: oklch(96% 0.025 255);
+
+  /* Danger (red) — payment failure, circuit breaker, key-revoked banners */
+  --mp-danger: oklch(52% 0.20 25);
+  --mp-danger-soft: oklch(97% 0.025 25);
+
+  /* Warning (yellow/amber) — anomaly attention banner §9.7 */
+  --mp-warning: oklch(70% 0.16 80);
+  --mp-warning-soft: oklch(97% 0.035 80);
 }
 
 /* ── Banner: shared component (Story 4.9 — dry-run banner per §9.5) ─────────── */
@@ -97,4 +110,126 @@
 /* Audit log link row */
 .mp-dashboard-audit-link {
   margin-block-start: 16px;
+}
+
+/* ── Story 8.1: additional banner variants ───────────────────────────────── */
+
+/* Danger (red) — payment_failure (#1), circuit_breaker (#2), key-revoked */
+.mp-banner-danger {
+  background: var(--mp-danger-soft);
+  border-left-color: var(--mp-danger);
+  color: var(--mp-color-fg, #0f1f3a);
+}
+
+.mp-banner-danger .material-symbols-outlined {
+  color: var(--mp-danger);
+  font-size: 22px;
+  line-height: 1;
+  flex: 0 0 24px;
+}
+
+/* Warning (yellow) — anomaly_attention (#3) */
+.mp-banner-warning {
+  background: var(--mp-warning-soft);
+  border-left-color: var(--mp-warning);
+  color: var(--mp-color-fg, #0f1f3a);
+}
+
+.mp-banner-warning .material-symbols-outlined {
+  color: var(--mp-warning);
+  font-size: 22px;
+  line-height: 1;
+  flex: 0 0 24px;
+}
+
+/* Neutral (grey) — sustained_transient (#4), paused_by_customer (#5) */
+.mp-banner-neutral {
+  background: var(--mp-line-soft);
+  border-left-color: var(--mp-line);
+  color: var(--mp-color-fg, #0f1f3a);
+}
+
+.mp-banner-neutral .material-symbols-outlined {
+  color: var(--mp-ink-3);
+  font-size: 22px;
+  line-height: 1;
+  flex: 0 0 24px;
+}
+
+/* Secondary CTA (no solid background — used in circuit breaker "Retomar" button) */
+.mp-banner-cta-secondary {
+  background: transparent;
+  color: var(--mp-ink-3);
+  border: 1px solid var(--mp-line);
+  border-radius: 6px;
+  padding: 8px 14px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mp-banner-cta-secondary:hover {
+  background: var(--mp-line);
+}
+
+/* ── Story 8.1: KPI state variants ──────────────────────────────────────── */
+
+/* Greyed: PAUSED_BY_CUSTOMER, PAUSED_BY_PAYMENT_FAILURE (60% opacity per AC#3) */
+.mp-kpi-grid--greyed .mp-kpi-card,
+.mp-kpi-grid--greyed .mp-kpi-placeholder {
+  opacity: 0.6;
+}
+
+/* Stale: PAUSED_BY_CIRCUIT_BREAKER, sustained_transient (watermark badge) */
+.mp-kpi-grid--stale .mp-kpi-card::after,
+.mp-kpi-grid--stale .mp-kpi-placeholder::after {
+  content: 'desatualizado';
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mp-ink-3);
+  opacity: 0.7;
+  margin-block-start: 4px;
+}
+
+/* Loading shimmer animation (§10.1 animation primitives, for skeleton KPI cards) */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+.mp-kpi-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--mp-line-soft) 25%,
+    var(--mp-line) 50%,
+    var(--mp-line-soft) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border: none;
+  border-radius: 8px;
+  min-height: 96px;
+}
+
+/* ── Story 8.1: DRY_RUN MODO SIMULAÇÃO badge ─────────────────────────────── */
+
+/* Positioned top-right below the sticky header per AC#3 */
+.mp-dry-run-badge {
+  position: absolute;
+  top: 16px;
+  right: 24px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--mp-info);
+  background: var(--mp-info-soft);
+  border: 1px solid var(--mp-info);
+  padding: 4px 8px;
+  border-radius: 6px;
+  pointer-events: none; /* badge only — not interactive */
+  white-space: nowrap;
 }

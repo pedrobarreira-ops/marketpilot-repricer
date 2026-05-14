@@ -1,4 +1,4 @@
-// app/src/middleware/interception-redirect.js — Story 4.6
+// app/src/middleware/interception-redirect.js — Story 4.6 + Story 8.1
 //
 // Fastify preHandler middleware that intercepts authenticated requests to `/`
 // and redirects to interception pages when the customer's account state
@@ -12,9 +12,11 @@
 // Story 4.9 — forward-only UX-DR2:
 //   cron_state = PROVISIONING AND no FAILED scan → /onboarding/scan
 //
-// Epic 8 stories will extend this middleware with additional interceptions:
-//   // Epic 8: PAUSED_BY_KEY_REVOKED → /key-revoked
-//   // Epic 8: PAUSED_BY_PAYMENT_FAILURE → /payment-failed
+// Story 8.1 — Epic 8 interceptions (UX-DR3, UX-DR32):
+//   PAUSED_BY_KEY_REVOKED → /key-revoked (first login post-transition only)
+//   PAUSED_BY_PAYMENT_FAILURE → /payment-failed (first login post-transition only)
+//   Subsequent visits in same state → render `/` with persistent red banner (no redirect)
+//   Once-per-transition tracking via req.session.shownInterceptionFor
 //
 // Architecture constraints:
 //   - Named exports only (no default export)
@@ -22,12 +24,75 @@
 //   - No console.log (pino only via req.log)
 //   - RLS-aware client (req.db) — scoped to authenticated customer
 
+// Cookie name for UX-DR32 once-per-transition interception tracking.
+// Signed cookie containing { state, since } JSON — avoids a new session dep.
+const INTERCEPTION_COOKIE_NAME = 'mp_interception';
+
+/**
+ * Read the shownInterceptionFor tracking object from req.session or cookie.
+ * Unit tests inject req.session directly via a global preHandler.
+ * Production uses a signed cookie via @fastify/cookie.
+ *
+ * @param {import('fastify').FastifyRequest} req
+ * @returns {{ state: string, since: string } | null}
+ */
+function readInterceptionFlag (req) {
+  // Test injection path: req.session is set by global preHandler in tests.
+  if (req.session?.shownInterceptionFor) {
+    return req.session.shownInterceptionFor;
+  }
+
+  // Production path: read from signed cookie.
+  if (req.cookies?.[INTERCEPTION_COOKIE_NAME]) {
+    try {
+      const unsigned = req.unsignCookie(req.cookies[INTERCEPTION_COOKIE_NAME]);
+      if (unsigned.valid && unsigned.value) {
+        return JSON.parse(unsigned.value);
+      }
+    } catch {
+      // Malformed cookie — treat as no flag set (fire interception).
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Write the shownInterceptionFor tracking object to req.session or cookie.
+ * Unit tests read req.session directly; production sets a signed cookie.
+ *
+ * @param {import('fastify').FastifyRequest} req
+ * @param {import('fastify').FastifyReply} reply
+ * @param {{ state: string, since: string }} flag
+ */
+function writeInterceptionFlag (req, reply, flag) {
+  // Test injection path: mutate req.session so tests can inspect.
+  if (req.session !== undefined) {
+    req.session.shownInterceptionFor = flag;
+    return;
+  }
+
+  // Production path: set a signed cookie (httpOnly, sameSite=lax).
+  // The flag persists until state transitions again — keyed by state+since pair.
+  try {
+    const signed = reply.signCookie(JSON.stringify(flag));
+    reply.setCookie(INTERCEPTION_COOKIE_NAME, signed, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+    });
+  } catch (err) {
+    req.log.warn({ err }, 'interception-redirect: failed to write interception cookie');
+  }
+}
+
 /**
  * Fastify preHandler: intercept requests to `/` for customers whose account
  * state requires attention. Redirects to the appropriate interception page.
  *
  * Story 4.6 implements the scan-failed interception (UX-DR3).
- * Epic 8 will extend this with key-revoked and payment-failed interceptions.
+ * Story 8.1 extends with key-revoked and payment-failed interceptions (UX-DR3, UX-DR32).
  *
  * Must run after authMiddleware and rlsContext (requires req.user and req.db).
  *
@@ -45,14 +110,12 @@ export async function interceptionRedirect (req, reply) {
 
   const customerId = req.user.id;
 
-  // ── Story 4.6: scan-failed interception ────────────────────────────────────
-  // Check cron_state = PROVISIONING AND latest scan_jobs row is FAILED.
-  // A customer re-validating their key after a scan failure will be in
-  // PROVISIONING until the new scan completes (PROVISIONING → DRY_RUN).
-  // Once cron_state advances past PROVISIONING, the scan failure is resolved —
-  // do NOT intercept.
+  // ── Query: cron_state + state_updated_at + scan_jobs status ───────────────
+  // Story 8.1 extends the original Story 4.6 query to include updated_at for
+  // once-per-transition tracking (UX-DR32). The updated_at timestamp changes
+  // whenever cron_state transitions — used as the "transition fingerprint".
   const { rows } = await req.db.query(
-    `SELECT cm.cron_state, sj.status AS scan_status
+    `SELECT cm.cron_state, cm.updated_at AS state_updated_at, sj.status AS scan_status
      FROM customer_marketplaces cm
      LEFT JOIN LATERAL (
        SELECT status
@@ -67,9 +130,9 @@ export async function interceptionRedirect (req, reply) {
   );
 
   if (rows.length > 0) {
-    const { cron_state: cronState, scan_status: scanStatus } = rows[0];
+    const { cron_state: cronState, state_updated_at: stateUpdatedAt, scan_status: scanStatus } = rows[0];
 
-    // Story 4.6: scan-failed interception
+    // ── Story 4.6: scan-failed interception ──────────────────────────────────
     if (cronState === 'PROVISIONING' && scanStatus === 'FAILED') {
       req.log.info(
         { user_id: customerId, cron_state: cronState, scan_status: scanStatus },
@@ -78,8 +141,8 @@ export async function interceptionRedirect (req, reply) {
       return reply.redirect('/scan-failed', 302);
     }
 
-    // Story 4.9: UX-DR2 forward-only — PROVISIONING without a FAILED scan
-    // (scan not started, pending, or in-progress) redirects to /onboarding/scan.
+    // ── Story 4.9: UX-DR2 forward-only ───────────────────────────────────────
+    // PROVISIONING without a FAILED scan → redirect to onboarding scan flow.
     if (cronState === 'PROVISIONING') {
       req.log.info(
         { user_id: customerId, cron_state: cronState },
@@ -88,13 +151,47 @@ export async function interceptionRedirect (req, reply) {
       return reply.redirect('/onboarding/scan', 302);
     }
 
-    // Epic 8 stories add additional interceptions here:
-    // if (cronState === 'PAUSED_BY_KEY_REVOKED') {
-    //   return reply.redirect('/key-revoked', 302);
-    // }
-    // if (cronState === 'PAUSED_BY_PAYMENT_FAILURE') {
-    //   return reply.redirect('/payment-failed', 302);
-    // }
+    // ── Story 8.1: Epic 8 interceptions (UX-DR3, UX-DR32) ────────────────────
+    // PAUSED_BY_KEY_REVOKED triggers a one-time interception redirect to /key-revoked
+    // on the first login post-state-transition. Subsequent visits in the same state
+    // render the dashboard with a persistent red banner (no second redirect).
+    //
+    // PAUSED_BY_PAYMENT_FAILURE renders the dashboard directly with a red danger
+    // banner (no interception redirect) — the "Atualizar pagamento" CTA on the
+    // dashboard is the action mechanism. Epic 11 billing wires the Stripe portal.
+    //
+    // Once-per-transition tracking: compare req.session.shownInterceptionFor
+    // against { state: cronState, since: stateUpdatedAt.toISOString() }.
+    // If they match, the interception was already shown — pass through.
+    if (cronState === 'PAUSED_BY_KEY_REVOKED') {
+      const target = '/key-revoked';
+      const since = stateUpdatedAt instanceof Date
+        ? stateUpdatedAt.toISOString()
+        : String(stateUpdatedAt);
+
+      const existingFlag = readInterceptionFlag(req);
+      const alreadyShown =
+        existingFlag?.state === 'PAUSED_BY_KEY_REVOKED' && existingFlag?.since === since;
+
+      if (alreadyShown) {
+        // Subsequent visit in same state — pass through to render `/` with banner.
+        req.log.info(
+          { user_id: customerId, cron_state: cronState },
+          'interception-redirect: PAUSED_BY_KEY_REVOKED interception already shown; rendering dashboard with banner'
+        );
+      } else {
+        // First login post-state-transition — redirect to interception page.
+        // Mark as shown so subsequent visits skip the redirect (UX-DR32).
+        const flag = { state: 'PAUSED_BY_KEY_REVOKED', since };
+        writeInterceptionFlag(req, reply, flag);
+
+        req.log.info(
+          { user_id: customerId, cron_state: cronState, target },
+          'interception-redirect: PAUSED_BY_KEY_REVOKED interception triggered'
+        );
+        return reply.redirect(target, 302);
+      }
+    }
   }
 
   // No interception triggered — allow the request to proceed to the dashboard handler.

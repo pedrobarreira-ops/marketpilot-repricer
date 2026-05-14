@@ -1,0 +1,100 @@
+<% layout('/layouts/default', { ...it, title: 'Dashboard · MarketPilot' }) %>
+
+<% const cronState = it.cronState; %>
+<% const anomalyCount = Number(it.anomalyCount || 0); %>
+<% const sustainedTransient = Boolean(it.sustainedTransientActive); %>
+
+<!-- Banner zone: one banner rendered per UX-DR4 precedence.
+     Precedence: payment_failure > circuit_breaker > anomaly > sustained_transient > paused_customer > key_revoked > dry_run -->
+<% if (cronState === 'PAUSED_BY_PAYMENT_FAILURE') { %>
+  <!-- §9.6 — red danger banner, warning icon. Precedence #1. -->
+  <div class="mp-banner mp-banner-danger" role="alert">
+    <span class="material-symbols-outlined" aria-hidden="true">warning</span>
+    <p class="mp-banner-text">
+      Pagamento falhou. Repricing pausado para proteger a tua conta. Os teus dados, margens e audit log ficam intactos.
+    </p>
+    <a href="/settings/billing" class="mp-banner-cta">Atualizar pagamento</a>
+  </div>
+<% } else if (cronState === 'PAUSED_BY_CIRCUIT_BREAKER') { %>
+  <!-- §9.8 — red danger banner, gpp_maybe icon. Precedence #2. -->
+  <div class="mp-banner mp-banner-danger" role="alert">
+    <span class="material-symbols-outlined" aria-hidden="true">gpp_maybe</span>
+    <p class="mp-banner-text">
+      Ciclo congelado por segurança. Nada foi enviado ao Worten desde então.
+    </p>
+    <a href="/audit" class="mp-banner-cta">Investigar</a>
+    <button class="mp-banner-cta-secondary">Retomar manualmente</button>
+  </div>
+<% } else if (anomalyCount > 0) { %>
+  <!-- §9.7 — yellow warning banner, error icon. Precedence #3. -->
+  <div class="mp-banner mp-banner-warning" role="status">
+    <span class="material-symbols-outlined" aria-hidden="true">error</span>
+    <p class="mp-banner-text">
+      <%= anomalyCount %> mudança(s) externa(s) de preço a precisar da tua revisão.
+    </p>
+    <a href="/audit" class="mp-banner-cta">Rever <%= anomalyCount %> eventos</a>
+  </div>
+<% } else if (sustainedTransient) { %>
+  <!-- §9.9 — grey neutral banner, schedule icon. Precedence #4. Informational only — no CTA. -->
+  <div class="mp-banner mp-banner-neutral" role="status">
+    <span class="material-symbols-outlined" aria-hidden="true">schedule</span>
+    <p class="mp-banner-text">
+      Atrasos temporários — verificações com a Worten estão lentas. Sem ações de preço novas até estabilizar.
+    </p>
+  </div>
+<% } else if (cronState === 'PAUSED_BY_CUSTOMER') { %>
+  <!-- §9.4 — grey neutral banner, pause_circle icon. Precedence #5. -->
+  <div class="mp-banner mp-banner-neutral" role="status">
+    <span class="material-symbols-outlined" aria-hidden="true">pause_circle</span>
+    <p class="mp-banner-text">
+      Repricing pausado por ti. Os preços no Worten ficam onde estão até retomares.
+    </p>
+    <button class="mp-banner-cta">Retomar repricing</button>
+  </div>
+<% } else if (cronState === 'PAUSED_BY_KEY_REVOKED') { %>
+  <!-- Persistent red danger banner for subsequent visits (UX-DR32).
+       First-time visit is intercepted by interception-redirect.js to /key-revoked. -->
+  <div class="mp-banner mp-banner-danger" role="alert">
+    <span class="material-symbols-outlined" aria-hidden="true">key_off</span>
+    <p class="mp-banner-text">
+      A tua chave de API Worten foi revogada. A rotação da chave é a única forma de retomar.
+    </p>
+  </div>
+<% } else if (cronState === 'DRY_RUN') { %>
+  <!-- §9.5 — blue info banner, science icon. Verbatim spec-locked copy. -->
+  <div class="mp-banner mp-banner-info" role="status">
+    <span class="material-symbols-outlined" aria-hidden="true">science</span>
+    <p class="mp-banner-text">
+      <strong>MODO SIMULAÇÃO</strong> · O que vês são decisões que o motor TOMARIA,
+      não acções no Worten. Quando estiveres confortável, vai live.
+    </p>
+    <button class="mp-banner-cta" id="btn-go-live">Ir live →</button>
+  </div>
+<% } %>
+
+<!-- DRY_RUN: MODO SIMULAÇÃO badge top-right (AC#3) -->
+<% if (cronState === 'DRY_RUN') { %>
+  <div class="mp-dry-run-badge" aria-label="Modo simulação activo">
+    MODO SIMULAÇÃO
+  </div>
+<% } %>
+
+<!-- KPI card grid slot — Story 8.2 fills this with kpi-cards.eta.
+     CSS modifiers: --greyed (PAUSED_BY_CUSTOMER, PAUSED_BY_PAYMENT_FAILURE)
+                    --stale  (PAUSED_BY_CIRCUIT_BREAKER, sustained_transient) -->
+<section class="mp-kpi-grid<% if (cronState === 'PAUSED_BY_CUSTOMER' || cronState === 'PAUSED_BY_PAYMENT_FAILURE') { %> mp-kpi-grid--greyed<% } %><% if (cronState === 'PAUSED_BY_CIRCUIT_BREAKER' || sustainedTransient) { %> mp-kpi-grid--stale<% } %>">
+  <!-- KPI shimmer skeletons — Story 8.2 replaces these with real kpi-cards.eta -->
+  <div class="mp-kpi-placeholder mp-kpi-shimmer" aria-busy="true"></div>
+  <div class="mp-kpi-placeholder mp-kpi-shimmer" aria-busy="true"></div>
+  <div class="mp-kpi-placeholder mp-kpi-shimmer" aria-busy="true"></div>
+</section>
+
+<!-- Margin editor slot — Story 8.4 ships the margin-editor.eta component -->
+<% if (cronState === 'DRY_RUN' || cronState === 'ACTIVE') { %>
+  <section class="mp-margin-editor-zone">
+    <!-- margin-editor.eta (Story 8.4) injected here -->
+  </section>
+<% } %>
+
+<!-- Script: dashboard.js — per-page vanilla script, defer near body end (F9: no bundler) -->
+<script src="/public/js/dashboard.js" defer></script>

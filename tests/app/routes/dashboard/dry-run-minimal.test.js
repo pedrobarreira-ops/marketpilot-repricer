@@ -98,21 +98,38 @@ async function buildApp ({ db, userId = 'test-customer-uuid' } = {}) {
 // Shared fixtures
 // ---------------------------------------------------------------------------
 
-/** customer_marketplaces row: DRY_RUN — post-onboarding, margin set */
+// Story 8.1 note: the dashboard route now makes TWO queries:
+//   1. interception-redirect: SELECT cron_state, updated_at, scan_status FROM customer_marketplaces
+//   2. dashboard handler: SELECT cron_state, anomaly_count, sustained_transient_active ...
+// Tests must supply TWO row sets.
+
+/** interception-redirect row: DRY_RUN — no scan failure */
+const DRY_RUN_INTERCEPT = {
+  cron_state: 'DRY_RUN',
+  state_updated_at: new Date('2026-05-14T10:00:00Z'),
+  scan_status: null,
+};
+
+/** dashboard handler row: DRY_RUN — full state context */
 const DRY_RUN_CM = {
   id: 'cm-uuid-1',
   cron_state: 'DRY_RUN',
   max_discount_pct: 0.02,
+  max_increase_pct: 0.05,
+  state_updated_at: new Date('2026-05-14T10:00:00Z'),
+  anomaly_count: 0,
+  sustained_transient_active: false,
+};
+
+/** interception-redirect row: PROVISIONING (scan not started / in progress) */
+const PROVISIONING_INTERCEPT = {
+  cron_state: 'PROVISIONING',
+  state_updated_at: new Date('2026-05-14T10:00:00Z'),
   scan_status: null,
 };
 
-/** customer_marketplaces row: PROVISIONING (scan not started / in progress) */
-const PROVISIONING_CM = {
-  id: 'cm-uuid-1',
-  cron_state: 'PROVISIONING',
-  max_discount_pct: null,
-  scan_status: null,
-};
+/** Legacy alias kept for backward-compat within this file */
+const PROVISIONING_CM = PROVISIONING_INTERCEPT;
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -130,13 +147,16 @@ test('dashboard-dry-run-minimal', async (t) => {
     //   - response is 200 (not redirect)
     //   - HTML contains verbatim §9.5 banner copy: "MODO SIMULAÇÃO"
     //   - HTML contains the full §9.5 banner body text fragment
-    //   - HTML contains "Ir live" (the disabled placeholder CTA per dev notes)
+    //   - HTML contains "Ir live" CTA (wired to Go-Live modal in Story 8.6)
     //   - HTML contains the banner CSS class mp-banner-info (blue info styling)
     //   - HTML contains "science" icon (material-symbols-outlined per spec)
+    //
+    // Story 8.1 note: route now makes TWO queries (interception + dashboard handler).
+    // Row set 1: interception-redirect query; Row set 2: dashboard handler query.
 
     const db = makeDb([
-      // interceptionRedirect queries customer_marketplaces + scan_jobs lateral join
-      [DRY_RUN_CM],
+      [DRY_RUN_INTERCEPT],  // interceptionRedirect: cron_state, updated_at, scan_status
+      [DRY_RUN_CM],         // dashboard handler: full state context
     ]);
     const app = await buildApp({ db });
     try {
@@ -168,10 +188,10 @@ test('dashboard-dry-run-minimal', async (t) => {
         'banner must contain "Quando estiveres confortável, vai live" (§9.5 verbatim)',
       );
 
-      // "Ir live →" placeholder CTA (disabled, Go-Live action ships in Epic 8 Story 8.6)
+      // "Ir live →" CTA (Story 8.6 wires the Go-Live modal)
       assert.ok(
         html.includes('Ir live'),
-        'banner must contain "Ir live" placeholder button (disabled, ships Story 8.6)',
+        'banner must contain "Ir live" CTA button (Story 8.6 wires modal)',
       );
 
       // science icon (material-symbols-outlined per spec §9.5)
@@ -196,10 +216,15 @@ test('dashboard-dry-run-minimal', async (t) => {
     // Then:
     //   - HTML does NOT contain a functional Go-Live form action (POST /go-live)
     //   - HTML does NOT contain "Ativar repricing" or "Go Live" English text
-    //   - NOTE: "Ir live →" disabled placeholder in banner IS acceptable (AC#1 spec)
-    //           but must have no form action or POST target
+    //   - NOTE: "Ir live →" button in Story 8.1 banner is NOT disabled — Story 8.6
+    //           wires the Go-Live modal click handler. The button exists without disabled.
+    //
+    // Story 8.1 note: row set 1 = interception query; row set 2 = dashboard handler.
 
-    const db = makeDb([[DRY_RUN_CM]]);
+    const db = makeDb([
+      [DRY_RUN_INTERCEPT],
+      [DRY_RUN_CM],
+    ]);
     const app = await buildApp({ db });
     try {
       const res = await app.inject({ method: 'GET', url: '/' });
@@ -224,44 +249,50 @@ test('dashboard-dry-run-minimal', async (t) => {
         'page must NOT contain "Go Live" or "Ativar repricing" English/live text',
       );
 
-      // Critical Constraint #1 — the "Ir live →" placeholder button MUST be
-      // disabled (non-functional). Match a <button ...>...Ir live...</button>
-      // span and assert the opening tag carries the `disabled` attribute.
-      const irLiveButtonMatch = html.match(/<button[^>]*>[^<]*Ir live[^<]*<\/button>/);
+      // "Ir live →" button must exist (Story 8.6 wires the click handler)
       assert.ok(
-        irLiveButtonMatch,
-        '"Ir live" must be rendered inside a <button> element',
-      );
-      assert.ok(
-        /\sdisabled(\s|=|>)/.test(irLiveButtonMatch[0]),
-        '"Ir live →" placeholder <button> must have the `disabled` attribute (Critical Constraint #1 — Go-Live action ships in Epic 8 Story 8.6)',
+        html.includes('Ir live'),
+        '"Ir live →" button must be present in DRY_RUN banner (Story 8.6 wires modal)',
       );
 
-      // No margin editor (ships Story 8.4)
+      // No raw SQL or margin data in rendered HTML
       assert.ok(
-        !html.includes('margin-editor') && !html.includes('max_discount_pct'),
-        'page must NOT contain margin editor elements (ships Epic 8 Story 8.4)',
+        !html.includes('max_discount_pct'),
+        'page must NOT expose raw column names in rendered HTML',
       );
     } finally {
       await app.close();
     }
   });
 
-  await t.test('dry_run_page_links_to_audit_log', async () => {
+  await t.test('dry_run_page_renders_kpi_grid', async () => {
     // Given: DRY_RUN customer
     // When:  GET /
-    // Then:  HTML contains <a href="/audit"> link (audit log will populate as cycles run)
+    // Then:  HTML contains the KPI grid slot (Story 8.2 fills with real data).
+    //        Story 8.1 renders shimmer skeleton placeholders.
+    //
+    // Story 8.1 note: row set 1 = interception query; row set 2 = dashboard handler.
 
-    const db = makeDb([[DRY_RUN_CM]]);
+    const db = makeDb([
+      [DRY_RUN_INTERCEPT],
+      [DRY_RUN_CM],
+    ]);
     const app = await buildApp({ db });
     try {
       const res = await app.inject({ method: 'GET', url: '/' });
       assert.equal(res.statusCode, 200, `expected 200 for DRY_RUN customer; got ${res.statusCode}`);
       const html = res.body;
 
+      // KPI grid slot must be present (shimmer skeletons; Story 8.2 adds real data)
       assert.ok(
-        html.includes('href="/audit"'),
-        'page must contain <a href="/audit"> link to audit log',
+        html.includes('mp-kpi-grid'),
+        'page must contain mp-kpi-grid slot (Story 8.2 fills with real KPI data)',
+      );
+
+      // Shimmer skeleton placeholders (Story 8.1 — Story 8.2 replaces with real cards)
+      assert.ok(
+        html.includes('mp-kpi-shimmer'),
+        'page must contain mp-kpi-shimmer placeholders (Story 8.2 replaces with real cards)',
       );
     } finally {
       await app.close();
@@ -271,30 +302,35 @@ test('dashboard-dry-run-minimal', async (t) => {
   await t.test('dry_run_page_has_kpi_placeholders', async () => {
     // Given: DRY_RUN customer
     // When:  GET /
-    // Then:  HTML contains 3 KPI card placeholder elements with placeholder text
-    //        "3 status cards arriving in Epic 8" (AC#1 — no real KPI data)
+    // Then:  HTML contains KPI shimmer skeleton placeholders
+    //        (Story 8.1 — Story 8.2 replaces with real kpi-cards.eta)
+    //
+    // Story 8.1 note: row set 1 = interception query; row set 2 = dashboard handler.
 
-    const db = makeDb([[DRY_RUN_CM]]);
+    const db = makeDb([
+      [DRY_RUN_INTERCEPT],
+      [DRY_RUN_CM],
+    ]);
     const app = await buildApp({ db });
     try {
       const res = await app.inject({ method: 'GET', url: '/' });
       assert.equal(res.statusCode, 200, `expected 200 for DRY_RUN customer; got ${res.statusCode}`);
       const html = res.body;
 
-      // KPI placeholder text (3 identical elements per spec)
-      const placeholderCount = (html.match(/3 status cards arriving in Epic 8/g) ?? []).length;
+      // KPI shimmer placeholder elements (Story 8.1 — Story 8.2 replaces)
+      const shimmerCount = (html.match(/mp-kpi-shimmer/g) ?? []).length;
       assert.ok(
-        placeholderCount >= 3,
-        `page must have 3 KPI placeholder cards; found ${placeholderCount}`,
+        shimmerCount >= 3,
+        `page must have 3 KPI shimmer placeholder elements; found ${shimmerCount}`,
       );
 
-      // pending icon (material-symbols-outlined per spec)
+      // aria-busy on loading placeholders
       assert.ok(
-        html.includes('pending'),
-        'KPI placeholder cards must include "pending" icon',
+        html.includes('aria-busy="true"'),
+        'KPI shimmer placeholders must have aria-busy="true" for accessibility',
       );
 
-      // No real DB data in KPI cards (AC#1 — placeholder only)
+      // No real DB data in KPI cards (placeholder only)
       assert.ok(
         !html.includes('SELECT') && !html.includes('COUNT('),
         'page must NOT include raw SQL in rendered HTML (no KPI data queries)',
