@@ -82,7 +82,7 @@
 # by design; pre-dates the rule).
 
 generated: 2026-05-01
-last_updated: 2026-05-14  # Epic 7 retro housekeeping batch closed at fcf81d3 (post-d90c2a8 retro). A1+K3 (c05b4f1), F1 (part of 1e555eb), D1+J1+J2 (9a0f047 via PR #97), F2 reverted (fcf81d3 — post-retro workflow-intent clarification; see retro doc Closeout Pass section + deferred-work.md "Post-retro clarification: F2 reversal"). Auto-shard via BAD restored as the workflow direction.
+last_updated: 2026-05-14  # bmad-create-story: Story 8.1 sharded 2026-05-14 (Bob); 8-1-dashboard-root-state-aware-view-sticky-header-chrome → ready-for-dev; epic-8 backlog → in-progress; first story of Epic 8 — full state-aware dashboard chrome replacing Story 4.9 minimal stub; Pattern A (7 state stubs); interception-redirect.js extended with Epic 8 PAUSED_BY_KEY_REVOKED + PAUSED_BY_PAYMENT_FAILURE once-per-transition intercepts; sticky header backdrop-filter:blur(12px) + banner zone + body slot; no Mirakl endpoints; test scaffolds from Epic-Start (index.test.js + dashboard-state-machine.test.js); Bundle B atomicity participant
 prev_updated: 2026-05-13  # bmad-retrospective: Bundle C close-out retro logged at bundle-c-close-out-retro-2026-05-13.md (joint close-out for Epic 5 + Epic 6); 12 sprint-status flips applied (8 Bundle C stories review → done + epic-5/6 in-progress → done + epic-5/6-retrospective optional → done). 9 Q-items + 8 W-items logged; see retro doc for full list.
 project: marketpilot-repricer  # updated by bmad-create-story: Story 1.1 sharded 2026-05-01; Story 1.2 sharded 2026-05-01; Story 1.3 sharded 2026-05-02; Story 1.4 sharded 2026-05-02; Story 1.5 sharded 2026-05-03; Story 1.5 → review 2026-05-03; Story 1.5 → done 2026-05-03 (post-review); Story 2.1 sharded 2026-05-03 (Bob) → ready-for-dev
 project_key: NOKEY
@@ -178,8 +178,8 @@ development_status:
   # =========================================================================
   # EPIC 8 -- Customer Dashboard & Surfaces  (architecture S-I phase 8)
   # =========================================================================
-  epic-8: backlog
-  8-1-dashboard-root-state-aware-view-sticky-header-chrome: backlog
+  epic-8: in-progress
+  8-1-dashboard-root-state-aware-view-sticky-header-chrome: ready-for-dev  # bmad-create-story: Story 8.1 sharded 2026-05-14 (Bob); BAD Step 1 subagent; Pattern A (7 state stubs); interception-redirect.js extended; sticky header chrome; Bundle B atomicity participant; 7 ACs; test scaffolds from Epic-Start
   8-2-kpi-cards-row-3-status-cards-from-free-report-family-secondary-catalog-value-lines: backlog
   8-3-pt-es-channel-toggle-pill-in-sticky-header: backlog
   8-4-margin-editor-inline-panel-with-worked-profit-example: backlog
