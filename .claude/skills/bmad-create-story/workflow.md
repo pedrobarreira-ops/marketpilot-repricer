@@ -356,17 +356,7 @@ Load config from `{project-root}/_bmad/bmm/config.yaml` and resolve:
     <action>Update development_status[{{story_key}}] = "ready-for-dev"</action>
     <action>Update last_updated field to current date</action>
     <action>Save file, preserving ALL comments and structure including STATUS DEFINITIONS</action>
-    <action>Commit the sprint-status flip + the new story spec on main: `git add {{sprint_status}} {{story_file}} && git commit -m "chore(story-shard): Story {{story_id}} sharded — ready-for-dev"`</action>
   </check>
-
-  <!-- F2 (Epic 7 retro 2026-05-14): Bob creates the worktree at shard time. -->
-  <!-- BAD's Step 1 assumes the worktree already exists; do NOT skip this block. -->
-  <!-- Bundle-stacked stories (rare): pass an explicit base branch via prompt; default is main. -->
-  <action>Set {{worktree_base}} = `.worktrees` (override from `_bmad/config.user.yaml` if `WORKTREE_BASE_PATH` is set)</action>
-  <action>Set {{base_branch}} = `main` (override only if user specified a bundle-upstream branch when invoking the skill)</action>
-  <action>Set {{worktree_path}} = `{repo_root}/{{worktree_base}}/story-{{story_key}}`</action>
-  <action>From {repo_root}, run: `git worktree add {{worktree_path}} -b story-{{story_key}} {{base_branch}}`</action>
-  <action>Worktree branch starts identical to {{base_branch}} (sprint-status commit already on main, will arrive in the worktree on its next pull/merge). Do NOT push the new branch — BAD Step 6 owns the first push.</action>
 
   <action>Report completion</action>
   <output>**🎯 ULTIMATE BMad Method STORY CONTEXT CREATED, {user_name}!**

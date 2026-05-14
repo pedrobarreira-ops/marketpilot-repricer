@@ -348,7 +348,7 @@ commit pushed directly to origin/main:
 
 | After step | Flip story to | Commit message |
 |---|---|---|
-| Step 1 (Create) | `ready-for-dev` | (Bob's `/bmad-create-story` does this at shard time per F2) |
+| Step 1 (Create) | `ready-for-dev` | (Step 1 itself does this — it runs on main) |
 | Step 2 (ATDD) success | `atdd-done` | `chore(sprint-status): Story {N} → atdd-done` |
 | Step 3 (Develop) success | `review` | `chore(sprint-status): Story {N} → review (dev-done)` |
 

@@ -29,9 +29,9 @@ so that {{benefit}}.
 
 ### Mechanism trace
 
-REQUIRED for any story whose ACs describe outcomes achieved by transactional, cross-file, or call-chain mechanisms (state transitions, audit emission, cron wire-up, atomicity bundles, etc.). Skip only for pure-additive stories with no mechanism dependency (e.g., new lint rule, new doc, isolated utility).
+Include this section ONLY when the story's ACs depend on a transactional, cross-file, or call-chain mechanism — state transitions, audit emission, cron wire-up, atomicity bundles, in-tx vs post-tx ordering. For pure-additive stories (new lint rule, new doc, new isolated utility, new component, pure UI / data display, schema-only migration), omit the section entirely.
 
-Cite concrete `file:line` evidence for each item:
+When included, cite concrete `file:line` evidence for each item:
 
 - **Call-chain trace** — Where does the call originate (cron entry, route handler, sibling module)? What is the full path from entry to the new code? Identify the producing site for every input the new code consumes.
 - **Tx-topology citation** — For each DB write or audit emission: does the surrounding `tx` come from an explicit `BEGIN/COMMIT` block, or is it autocommit-per-statement? Cite the BEGIN site (or its absence) by `file:line`. Reference [project-context.md](../../project-context.md) §3 Bundle B variants.
