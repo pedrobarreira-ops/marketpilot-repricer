@@ -726,6 +726,13 @@ describe('reconciliation — cross-customer iteration (AC4 test 7)', () => {
       selectSql.toLowerCase().includes('pending_import_id'),
       'SELECT must include pending_import_id IS NULL predicate',
     );
+    // J1 (Epic 7 retro 2026-05-14): SELECT must include excluded_at IS NULL on the
+    // JOINed skus table so operator-excluded SKUs never re-enter the nightly sweep.
+    // Dormant in MVP (no SKUs flagged) but gates the Phase-2 manual-exclusion feature.
+    assert.ok(
+      /s\.excluded_at\s+is\s+null/i.test(selectSql),
+      'SELECT must include "s.excluded_at IS NULL" predicate (J1 — excluded_at lives on the JOINed skus table, not sku_channels)',
+    );
 
     // THEN: Source file MUST contain the inline // safe: cross-customer cron comment above the SELECT
     // This is the dual-pragma pattern required by Constraint #24 (worker-must-filter-by-customer)

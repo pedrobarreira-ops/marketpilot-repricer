@@ -520,3 +520,38 @@ describe('AC8 — Bundle C module presence verification', () => {
     assert.equal(typeof dispatchCycle, 'function', 'dispatchCycle must be a function');
   });
 });
+
+// D1 (Epic 7 retro 2026-05-14): positive anomaly-freeze assertion.
+// AC1's parametric fixture loop covers anomaly-freeze generically via the auditEvent
+// oracle, but a named, explicit test makes the positive emission visible by test name
+// (deferred-work.md line 481 / line 417 — closes the missing-positive-assertion gap
+// and lifts Bundle C floor 47 → 48).
+
+describe('D1 — Anomaly-freeze positive emission (Story 7.4 freeze path)', () => {
+  test('p11-cooperative-absorption-anomaly-freeze fires anomaly-freeze auditEvent with SKIP action', async () => {
+    const { offers, fixtureMeta } = loadFixture('p11-cooperative-absorption-anomaly-freeze');
+    const skuChannel = buildMockSkuChannel(fixtureMeta);
+    const customerMarketplace = buildMockCustomerMarketplace(fixtureMeta);
+    const tx = buildMockTx();
+
+    const result = await decideForSkuChannel({
+      skuChannel,
+      customerMarketplace,
+      ownShopName: customerMarketplace.shop_name,
+      p11RawOffers: offers,
+      tx,
+    });
+
+    assert.equal(result.action, 'SKIP', 'freeze path must short-circuit to SKIP');
+    assert.equal(result.newPriceCents, null, 'SKIP action must carry newPriceCents=null');
+    assert.equal(result.reason, 'cooperative-absorb-skip', 'reason must identify the freeze short-circuit branch in decide.js STEP 2');
+    assert.ok(
+      Array.isArray(result.auditEvents),
+      'auditEvents must be an array',
+    );
+    assert.ok(
+      result.auditEvents.includes('anomaly-freeze'),
+      `auditEvents must include 'anomaly-freeze' on the freeze path; got ${JSON.stringify(result.auditEvents)}`,
+    );
+  });
+});
