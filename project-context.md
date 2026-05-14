@@ -163,12 +163,13 @@ Three MCPs are wired into Claude Code. Each has a specific role and a conflict-r
 
 ### Bundle B — state transition + audit emission (Step 5 pattern lock, AD15 + AD20)
 
-- `transitionCronState({ tx, customerMarketplaceId, from, to, context })` performs `UPDATE ... WHERE cron_state = $from` (optimistic concurrency: 0 rows → `ConcurrentTransitionError`) AND calls `writeAuditEvent({ tx, ..., eventType, ... })` in **same transaction**
+- `transitionCronState({ tx, customerMarketplaceId, from, to, context })` performs `UPDATE ... WHERE cron_state = $from` (optimistic concurrency: 0 rows → `ConcurrentTransitionError`) AND calls `writeAuditEvent({ tx, ..., eventType, ... })` in **same caller-owned transaction** (top-level state machines: callers MUST wrap with BEGIN/COMMIT, e.g. `dispatcher.js:136-144` cycle-start/cycle-end micro-tx)
 - Legal-transitions matrix in `shared/state/transitions-matrix.js` defines all 7 valid transitions as JS object literal
 - Rejects illegal transitions (e.g., `'PAUSED_BY_CIRCUIT_BREAKER' → 'PAUSED_BY_CUSTOMER'` would skip manual unblock)
 - Identical pattern for `freezeSkuForReview` (AD12 — atomic with audit emission, orthogonal to `cron_state`)
 - `writeAuditEvent` may accept `eventType: null` for non-engine state changes (Story 10.1 deletion-grace transition uses this — see Note 18 below)
-- **Pattern enforced across**: Stories 4.2, 8.1, 10.1, 11.5, 12.1, plus all subsequent state-transition emitters
+- **Pattern enforced across**: Stories 4.2, 8.1, 10.1, 11.5, 12.1, plus all subsequent top-level state-transition emitters
+- **Variant — high-throughput per-SKU loops (cycle-assembly, AD8 + AD9 + AD11 + reconciliation)**: per-SKU state mutation + audit emission run as **sequenced autocommits with post-persistence side effects** — no outer BEGIN/COMMIT wraps the per-SKU iteration; each `tx.query()` and `writeAuditEvent({ tx, ... })` autocommits at its own boundary. Ordering invariant preserved: UPDATE statement MUST execute before the corresponding `writeAuditEvent` INSERT so audit rows never out-run persisted state. Critical-alert / notification side effects (Story 7.4 `sendCriticalAlert`, Story 7.6 per-SKU CB trip alert) emit AFTER both have committed. Ratified for Stories 5.2, 7.2, 7.4, 7.5, 7.6, 7.7 per SCP-2026-05-13 (Path I); applies to all current and future cycle-assembly emit-loop participants. **Promotion trigger**: if autocommit semantics ever cause a real bug (audit row INSERTed but state UPDATE silently failed, or vice versa), revisit and wrap per-SKU iteration in explicit BEGIN/COMMIT.
 
 ### Bundle C — PRI01 atomic emission across all participating sku_channel rows (AD7)
 
