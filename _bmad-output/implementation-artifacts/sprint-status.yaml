@@ -261,7 +261,7 @@ epic_test_design:
   5: done  # test scaffolds committed 2026-05-08 (epic-start-test-design subagent); 3 scaffold files + epic-5-test-plan.md; ~34 test cases across 2 stories; dispatcher SQL verbatim, advisory lock bigint determinism, ESLint worker-must-filter-by-customer, Story 9.1 retrofit pragma, Bundle C partial invariant, pri01_staging RLS
   6: done  # test scaffolds committed 2026-05-08 (epic-start-test-design subagent); 3 scaffold files + epic-6-test-plan.md; ~73 test cases across 3 stories; Bundle C atomicity invariants, golden-file CSV fixtures, ESLint no-raw-CSV-building, pending_import_id lifecycle, PRI03 3-strike escalation, AC#4 freeze-representation design choice mandate (AD12)
   7: done  # test scaffolds committed 2026-05-10 (epic-start-test-design subagent); 10 scaffold files + epic-7-test-plan.md; ~120 test cases across 8 stories; Bundle C atomicity gate (17 P11 fixtures), no-float-price ESLint, F1 atomic T2a→T2b, resolved_at pattern for Atenção events, pending_import_id invariant, per-SKU 15% + per-cycle 20% F6 denominator
-  8: pending
+  8: done  # test scaffolds committed 2026-05-14 (epic-start-test-design subagent); 12 scaffold files + epic-8-test-plan.md; ~130 test cases across 12 stories; dashboard state machine (7 cron_state variants), banner UX4 precedence, representative-SKU rule, verbatim PT copy assertions, admin-status RLS gate, mobile critical-alert surface
   9: done
   10: pending
   11: pending
