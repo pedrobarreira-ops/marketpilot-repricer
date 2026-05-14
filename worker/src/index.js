@@ -7,6 +7,7 @@ import { startMasterCron } from './jobs/master-cron.js';
 import { startPri02PollCron } from './jobs/pri02-poll.js';
 import { runMonthlyPartitionCreate } from './jobs/monthly-partition-create.js';
 import { processNextPendingScan } from './jobs/onboarding-scan.js';
+import { startReconciliationCron } from './jobs/reconciliation.js';
 import { closeServiceRolePool } from '../../shared/db/service-role-client.js';
 
 getEnv();
@@ -84,6 +85,19 @@ cron.schedule(
   },
   { timezone: 'Europe/Lisbon' }
 );
+
+// Story 7.7: Daily Tier-3 nightly-reconciliation cron.
+// Fires every day at midnight Lisbon time — runs runReconciliationPass to sweep
+// every Tier 3 sku_channel across ALL customers, fetch P11 + self-filter, apply
+// tier-classification on real transitions, and emit tier-transition +
+// new-competitor-entered audit events directly (Pattern A — bypasses
+// cycle-assembly's emit loop and supplies the canonical PayloadForTierTransition
+// + PayloadForNewCompetitorEntered shapes per shared/audit/event-types.js).
+// Independent schedule from master-cron.js; no in-flight guard needed
+// (reconciliation is daily; master-cron is 5-min; both share Story 7.5's
+// optimistic-concurrency guard `WHERE id=$N AND tier=$expectedFromTier` for
+// race resolution on the rare overlap window).
+startReconciliationCron(logger);
 
 // Story 4.4: Onboarding scan poller — check for PENDING scan_jobs every 5 seconds.
 // processNextPendingScan() is a no-op when no PENDING scans exist.
