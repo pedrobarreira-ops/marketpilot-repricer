@@ -3,19 +3,56 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title><%= it.title %> — <%= it.appName %></title>
+    <title><%= it.title || 'MarketPilot' %></title>
     <link rel="stylesheet" href="/public/css/tokens.css" />
+    <link rel="stylesheet" href="/public/css/layout.css" />
     <link rel="stylesheet" href="/public/css/components.css" />
+    <!-- Material Symbols icon font (F9: no bundler — CDN link per story spec) -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
   </head>
   <body class="mp-body">
-    <header class="mp-header" role="banner">
-      <a class="mp-header-brand" href="/"><%= it.appName %></a>
+
+    <!-- Sticky header — backdrop-filter: blur(12px) + 85% bg opacity (§10.1) -->
+    <header class="mp-sticky-header" role="banner">
+      <div class="mp-container mp-header-inner">
+        <!-- Logo / home link -->
+        <a href="/" class="mp-logo" aria-label="MarketPilot — voltar ao Dashboard">
+          <span class="mp-logo-text"><%= it.appName || 'MarketPilot' %></span>
+        </a>
+
+        <!-- Channel toggle slot — Story 8.3 fills this with channel-toggle.eta -->
+        <%~ it.channelToggle || '' %>
+
+        <!-- Pause/resume slot — Story 8.5 fills this with pause-button.eta -->
+        <%~ it.pauseButton || '' %>
+
+        <nav class="mp-header-nav" aria-label="Navegação principal">
+          <a href="/settings/account" class="mp-header-nav-link">Definições</a>
+        </nav>
+
+        <!-- Session avatar — email and initials set by dashboard route handler -->
+        <div class="mp-avatar" aria-label="Conta: <%= it.userEmail || '' %>">
+          <span class="mp-avatar-initials"><%= it.userInitials || '?' %></span>
+        </div>
+      </div>
     </header>
-    <main class="mp-main" role="main">
+
+    <!-- Banner zone (above body, populated by banners.eta consumer in Story 8.8) -->
+    <div class="mp-banner-zone" aria-live="polite">
+      <%~ it.banner || '' %>
+    </div>
+
+    <!-- Body slot -->
+    <main class="mp-container mp-main" id="main-content" tabindex="-1">
       <%~ it.body %>
     </main>
+
+    <!-- Footer -->
     <footer class="mp-footer" role="contentinfo">
-      <small>&copy; <%= new Date().getFullYear() %> <%= it.appName %></small>
+      <div class="mp-container">
+        <p class="mp-footer-copy">MarketPilot &copy; <%= new Date().getFullYear() %></p>
+      </div>
     </footer>
+
   </body>
 </html>

@@ -623,7 +623,6 @@ tests/integration/dashboard-state-machine.test.js
 
 ### Agent Model Used
 
-claude-sonnet-4-6 (Step 1 BAD subagent — story creation, 2026-05-14)
 claude-sonnet-4-6 (Step 3 BAD subagent — development, 2026-05-14)
 
 ### Debug Log References

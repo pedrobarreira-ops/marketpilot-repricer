@@ -1,19 +1,24 @@
-// app/src/routes/dashboard/index.js — Story 4.9
+// app/src/routes/dashboard/index.js — Story 8.1 (replaces Story 4.9 minimal stub)
 //
-// GET `/` — Dry-run minimal landing dashboard (DRY_RUN cron_state).
+// GET `/` — Full state-aware dashboard (replaces dry-run-minimal stub from 4.9).
 //
 // Auth guard (authMiddleware), RLS context (rlsContext), and interception
 // redirect (interceptionRedirect) are applied as preHandler hooks.
-// The handler that reaches the template render assumes DRY_RUN
-// (PROVISIONING customers are redirected by interceptionRedirect before
-// reaching this handler — UX-DR2).
+// The handler queries full dashboard state (cron_state + anomaly_count +
+// sustained_transient_active) and passes it to dashboard.eta.
+//
+// Story 4.9 stub: rendered dashboard-dry-run-minimal.eta with no DB query.
+// Story 8.1:      queries customer_marketplaces + sku_channels + audit_log
+//                 and renders dashboard.eta with full state context.
 //
 // Critical constraints (do NOT relax):
-//   - No audit event calls (no AD20 event type defined for dashboard landing)
-//   - No cron_state transition calls (no state change in Story 4.9)
+//   - No audit event calls (no state change in this route — read-only)
+//   - No cron_state transition calls (read only)
 //   - pino only for logging (req.log)
 //   - async/await only (no promise-chain style)
 //   - Named export only (no default export)
+//   - Uses PRI01 only (never PRI01's predecessor endpoint)
+//   - No SPA framework imports
 
 import { authMiddleware } from '../../middleware/auth.js';
 import { rlsContext, releaseRlsClient } from '../../middleware/rls-context.js';
@@ -60,7 +65,7 @@ async function rlsContextConditional (req, reply) {
 }
 
 /**
- * Register GET `/` — minimal dry-run dashboard route.
+ * Register GET `/` — full state-aware dashboard route.
  * Auth + RLS + interception hooks are applied at plugin scope (encapsulated).
  *
  * @param {import('fastify').FastifyInstance} fastify
@@ -73,7 +78,56 @@ export async function dashboardRoutes (fastify, _opts) {
   fastify.addHook('preHandler', interceptionRedirect);
   fastify.addHook('onResponse', releaseRlsClient);
 
-  fastify.get('/', async (_req, reply) => {
-    return reply.view('pages/dashboard-dry-run-minimal.eta', {});
+  fastify.get('/', async (req, reply) => {
+    // interceptionRedirect middleware has already run and allowed this through.
+    // Query full dashboard state for the authenticated customer.
+    //
+    // Tx-topology: No BEGIN/COMMIT. All reads are autocommit-per-statement via
+    // req.db.query() (RLS-aware Supabase client). No writes occur here.
+    //
+    // sustained_transient_active: column added by Story 8.1 migration
+    // (202605140001). Story 12.1 will set this to TRUE when ≥3 consecutive
+    // cycle failures are detected. Defaults to FALSE.
+    const { rows } = await req.db.query(
+      `SELECT
+         cm.cron_state,
+         cm.max_discount_pct,
+         cm.max_increase_pct,
+         cm.updated_at AS state_updated_at,
+         cm.sustained_transient_active,
+         COALESCE(
+           (SELECT COUNT(*)::int FROM sku_channels sc
+            WHERE sc.customer_marketplace_id = cm.id
+              AND sc.frozen_for_anomaly_review = TRUE),
+           0
+         ) AS anomaly_count
+       FROM customer_marketplaces cm
+       WHERE cm.customer_id = $1
+       LIMIT 1`,
+      [req.user.id]
+    );
+
+    if (rows.length === 0) {
+      // Customer has no marketplace — shouldn't happen post-onboarding, but be safe.
+      req.log.warn({ user_id: req.user.id }, 'dashboard: no customer_marketplace row found');
+      return reply.redirect('/onboarding/scan', 302);
+    }
+
+    const state = rows[0];
+
+    // Derive user initials for avatar from email (email always set — auth.js guards this).
+    const email = req.user.email ?? '';
+    const namePart = email.split('@')[0] ?? '';
+    const initials = namePart.slice(0, 2).toUpperCase() || '?';
+
+    return reply.view('pages/dashboard.eta', {
+      cronState: state.cron_state,
+      anomalyCount: Number(state.anomaly_count ?? 0),
+      sustainedTransientActive: Boolean(state.sustained_transient_active),
+      maxDiscountPct: state.max_discount_pct,
+      maxIncreasePct: state.max_increase_pct,
+      userEmail: email,
+      userInitials: initials,
+    });
   });
 }

@@ -1,0 +1,122 @@
+/* layout.css — structural layout styles for MarketPilot app
+ * Contains layout primitives: sticky header, container, main, footer.
+ * Component-scoped styles live in components.css; design tokens in tokens.css.
+ * Story 8.1: sticky header chrome per UX skeleton §10.1.
+ *
+ * Do NOT add component-scoped styles here — they belong in components.css.
+ */
+
+/* ── Container ───────────────────────────────────────────────────────────── */
+
+.mp-container {
+  max-width: 1280px;
+  margin-inline: auto;
+  padding-inline: 24px;
+}
+
+/* ── Sticky header — backdrop-filter: blur(12px) + 85% bg opacity (§10.1) ─ */
+
+.mp-sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background-color: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--mp-line, oklch(88% 0.01 255));
+}
+
+.mp-header-inner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 56px;
+}
+
+/* ── Logo ─────────────────────────────────────────────────────────────────── */
+
+.mp-logo {
+  text-decoration: none;
+  color: inherit;
+}
+
+.mp-logo-text {
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+  color: var(--mp-primary, oklch(38% 0.14 255));
+}
+
+/* ── Header nav ──────────────────────────────────────────────────────────── */
+
+.mp-header-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-inline-start: auto;
+}
+
+.mp-header-nav-link {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--mp-ink-3, oklch(48% 0.02 255));
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.mp-header-nav-link:hover {
+  background: var(--mp-line, oklch(88% 0.01 255));
+}
+
+/* ── Session avatar ──────────────────────────────────────────────────────── */
+
+.mp-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--mp-primary, oklch(38% 0.14 255));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 32px;
+}
+
+.mp-avatar-initials {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1;
+}
+
+/* ── Banner zone ─────────────────────────────────────────────────────────── */
+
+/* Banner zone is a structural slot above the main content. No declarations
+ * needed today — Story 8.8 will populate visual rules when banners.eta lands.
+ * The empty class is intentional so the HTML hook is stable across stories. */
+
+/* ── Main body slot ──────────────────────────────────────────────────────── */
+
+.mp-main {
+  padding-block: 32px;
+  min-height: calc(100vh - 56px - 48px); /* viewport minus header and footer */
+  position: relative; /* for mp-dry-run-badge absolute positioning */
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+
+.mp-footer {
+  border-top: 1px solid var(--mp-line, oklch(88% 0.01 255));
+}
+
+.mp-footer .mp-container {
+  height: 48px;
+  display: flex;
+  align-items: center;
+}
+
+.mp-footer-copy {
+  margin: 0;
+  font-size: 12px;
+  color: var(--mp-ink-3, oklch(48% 0.02 255));
+}
