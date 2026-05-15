@@ -54,12 +54,13 @@
   font-size: 1.25rem;
 }
 
-.mp-main {
-  flex: 1;
-  padding: var(--mp-spacing-lg);
-  display: flex;
-  justify-content: center;
-}
+/* .mp-main rule removed 2026-05-15 (post-Story 8.1 smoke test).
+ * The previous rule (display: flex; justify-content: center) made
+ * .mp-main a horizontal flex row, which caused Story 8.1's dashboard
+ * banner + KPI grid to render as side-by-side stretched children
+ * instead of stacked block layout. The dashboard rule lives in
+ * layout.css now (correct ownership: tokens.css = design tokens,
+ * layout.css = layout primitives, components.css = component styles). */
 
 .mp-footer {
   border-top: 1px solid var(--mp-color-border);

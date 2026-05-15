@@ -98,6 +98,12 @@
 /* ── Main body slot ──────────────────────────────────────────────────────── */
 
 .mp-main {
+  /* flex: 1 so the body's flex-column layout (set in tokens.css .mp-body)
+   * pushes the footer to the bottom of the viewport when content is short.
+   * This used to live in tokens.css alongside a broken display:flex rule
+   * that turned .mp-main into a horizontal flex row — removed 2026-05-15.
+   */
+  flex: 1;
   padding-block: 32px;
   min-height: calc(100vh - 56px - 48px); /* viewport minus header and footer */
   position: relative; /* for mp-dry-run-badge absolute positioning */
