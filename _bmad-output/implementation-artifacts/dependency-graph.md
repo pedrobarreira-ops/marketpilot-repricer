@@ -1,5 +1,5 @@
 # Story Dependency Graph
-_Last updated: 2026-05-15 (SCP amendment — Stories 9.2 and 9.3 added to calendar_early_overrides per sprint-change-proposal-2026-05-15.md, resolving 8.2↔9.2 deadlock; Phase 0 pass 30 baseline preserved for reference)_
+_Last updated: 2026-05-15 (Phase 0 pass 31 — GitHub reconciliation: all statuses confirmed consistent; no sprint-status changes needed; Ready cells recomputed; no new worktrees to clean up; repo on main at f60802c)_
 
 ## Stories
 
@@ -131,7 +131,7 @@ _Last updated: 2026-05-15 (SCP amendment — Stories 9.2 and 9.3 added to calend
 
 ## Notes
 
-### Current State (Phase 0 pass 30 — 2026-05-15 Story 8.1 done, Epic 8 in-progress, multiple Epic 8 stories now Ready)
+### Current State (Phase 0 pass 31 — 2026-05-15 GitHub reconciliation pass; no status changes; Epic 8 in-progress)
 
 - **BUNDLE C COMPLETE**: PR #91 (Bundle C atomicity gate — Story 7.8 + all 8 participants) merged 2026-05-11T20:06:22Z. This mega-merge (squash commit 89b2378) supersedes individual PRs #81-#89 (all CLOSED). All 8 Bundle C participants (5.1, 5.2, 6.1, 6.2, 6.3, 7.2, 7.3, 7.6) + gate 7.8 are `done`. 45/45 integration tests passed against real Bundle C modules.
 - **EPIC 7 COMPLETE** (9/9 stories done: 7.1+7.2+7.3+7.4+7.5+7.6+7.7+7.8+7.9). Epic 7 retrospective done (epic-7-retro-2026-05-14.md).
