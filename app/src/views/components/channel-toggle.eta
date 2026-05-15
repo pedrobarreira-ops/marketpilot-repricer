@@ -1,0 +1,28 @@
+<!-- app/src/views/components/channel-toggle.eta — Story 8.3 -->
+<!-- PT/ES channel toggle pill for the sticky header.
+     Rendered server-side by the dashboard route handler and injected into
+     the default.eta channelToggle slot (<%~ it.channelToggle || '' %>).
+     Client-side toggle state management: public/js/dashboard.js §Channel toggle slot (Story 8.3).
+-->
+
+<% if (it.channelCount >= 2) { %>
+  <div class="mp-channel-toggle" role="group" aria-label="Canal de preços ativo">
+    <button
+      class="mp-toggle-btn <% if (it.activeChannel === 'pt') { %>mp-toggle-btn--active<% } %>"
+      data-channel="pt"
+      aria-selected="<%= it.activeChannel === 'pt' ? 'true' : 'false' %>"
+      aria-label="Canal Portugal"
+      type="button"
+    >PT</button>
+    <button
+      class="mp-toggle-btn <% if (it.activeChannel === 'es') { %>mp-toggle-btn--active<% } %>"
+      data-channel="es"
+      aria-selected="<%= it.activeChannel === 'es' ? 'true' : 'false' %>"
+      aria-label="Canal Espanha"
+      type="button"
+    >ES</button>
+    <!-- Phase 2: 'Both' merged view requires cross-channel EAN deduplication — deferred per UX-DR14 -->
+  </div>
+<% } %>
+<!-- Single-channel: toggle hidden (channelCount < 2) per AC#4.
+     Phase 2: show disabled toggle with tooltip "Apenas PT ativo neste marketplace" if UX requests it. -->

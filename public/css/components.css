@@ -214,6 +214,44 @@
   min-height: 96px;
 }
 
+/* ── Story 8.3: Channel toggle pill ─────────────────────────────────────── */
+/* Visual DNA carried from MarketPilot.html §10.1 (PT/ES toggle pill).
+   CSS ownership: components.css only (never tokens.css or layout.css).
+   Renders in the sticky header channelToggle slot (default.eta: <%~ it.channelToggle || '' %>). */
+
+.mp-channel-toggle {
+  display: flex;
+  background: var(--mp-surface);
+  border: 1px solid var(--mp-line-soft);
+  border-radius: var(--mp-radius-sm, 6px);
+  padding: 4px;
+  gap: 0;
+}
+
+.mp-toggle-btn {
+  padding: 8px 18px;
+  border: none;
+  cursor: pointer;
+  background: transparent;
+  color: var(--mp-ink-2, var(--mp-ink-3));
+  font-weight: 600;
+  font-size: 13px;
+  border-radius: calc(var(--mp-radius-sm, 6px) - 2px);
+  transition: all 0.15s;
+  font-family: var(--mp-font-display, inherit);
+  letter-spacing: -0.01em;
+}
+
+.mp-toggle-btn--active {
+  background: var(--mp-primary);
+  color: #fff;
+}
+
+.mp-toggle-btn:focus-visible {
+  outline: 2px solid var(--mp-primary);
+  outline-offset: 2px;
+}
+
 /* ── Story 8.1: DRY_RUN MODO SIMULAÇÃO badge ─────────────────────────────── */
 
 /* Positioned top-right below the sticky header per AC#3 */
