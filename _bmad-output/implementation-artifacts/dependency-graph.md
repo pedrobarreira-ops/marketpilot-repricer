@@ -1,5 +1,5 @@
 # Story Dependency Graph
-_Last updated: 2026-05-14T10:00:00Z (Phase 0 pass 29 — Story 7.7 done via PR #96 (2026-05-14T08:09:00Z); Epic 7 complete; 8.1 now Ready to Work; stale branch story-7.7 deleted; Ready cells recomputed)_
+_Last updated: 2026-05-15T00:00:00Z (Phase 0 pass 30 — Story 8.1 done via PR #98 (2026-05-14T20:10:20Z); Epic 8 in-progress; orphaned worktrees cleaned; story-8.1 remote branch deleted; Ready cells recomputed per STORY_FILTER=8.2)_
 
 ## Stories
 
@@ -40,18 +40,18 @@ _Last updated: 2026-05-14T10:00:00Z (Phase 0 pass 29 — Story 7.7 done via PR #
 | 7.7 | 7 | worker/src/safety/reconciliation.js — Tier 3 daily pass = nightly reconciliation | done | #33 | #96 | merged | 7.5 | ✅ Yes (done) |
 | 7.8 | 7 | END-TO-END INTEGRATION GATE — full cycle test on all 17 P11 fixtures (atomicity bundle gate AD7+AD8+AD9+AD11) | done | #34 | #91 | merged | 6.1, 7.2, 7.3, 7.6 | ✅ Yes (done) |
 | 7.9 | 7 | Bundle-C cleanup chore — 9 test-tightening + spec-reconciliation follow-ups | done | #92 | #93 | merged | 7.8 (implicit: cleanup of Bundle C modules) | ✅ Yes (done) |
-| 8.1 | 8 | Dashboard root state-aware view + sticky header chrome | backlog | #35 | — | — | 4.9, epic 7 complete | ✅ Yes |
-| 8.2 | 8 | KPI cards row (3 status cards + secondary catalog-value lines) | backlog | #36 | — | — | 8.1, 9.2 | ❌ No (8.1 not done) |
-| 8.3 | 8 | PT/ES channel toggle pill in sticky header | backlog | #37 | — | — | 8.1 | ❌ No (8.1 not done) |
-| 8.4 | 8 | Margin editor inline panel with worked-profit-example | backlog | #38 | — | — | 8.1 | ❌ No (8.1 not done) |
-| 8.5 | 8 | Pause/Resume buttons + customer-pause cron_state transitions | backlog | #39 | — | — | 8.1, 4.1 | ❌ No (8.1 not done) |
-| 8.6 | 8 | Go-Live consent modal + Stripe redirect | backlog | #40 | — | — | 8.1, 11.1 | ❌ No (8.1 not done) |
-| 8.7 | 8 | Anomaly review modal (consumes Story 7.4 endpoints) | backlog | #41 | — | — | 8.1, 7.4 | ❌ No (8.1 not done) |
-| 8.8 | 8 | Banner library + UX4 stack precedence | backlog | #42 | — | — | 8.1 | ❌ No (8.1 not done) |
-| 8.9 | 8 | Interception pages — /key-revoked + /payment-failed | backlog | #43 | — | — | 8.1 | ❌ No (8.1 not done) |
-| 8.10 | 8 | /admin/status founder page (reuses customer audit-log UI) | backlog | #44 | — | — | 8.1, 1.5, 9.3 | ❌ No (8.1 not done) |
-| 8.11 | 8 | Settings sectioned navigation (5 pages) | backlog | #45 | — | — | 8.1 | ❌ No (8.1 not done) |
-| 8.12 | 8 | Mobile-focused critical-alert response surface | backlog | #46 | — | — | 8.1 | ❌ No (8.1 not done) |
+| 8.1 | 8 | Dashboard root state-aware view + sticky header chrome | done | #35 | #98 | merged | 4.9, epic 7 complete | ✅ Yes (done) |
+| 8.2 | 8 | KPI cards row (3 status cards + secondary catalog-value lines) | backlog | #36 | — | — | 8.1, 9.2 | ❌ No (9.2 not done) |
+| 8.3 | 8 | PT/ES channel toggle pill in sticky header | backlog | #37 | — | — | 8.1 | ✅ Yes |
+| 8.4 | 8 | Margin editor inline panel with worked-profit-example | backlog | #38 | — | — | 8.1 | ✅ Yes |
+| 8.5 | 8 | Pause/Resume buttons + customer-pause cron_state transitions | backlog | #39 | — | — | 8.1, 4.1 | ✅ Yes |
+| 8.6 | 8 | Go-Live consent modal + Stripe redirect | backlog | #40 | — | — | 8.1, 11.1 | ❌ No (11.1 not done) |
+| 8.7 | 8 | Anomaly review modal (consumes Story 7.4 endpoints) | backlog | #41 | — | — | 8.1, 7.4 | ✅ Yes |
+| 8.8 | 8 | Banner library + UX4 stack precedence | backlog | #42 | — | — | 8.1 | ✅ Yes |
+| 8.9 | 8 | Interception pages — /key-revoked + /payment-failed | backlog | #43 | — | — | 8.1 | ✅ Yes |
+| 8.10 | 8 | /admin/status founder page (reuses customer audit-log UI) | backlog | #44 | — | — | 8.1, 1.5, 9.3 | ❌ No (9.3 not done) |
+| 8.11 | 8 | Settings sectioned navigation (5 pages) | backlog | #45 | — | — | 8.1 | ✅ Yes |
+| 8.12 | 8 | Mobile-focused critical-alert response surface | backlog | #46 | — | — | 8.1 | ✅ Yes |
 | 9.2 | 9 | daily_kpi_snapshots + cycle_summaries schemas + daily-aggregate cron + 5-min today partial refresh | backlog | #47 | — | — | 9.1, 7.8 | ❌ No (epic 8 not complete) |
 | 9.3 | 9 | 5-surface query endpoints — audit root + daily summary + Atenção feed + Notável feed | backlog | #48 | — | — | 9.2 | ❌ No (epic 8 not complete) |
 | 9.4 | 9 | Search by SKU/EAN endpoint — primary investigation primitive | backlog | #49 | — | — | 9.3 | ❌ No (epic 8 not complete) |
@@ -131,12 +131,12 @@ _Last updated: 2026-05-14T10:00:00Z (Phase 0 pass 29 — Story 7.7 done via PR #
 
 ## Notes
 
-### Current State (Phase 0 pass 29 — 2026-05-14 Story 7.7 done, Epic 7 complete, Story 8.1 now Ready to Work)
+### Current State (Phase 0 pass 30 — 2026-05-15 Story 8.1 done, Epic 8 in-progress, multiple Epic 8 stories now Ready)
 
 - **BUNDLE C COMPLETE**: PR #91 (Bundle C atomicity gate — Story 7.8 + all 8 participants) merged 2026-05-11T20:06:22Z. This mega-merge (squash commit 89b2378) supersedes individual PRs #81-#89 (all CLOSED). All 8 Bundle C participants (5.1, 5.2, 6.1, 6.2, 6.3, 7.2, 7.3, 7.6) + gate 7.8 are `done`. 45/45 integration tests passed against real Bundle C modules.
-- **Story 7.7 DONE**: PR #96 (story-7.7-worker-src-safety-reconciliation-js-tier-3-daily-pass-nightly-reconciliation) merged 2026-05-14T08:09:00Z. Pattern A reconciliation.js SSoT + cron wire-up. Remote branch deleted this pass.
 - **EPIC 7 COMPLETE** (9/9 stories done: 7.1+7.2+7.3+7.4+7.5+7.6+7.7+7.8+7.9). Epic 7 retrospective done (epic-7-retro-2026-05-14.md).
-- **Story 8.1 NOW READY**: Status `backlog` (no story file yet). Deps: 4.9 (done) + epic 7 complete (NOW done). NOT in merge_blocks, NOT in calendar_early_overrides. Base branch: `main`. ✅ Yes.
+- **Story 8.1 DONE**: PR #98 (story-8.1-dashboard-root-state-aware-view-sticky-header-chrome) merged 2026-05-14T20:10:20Z. Pattern A state-aware dashboard chrome. Remote branch deleted this pass. Issue #35 closed.
+- **EPIC 8 IN-PROGRESS**: 1/12 stories done (8.1). 8 stories now Ready to Work (8.3, 8.4, 8.5, 8.7, 8.8, 8.9, 8.11, 8.12 — all depend only on 8.1 which is done). 8.2 blocked on 9.2; 8.6 blocked on 11.1; 8.10 blocked on 9.3.
 - Epic 1 complete (5/5 stories done — pre-BAD direct commits to main, no PRs). Epic 1 retrospective complete (2026-05-03).
 - Epic 2 complete (2/2 stories done). Epic 2 retrospective complete (2026-05-04).
 - Calendar-early: Story 9.0 merged (PR #66). Story 9.1 merged (PR #67). epic-9: in-progress (9.0 + 9.1 done; 9.2-9.6 backlog).
@@ -145,27 +145,39 @@ _Last updated: 2026-05-14T10:00:00Z (Phase 0 pass 29 — Story 7.7 done via PR #
 - **Epic 5 COMPLETE** (2/2 stories done via PR #91 mega-merge). Epic 5 retrospective done (Bundle C close-out retro 2026-05-13).
 - **Epic 6 COMPLETE** (3/3 stories done via PR #91 mega-merge). Epic 6 retrospective done (Bundle C close-out retro 2026-05-13).
 - **Epic 7 COMPLETE** (9/9 stories done). Epic 7 retrospective done (2026-05-14).
-- Epic 8: backlog. **8.1 READY** (backlog, deps satisfied). 8.2-8.12 all blocked on 8.1 not done.
-- No active worktrees (all previous worktrees cleaned up; no open PRs).
+- Epic 8: in-progress (1/12 done). 8.3-8.5, 8.7-8.9, 8.11-8.12 are Ready to Work. 8.2, 8.6, 8.10 blocked on downstream deps.
+- No active worktrees (orphaned .worktrees/ dirs for 7.9 and 8.1 cleaned up this pass; no open PRs).
 
-### Ready-to-Work Analysis (Pass 29)
+### Ready-to-Work Analysis (Pass 30)
 
-**Ready to dispatch:**
-- **8.1** — status: `backlog` (no story file yet — must be sharded by Bob). Deps: 4.9 (done/PR#79 merged) + epic 7 complete (all 9 stories done). Not in merge_blocks, not in calendar_early_overrides. Base branch: `main`. ✅ Yes.
+**Ready to dispatch (all from `main`, not in merge_blocks, not calendar-early):**
+- **8.3** — PT/ES channel toggle pill in sticky header. Depends on 8.1 (done). Epics 1-7 all done. ✅ Yes.
+- **8.4** — Margin editor inline panel. Depends on 8.1 (done). ✅ Yes.
+- **8.5** — Pause/Resume buttons + cron_state transitions. Depends on 8.1 (done) + 4.1 (done). ✅ Yes.
+- **8.7** — Anomaly review modal (consumes Story 7.4 endpoints). Depends on 8.1 (done) + 7.4 (done). ✅ Yes.
+- **8.8** — Banner library + UX4 stack precedence. Depends on 8.1 (done). ✅ Yes.
+- **8.9** — Interception pages /key-revoked + /payment-failed. Depends on 8.1 (done). ✅ Yes.
+- **8.11** — Settings sectioned navigation (5 pages). Depends on 8.1 (done). ✅ Yes.
+- **8.12** — Mobile-focused critical-alert response surface. Depends on 8.1 (done). ✅ Yes.
+
+**STORY_FILTER=8.2 — Assessment:**
+- **8.2** — KPI cards row (3 status cards + secondary catalog-value lines). Depends on 8.1 (done ✅) AND 9.2 (backlog ❌). Story 9.2 is itself blocked by the epic-ordering rule (requires epic 8 complete before 9.2 can be Ready). So 9.2 cannot be done before epic 8 completes. ❌ No (9.2 not done).
 
 **Done this pass:**
-- **7.7** — PR #96 merged 2026-05-14T08:09:00Z. ✅ Yes (done).
+- **8.1** — PR #98 merged 2026-05-14T20:10:20Z. ✅ Yes (done).
 
 **Blocked:**
-- **8.2-8.12** — all depend on 8.1 (not yet done/not sharded). ❌ No.
+- **8.2** — depends on 9.2 which is blocked on epic 8 not complete. ❌ No.
+- **8.6** — depends on 11.1 (epic 11, not started). ❌ No.
+- **8.10** — depends on 9.3 (epic 9 remaining stories, require epic 8 complete). ❌ No.
 - **9.2-9.6** — require epic 8 complete. ❌ No.
 - **10.x, 11.x, 12.x** — blocked further downstream.
 
 ### Parallelization Opportunities
 
-- **Immediate batch (1 story):** 8.1 is Ready to Work from `main`. Status `backlog` means Phase 1 must shard it first (bmad-create-story). MAX_PARALLEL_STORIES=1 so this is the only story dispatched this pass.
-- **Epic-Start Test Design required:** epic_test_design.8 = `pending`. Phase 1 must fire Epic-Start Test Design for Epic 8 (one-shot) before dispatching 8.1.
-- Once 8.1 is done, significant parallelism opens: 8.3-8.12 can mostly run in parallel (all depend on 8.1, some have additional deps on 9.2/9.3 or 11.1 which aren't ready yet). With MAX_PARALLEL_STORIES=1, they'll run sequentially.
+- **Immediate batch (8 stories):** 8.3, 8.4, 8.5, 8.7, 8.8, 8.9, 8.11, 8.12 are Ready to Work from `main`. With MAX_PARALLEL_STORIES applied by the coordinator, multiple can run in parallel — most depend only on 8.1 (done) with no cross-dependencies between them.
+- **Epic-Start Test Design:** epic_test_design.8 = `done` (test scaffolds committed 2026-05-14). Phase 1 skips Epic-Start for Epic 8.
+- Once more Epic 8 stories complete, epic 8 approaches done → unlocks 9.2-9.6 and downstream.
 
 ### Merge Blocks (atomicity constraints)
 
