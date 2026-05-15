@@ -115,6 +115,31 @@ export async function dashboardRoutes (fastify, _opts) {
 
     const state = rows[0];
 
+    // ── Story 8.3: Channel count query ───────────────────────────────────────
+    // Count distinct channel_code values for this customer's sku_channels.
+    // RLS on sku_channels scopes the query to the authenticated customer's rows.
+    // cm.customer_id = $1 is belt-and-suspenders clarity (RLS alone is sufficient).
+    // channel_code values: WRT_PT_ONLINE / WRT_ES_ONLINE (AD6 empirical facts).
+    // Tx-topology: autocommit-per-statement — no transaction.
+    const { rows: chanRows } = await req.db.query(
+      `SELECT COUNT(DISTINCT sc.channel_code)::int AS channel_count
+       FROM sku_channels sc
+       JOIN customer_marketplaces cm ON cm.id = sc.customer_marketplace_id
+       WHERE cm.customer_id = $1`,
+      [req.user.id]
+    );
+    const channelCount = chanRows[0]?.channel_count ?? 1;
+
+    // Render channel-toggle.eta to an HTML string for the layout's channelToggle slot.
+    // fastify.view() (instance decorator, not reply method) returns a Promise<string>.
+    // Server-side default: activeChannel = 'pt'. Client JS (dashboard.js) overrides
+    // from localStorage on DOMContentLoaded (AC#2 — first paint always PT then flicker
+    // to ES if localStorage says ES; acceptable at MVP per story spec §Detected Conflicts 2).
+    const channelToggleHtml = await fastify.view('components/channel-toggle.eta', {
+      channelCount,
+      activeChannel: 'pt',
+    });
+
     // Derive user initials for avatar from email (email always set — auth.js guards this).
     const email = req.user.email ?? '';
     const namePart = email.split('@')[0] ?? '';
@@ -128,6 +153,10 @@ export async function dashboardRoutes (fastify, _opts) {
       maxIncreasePct: state.max_increase_pct,
       userEmail: email,
       userInitials: initials,
+      // Story 8.3: channel toggle pill for sticky header slot (default.eta: <%~ it.channelToggle || '' %>)
+      channelToggle: channelToggleHtml,
+      channelCount,
+      activeChannel: 'pt',
     });
   });
 }

@@ -1,7 +1,7 @@
 # Story 8.3: PT/ES Channel Toggle Pill in Sticky Header
 
 **Sprint-status key:** `8-3-pt-es-channel-toggle-pill-in-sticky-header`
-**Status:** ready-for-dev
+**Status:** review
 **Size:** S
 **Epic:** Epic 8 — Customer Dashboard & Surfaces
 **Atomicity:** None — standalone story, no atomicity bundle
@@ -72,39 +72,39 @@
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create `app/src/views/components/channel-toggle.eta` (AC#1, AC#3, AC#4)
-  - [ ] Subtask 1.1: Segmented pill with PT and ES buttons + active class from `it.activeChannel`
-  - [ ] Subtask 1.2: `aria-selected`, `aria-label`, `data-channel` attributes on each button
-  - [ ] Subtask 1.3: Phase 2 "Both" comment per AC#3
-  - [ ] Subtask 1.4: Single-channel guard (hide when `it.channelCount === 1` per AC#4)
+- [x] Task 1: Create `app/src/views/components/channel-toggle.eta` (AC#1, AC#3, AC#4)
+  - [x] Subtask 1.1: Segmented pill with PT and ES buttons + active class from `it.activeChannel`
+  - [x] Subtask 1.2: `aria-selected`, `aria-label`, `data-channel` attributes on each button
+  - [x] Subtask 1.3: Phase 2 "Both" comment per AC#3
+  - [x] Subtask 1.4: Single-channel guard (hide when `it.channelCount === 1` per AC#4)
 
-- [ ] Task 2: Extend dashboard route to query channel count and default channel (AC#1, AC#4)
-  - [ ] Subtask 2.1: Add channel count query to `app/src/routes/dashboard/index.js` (count distinct `channel_code` values for this `customer_marketplace_id`)
-  - [ ] Subtask 2.2: Pass `channelToggle` (rendered HTML from channel-toggle.eta) and `activeChannel` to `reply.view()` payload
-  - [ ] Note: `req.db` is the RLS-aware client — RLS scopes the query to the authenticated customer automatically
+- [x] Task 2: Extend dashboard route to query channel count and default channel (AC#1, AC#4)
+  - [x] Subtask 2.1: Add channel count query to `app/src/routes/dashboard/index.js` (count distinct `channel_code` values for this `customer_marketplace_id`)
+  - [x] Subtask 2.2: Pass `channelToggle` (rendered HTML from channel-toggle.eta) and `activeChannel` to `reply.view()` payload
+  - [x] Note: `req.db` is the RLS-aware client — RLS scopes the query to the authenticated customer automatically
 
-- [ ] Task 3: Extend `public/js/dashboard.js` with toggle state management (AC#2)
-  - [ ] Subtask 3.1: Fill the "Channel toggle slot (Story 8.3)" placeholder in `dashboard.js`
-  - [ ] Subtask 3.2: On DOMContentLoaded: read `localStorage.getItem('mp_channel')` (default `'pt'`)
-  - [ ] Subtask 3.3: Set active class on the correct button from localStorage
-  - [ ] Subtask 3.4: On button click: update `localStorage.setItem('mp_channel', channel)`, update active class, dispatch a `channelchange` CustomEvent on `document` for KPI cards and other sections to react
-  - [ ] Subtask 3.5: No `console.log` — no pino equivalent in client JS; silent operation
+- [x] Task 3: Extend `public/js/dashboard.js` with toggle state management (AC#2)
+  - [x] Subtask 3.1: Fill the "Channel toggle slot (Story 8.3)" placeholder in `dashboard.js`
+  - [x] Subtask 3.2: On DOMContentLoaded: read `localStorage.getItem('mp_channel')` (default `'pt'`)
+  - [x] Subtask 3.3: Set active class on the correct button from localStorage
+  - [x] Subtask 3.4: On button click: update `localStorage.setItem('mp_channel', channel)`, update active class, dispatch a `channelchange` CustomEvent on `document` for KPI cards and other sections to react
+  - [x] Subtask 3.5: No `console.log` — no pino equivalent in client JS; silent operation
 
-- [ ] Task 4: Wire `channel-toggle.eta` into `default.eta` channelToggle slot (AC#1)
-  - [ ] Subtask 4.1: Dashboard route renders `channel-toggle.eta` via Eta's `include()` or string injection and passes result as `channelToggle` to layout
-  - [ ] Note: `default.eta` already has `<%~ it.channelToggle || '' %>` slot from Story 8.1 — do NOT modify `default.eta` header structure; only provide the rendered component string from the route handler
+- [x] Task 4: Wire `channel-toggle.eta` into `default.eta` channelToggle slot (AC#1)
+  - [x] Subtask 4.1: Dashboard route renders `channel-toggle.eta` via `fastify.view()` (instance decorator returns Promise<string>) and passes result as `channelToggle` to layout
+  - [x] Note: `default.eta` already has `<%~ it.channelToggle || '' %>` slot from Story 8.1 — do NOT modify `default.eta` header structure; only provide the rendered component string from the route handler
 
-- [ ] Task 5: Fill test scaffold stubs in `channel-toggle.test.js` (AC#1–AC#4)
-  - [ ] Subtask 5.1: Fill `toggle_renders_pt_es_segmented_buttons_in_sticky_header` — Fastify inject GET / with mocked DB (2 channels); assert HTML includes PT and ES buttons
-  - [ ] Subtask 5.2: Fill `active_channel_button_has_highlighted_class` — assert PT button has `mp-toggle-btn--active` or `aria-selected="true"` on first load
-  - [ ] Subtask 5.3: Fill `toggle_scope_includes_kpi_cards_margin_editor_audit_preview` — assert scoped container wraps KPI section; banner zone is outside it
-  - [ ] Subtask 5.4: Fill `toggle_does_not_scope_global_banner_zone` — assert banner zone NOT inside toggled container
-  - [ ] Subtask 5.5: Fill `default_channel_is_pt_on_first_load` — assert PT button active when no localStorage hint in initial render
-  - [ ] Subtask 5.6: Fill `toggle_state_sticky_across_navigation_via_local_storage` — already has a static assertion for `localStorage` in `dashboard.js`; verify it passes after Task 3
-  - [ ] Subtask 5.7: Fill `no_both_merged_view_button_exists` — assert `!html.includes('Ambos')` and `!html.includes('Both')`
-  - [ ] Subtask 5.8: Fill `toggle_is_strictly_pt_xor_es` — count buttons with `data-channel` attribute; assert exactly 2
-  - [ ] Subtask 5.9: Fill `toggle_hidden_when_customer_has_single_channel_only` — mock DB with channelCount=1; assert toggle absent from HTML
-  - [ ] Subtask 5.10: Fill `single_channel_shows_tooltip_apenas_pt_ativo_neste_marketplace` — assert tooltip text present when disabled variant is used (or assert toggle absent per chosen variant)
+- [x] Task 5: Fill test scaffold stubs in `channel-toggle.test.js` (AC#1–AC#4)
+  - [x] Subtask 5.1: Fill `toggle_renders_pt_es_segmented_buttons_in_sticky_header` — Fastify inject GET / with mocked DB (2 channels); assert HTML includes PT and ES buttons
+  - [x] Subtask 5.2: Fill `active_channel_button_has_highlighted_class` — assert PT button has `mp-toggle-btn--active` or `aria-selected="true"` on first load
+  - [x] Subtask 5.3: Fill `toggle_scope_includes_kpi_cards_margin_editor_audit_preview` — assert scoped container wraps KPI section; banner zone is outside it
+  - [x] Subtask 5.4: Fill `toggle_does_not_scope_global_banner_zone` — assert banner zone NOT inside toggled container
+  - [x] Subtask 5.5: Fill `default_channel_is_pt_on_first_load` — assert PT button active when no localStorage hint in initial render
+  - [x] Subtask 5.6: Fill `toggle_state_sticky_across_navigation_via_local_storage` — already has a static assertion for `localStorage` in `dashboard.js`; verify it passes after Task 3
+  - [x] Subtask 5.7: Fill `no_both_merged_view_button_exists` — assert `!html.includes('Ambos')` and `!html.includes('Both')`
+  - [x] Subtask 5.8: Fill `toggle_is_strictly_pt_xor_es` — count buttons with `data-channel` attribute; assert exactly 2
+  - [x] Subtask 5.9: Fill `toggle_hidden_when_customer_has_single_channel_only` — mock DB with channelCount=1; assert toggle absent from HTML
+  - [x] Subtask 5.10: Fill `single_channel_shows_tooltip_apenas_pt_ativo_neste_marketplace` — assert tooltip text present when disabled variant is used (or assert toggle absent per chosen variant)
 
 ---
 
@@ -422,9 +422,36 @@ tests/app/routes/dashboard/channel-toggle.test.js  # 10 scaffold stubs → fill 
 ### Agent Model Used
 
 claude-sonnet-4-6 (Step 1 BAD subagent — story sharding, 2026-05-15)
+claude-sonnet-4-6 (Step 3 BAD subagent — dev-story implementation, 2026-05-15)
 
 ### Debug Log References
 
+None. Implementation was straightforward — no blockers or debug loops.
+
 ### Completion Notes List
 
+- **AC#1 — Toggle renders PT|ES in sticky header:** Created `app/src/views/components/channel-toggle.eta` with `data-channel="pt"` / `data-channel="es"` buttons, `aria-selected`, `aria-label` attributes. Toggle renders inside the existing `<%~ it.channelToggle || '' %>` slot in `default.eta` (Story 8.1 slot — not modified). Dashboard route uses `fastify.view('components/channel-toggle.eta', { channelCount, activeChannel: 'pt' })` (instance decorator, returns Promise<string>) to render toggle HTML, then passes it as `channelToggle` to `reply.view()`. Added `data-channel-scope="kpi"` to the KPI section in `dashboard.eta` per AC#1 scope requirement.
+
+- **AC#2 — localStorage persistence, PT default:** `public/js/dashboard.js` — filled the `// ── Channel toggle slot (Story 8.3) ──` placeholder with `initChannelToggle()` IIFE. Uses `localStorage.getItem('mp_channel')` / `localStorage.setItem('mp_channel', channel)` with key `'mp_channel'` and default `'pt'`. Dispatches `channelchange` CustomEvent on `document` on each click for downstream consumers (KPI cards Story 8.2, margin editor Story 8.4). Server always renders `activeChannel: 'pt'` — client JS overrides from localStorage on DOMContentLoaded. First-paint flicker to ES if localStorage says ES is acceptable at MVP (documented per story spec §Detected Conflicts 2).
+
+- **AC#3 — No "Both" button:** Template has exactly 2 buttons (`data-channel="pt"`, `data-channel="es"`). Phase 2 comment included: `<!-- Phase 2: 'Both' merged view requires cross-channel EAN deduplication — deferred per UX-DR14 -->`.
+
+- **AC#4 — Single-channel: toggle hidden:** When `it.channelCount < 2`, the `<% if (it.channelCount >= 2) { %>` guard suppresses the entire `mp-channel-toggle` div. Dashboard route queries `COUNT(DISTINCT sc.channel_code)::int AS channel_count` from `sku_channels` (not `customer_marketplaces`) with `cm.customer_id = $1` filter (belt-and-suspenders over RLS). Chosen variant: **hidden** (not disabled+tooltip) per spec "choose hidden; document in Dev Notes".
+
+- **CSS ownership:** Added `.mp-channel-toggle`, `.mp-toggle-btn`, `.mp-toggle-btn--active`, `.mp-toggle-btn:focus-visible` to `public/css/components.css` only. Not added to `tokens.css` or `layout.css` (CSS file ownership rule from memory `feedback_css_file_ownership`).
+
+- **Eta comment syntax:** No `<%# %>` comment syntax used — all comments are HTML `<!-- -->` (per Story 8.1 Dev Notes warning about Eta v4 parse errors).
+
+- **Test results:** 18/18 Story 8.3 channel-toggle.test.js tests pass. Zero new regressions vs baseline (46 pre-existing test-suite-order failures verified identical before and after changes — module caching issue when `dry-run-minimal.test.js` + `index.test.js` run together, present before this story).
+
+- **`fastify.view()` render approach:** The `@fastify/view` plugin registers `fastify.decorate(propertyName, viewDecorator)` where `viewDecorator` wraps `asyncRender` and returns a Promise. Called as `await fastify.view('components/channel-toggle.eta', data)` from within the route plugin's `fastify` parameter — the decorator is available on the plugin-scoped instance since `@fastify/view` registers at root scope.
+
 ### File List
+
+- `app/src/views/components/channel-toggle.eta` — CREATED (Story 8.3: PT/ES toggle pill component)
+- `app/src/routes/dashboard/index.js` — MODIFIED (Story 8.3: channel count query + channelToggle rendering)
+- `public/js/dashboard.js` — MODIFIED (Story 8.3: initChannelToggle() IIFE with localStorage + channelchange event)
+- `public/css/components.css` — MODIFIED (Story 8.3: .mp-channel-toggle + .mp-toggle-btn CSS classes)
+- `app/src/views/pages/dashboard.eta` — MODIFIED (Story 8.3: data-channel-scope="kpi" on KPI section)
+- `tests/app/routes/dashboard/channel-toggle.test.js` — FILLED (ATDD stubs implemented; 18/18 pass)
+- `_bmad-output/implementation-artifacts/8-3-pt-es-channel-toggle-pill-sticky-header.md` — story file updated

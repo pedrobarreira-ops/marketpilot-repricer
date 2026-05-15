@@ -85,8 +85,9 @@
 
 <!-- KPI card grid slot — Story 8.2 fills this with kpi-cards.eta.
      CSS modifiers: --greyed (PAUSED_BY_CUSTOMER, PAUSED_BY_PAYMENT_FAILURE)
-                    --stale  (PAUSED_BY_CIRCUIT_BREAKER, sustained_transient) -->
-<section class="mp-kpi-grid<% if (cronState === 'PAUSED_BY_CUSTOMER' || cronState === 'PAUSED_BY_PAYMENT_FAILURE') { %> mp-kpi-grid--greyed<% } %><% if (cronState === 'PAUSED_BY_CIRCUIT_BREAKER' || sustainedTransient) { %> mp-kpi-grid--stale<% } %>">
+                    --stale  (PAUSED_BY_CIRCUIT_BREAKER, sustained_transient)
+     data-channel-scope: Story 8.3 — KPI section re-evaluates on channelchange event (AC#1) -->
+<section class="mp-kpi-grid<% if (cronState === 'PAUSED_BY_CUSTOMER' || cronState === 'PAUSED_BY_PAYMENT_FAILURE') { %> mp-kpi-grid--greyed<% } %><% if (cronState === 'PAUSED_BY_CIRCUIT_BREAKER' || sustainedTransient) { %> mp-kpi-grid--stale<% } %>" data-channel-scope="kpi">
   <!-- KPI shimmer skeletons — Story 8.2 replaces these with real kpi-cards.eta -->
   <div class="mp-kpi-placeholder mp-kpi-shimmer" aria-busy="true"></div>
   <div class="mp-kpi-placeholder mp-kpi-shimmer" aria-busy="true"></div>

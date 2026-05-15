@@ -9,8 +9,38 @@
 // Do NOT use console.log — UI-side script has no pino; use no logging at MVP.
 
 // ── Channel toggle slot (Story 8.3) ─────────────────────────────────────────
-// Story 8.3 will add channel toggle state management here.
-// For now: no-op. The slot is reserved; do not implement toggle logic in 8.1.
+
+(function initChannelToggle() {
+  var STORAGE_KEY = 'mp_channel';
+  var DEFAULT_CHANNEL = 'pt';
+
+  var toggleBtns = document.querySelectorAll('.mp-channel-toggle .mp-toggle-btn');
+  if (!toggleBtns.length) return; // single-channel: toggle not rendered (AC#4)
+
+  function getActiveChannel() {
+    var stored = localStorage.getItem(STORAGE_KEY);
+    return stored === 'pt' || stored === 'es' ? stored : DEFAULT_CHANNEL;
+  }
+
+  function setActiveChannel(channel) {
+    localStorage.setItem(STORAGE_KEY, channel);
+    toggleBtns.forEach(function(btn) {
+      var isActive = btn.dataset.channel === channel;
+      btn.classList.toggle('mp-toggle-btn--active', isActive);
+      btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+    // Notify interested sections (KPI cards Story 8.2, margin editor Story 8.4, audit preview)
+    document.dispatchEvent(new CustomEvent('channelchange', { detail: { channel: channel } }));
+  }
+
+  // Initialize from localStorage (or default 'pt' on first load)
+  setActiveChannel(getActiveChannel());
+
+  // Wire click handlers
+  toggleBtns.forEach(function(btn) {
+    btn.addEventListener('click', function() { setActiveChannel(btn.dataset.channel); });
+  });
+})();
 
 // ── Pause/Resume slot (Story 8.5) ───────────────────────────────────────────
 // Story 8.5 will wire the pause/resume button interactions here.
