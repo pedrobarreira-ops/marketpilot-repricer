@@ -82,7 +82,7 @@
 # by design; pre-dates the rule).
 
 generated: 2026-05-01
-last_updated: 2026-05-14  # bmad-create-story: Story 8.1 sharded 2026-05-14 (Bob); 8-1-dashboard-root-state-aware-view-sticky-header-chrome → ready-for-dev; epic-8 backlog → in-progress; first story of Epic 8 — full state-aware dashboard chrome replacing Story 4.9 minimal stub; Pattern A (7 state stubs); interception-redirect.js extended with Epic 8 PAUSED_BY_KEY_REVOKED + PAUSED_BY_PAYMENT_FAILURE once-per-transition intercepts; sticky header backdrop-filter:blur(12px) + banner zone + body slot; no Mirakl endpoints; test scaffolds from Epic-Start (index.test.js + dashboard-state-machine.test.js); Bundle B atomicity participant
+last_updated: 2026-05-15  # bmad-create-story: Story 8.3 sharded 2026-05-15 (Bob); 8-3-pt-es-channel-toggle-pill-in-sticky-header → ready-for-dev; Story 8.1 sharded 2026-05-14 (Bob); 8-1-dashboard-root-state-aware-view-sticky-header-chrome → ready-for-dev; epic-8 backlog → in-progress; first story of Epic 8 — full state-aware dashboard chrome replacing Story 4.9 minimal stub; Pattern A (7 state stubs); interception-redirect.js extended with Epic 8 PAUSED_BY_KEY_REVOKED + PAUSED_BY_PAYMENT_FAILURE once-per-transition intercepts; sticky header backdrop-filter:blur(12px) + banner zone + body slot; no Mirakl endpoints; test scaffolds from Epic-Start (index.test.js + dashboard-state-machine.test.js); Bundle B atomicity participant
 prev_updated: 2026-05-13  # bmad-retrospective: Bundle C close-out retro logged at bundle-c-close-out-retro-2026-05-13.md (joint close-out for Epic 5 + Epic 6); 12 sprint-status flips applied (8 Bundle C stories review → done + epic-5/6 in-progress → done + epic-5/6-retrospective optional → done). 9 Q-items + 8 W-items logged; see retro doc for full list.
 project: marketpilot-repricer  # updated by bmad-create-story: Story 1.1 sharded 2026-05-01; Story 1.2 sharded 2026-05-01; Story 1.3 sharded 2026-05-02; Story 1.4 sharded 2026-05-02; Story 1.5 sharded 2026-05-03; Story 1.5 → review 2026-05-03; Story 1.5 → done 2026-05-03 (post-review); Story 2.1 sharded 2026-05-03 (Bob) → ready-for-dev
 project_key: NOKEY
@@ -181,7 +181,7 @@ development_status:
   epic-8: in-progress
   8-1-dashboard-root-state-aware-view-sticky-header-chrome: done  # bmad-create-story: Story 8.1 sharded 2026-05-14 (Bob); BAD Step 1 subagent; Pattern A (7 state stubs); interception-redirect.js extended; sticky header chrome; Bundle B atomicity participant; 7 ACs; test scaffolds from Epic-Start; flipped review → done 2026-05-14 (post-merge reconciliation after /bad-review on PR #98)
   8-2-kpi-cards-row-3-status-cards-from-free-report-family-secondary-catalog-value-lines: backlog
-  8-3-pt-es-channel-toggle-pill-in-sticky-header: review  # PR #99 opened 2026-05-15; Step 6 CI local fallback: lint ✅ 0 errors, channel-toggle tests ✅ 18/18, RLS ✅ 36/36, Bundle C integration ✅ 48/48
+  8-3-pt-es-channel-toggle-pill-in-sticky-header: review  # bmad-create-story: Story 8.3 sharded 2026-05-15 (Bob); Pattern A; channel toggle pill in sticky header; 4 ACs; localStorage persistence; channelchange CustomEvent; single-channel guard; no Mirakl endpoints; test scaffold channel-toggle.test.js (10 stubs)
   8-4-margin-editor-inline-panel-with-worked-profit-example: backlog
   8-5-pause-resume-buttons-customer-pause-cron-state-transitions: backlog
   8-6-go-live-consent-modal-stripe-redirect: backlog
