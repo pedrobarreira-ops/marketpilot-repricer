@@ -515,8 +515,8 @@ test('channel_toggle_css_not_in_tokens_or_layout_css', async () => {
   const layoutPath = join(__dirname, '../../../../public/css/layout.css');
   let tokensSrc = '';
   let layoutSrc = '';
-  try { tokensSrc = await readFile(tokensPath, 'utf8'); } catch {}
-  try { layoutSrc = await readFile(layoutPath, 'utf8'); } catch {}
+  try { tokensSrc = await readFile(tokensPath, 'utf8'); } catch { /* file may not exist — defaults to '' for negative assertions */ }
+  try { layoutSrc = await readFile(layoutPath, 'utf8'); } catch { /* file may not exist — defaults to '' for negative assertions */ }
   assert.ok(!tokensSrc.includes('.mp-channel-toggle'),
     'tokens.css must NOT define .mp-channel-toggle (CSS ownership violation)');
   assert.ok(!tokensSrc.includes('.mp-toggle-btn'),
