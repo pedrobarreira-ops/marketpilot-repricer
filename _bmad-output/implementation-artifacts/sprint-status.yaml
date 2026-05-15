@@ -181,7 +181,7 @@ development_status:
   epic-8: in-progress
   8-1-dashboard-root-state-aware-view-sticky-header-chrome: done  # bmad-create-story: Story 8.1 sharded 2026-05-14 (Bob); BAD Step 1 subagent; Pattern A (7 state stubs); interception-redirect.js extended; sticky header chrome; Bundle B atomicity participant; 7 ACs; test scaffolds from Epic-Start; flipped review → done 2026-05-14 (post-merge reconciliation after /bad-review on PR #98)
   8-2-kpi-cards-row-3-status-cards-from-free-report-family-secondary-catalog-value-lines: backlog
-  8-3-pt-es-channel-toggle-pill-in-sticky-header: review  # bmad-create-story: Story 8.3 sharded 2026-05-15 (Bob); Pattern A; channel toggle pill in sticky header; 4 ACs; localStorage persistence; channelchange CustomEvent; single-channel guard; no Mirakl endpoints; test scaffold channel-toggle.test.js (10 stubs)
+  8-3-pt-es-channel-toggle-pill-in-sticky-header: done  # bmad-create-story: Story 8.3 sharded 2026-05-15 (Bob); Pattern A; channel toggle pill in sticky header; 4 ACs; localStorage persistence; channelchange CustomEvent; single-channel guard; no Mirakl endpoints; test scaffold channel-toggle.test.js (10 stubs); flipped review → done 2026-05-15 (post-merge reconciliation after /bad-review on PR #99)
   8-4-margin-editor-inline-panel-with-worked-profit-example: backlog
   8-5-pause-resume-buttons-customer-pause-cron-state-transitions: backlog
   8-6-go-live-consent-modal-stripe-redirect: backlog
