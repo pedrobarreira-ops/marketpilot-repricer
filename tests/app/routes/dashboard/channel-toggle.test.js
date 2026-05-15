@@ -103,7 +103,7 @@ describe('channel-toggle-rendering', () => {
   test('toggle_renders_pt_es_segmented_buttons_in_sticky_header', async () => {
     // Given: customer with multi-channel marketplace (PT + ES), channelCount = 2
     // When:  GET / (sticky header rendered)
-    // Then:  channel toggle with "PT" and "ES" buttons visible
+    // Then:  channel toggle with "PT" and "ES" buttons visible, rendered inside the sticky header
     const db = makeMultiChannelDb('ACTIVE', 2);
     const app = await buildApp({ db });
     try {
@@ -113,8 +113,21 @@ describe('channel-toggle-rendering', () => {
       // Both PT and ES toggle buttons must be present (abbreviated labels per §10.1 sticky-header constraint)
       assert.ok(html.includes('>PT<'), 'toggle must include "PT" button (abbreviated label per §10.1)');
       assert.ok(html.includes('>ES<'), 'toggle must include "ES" button (abbreviated label per §10.1)');
-      // Toggle must be inside the sticky header area
+      // Toggle must use mp-channel-toggle class
       assert.ok(html.includes('mp-channel-toggle'), 'toggle must use mp-channel-toggle class');
+      // Structural check: toggle must be rendered INSIDE the sticky header (default.eta line 17-37).
+      // The mp-sticky-header opens before mp-channel-toggle and closes after it.
+      const stickyOpenIdx = html.indexOf('mp-sticky-header');
+      const toggleIdx = html.indexOf('mp-channel-toggle');
+      // Locate the closing </header> tag for the sticky header element
+      const headerCloseIdx = html.indexOf('</header>', stickyOpenIdx);
+      assert.ok(stickyOpenIdx !== -1, 'mp-sticky-header marker must exist (Story 8.1 chrome)');
+      assert.ok(toggleIdx !== -1, 'mp-channel-toggle marker must exist');
+      assert.ok(headerCloseIdx !== -1, 'sticky-header </header> closing tag must exist');
+      assert.ok(
+        stickyOpenIdx < toggleIdx && toggleIdx < headerCloseIdx,
+        'mp-channel-toggle must be rendered INSIDE the sticky header (between mp-sticky-header opening and </header>)',
+      );
     } finally {
       await app.close();
     }
@@ -160,6 +173,12 @@ describe('channel-toggle-rendering', () => {
       const hasScopeAttr = html.includes('data-toggle-scope') || html.includes('data-channel-scope');
       assert.ok(hasScopeAttr,
         'dashboard must have a data-toggle-scope or data-channel-scope attribute on KPI/margin/audit sections (AC#1)');
+      // Stronger assertion: KPI section specifically must be marked as channel-scoped per implementation
+      // (the KPI grid is the first downstream consumer of the toggle — Story 8.2 re-renders on channelchange)
+      assert.ok(
+        /mp-kpi-grid[^>]*data-channel-scope/.test(html) || /data-channel-scope[^>]*mp-kpi-grid/.test(html),
+        'KPI grid (mp-kpi-grid) must carry data-channel-scope attribute so Story 8.2 KPI cards re-render on channelchange (AC#1)',
+      );
     } finally {
       await app.close();
     }
@@ -185,11 +204,22 @@ describe('channel-toggle-rendering', () => {
       // Banner zone must be present (anomaly banner fired)
       assert.ok(html.includes('mp-banner-zone'), 'banner zone must render regardless of channel toggle');
       // The banner zone must NOT appear inside a data-toggle-scope container.
-      // Structural check: mp-banner-zone should appear before or after the toggle scope, not nested within.
       // Since we can't parse HTML fully in node --test, verify the anomaly banner renders
       // (proving it's not suppressed by channel toggle scope):
       assert.ok(html.includes('mp-banner-warning') || html.includes('Rever'),
         'anomaly banner must render (banner zone is not channel-scoped)');
+      // Structural check: mp-banner-zone must appear BEFORE the data-channel-scope KPI section
+      // in source order. The default.eta layout places the banner zone above the body slot
+      // (which contains dashboard.eta's KPI grid). If the banner zone appeared after or
+      // inside the scoped container, the toggle would inadvertently hide/scope system-level banners.
+      const bannerZoneIdx = html.indexOf('mp-banner-zone');
+      const kpiScopeIdx = html.indexOf('data-channel-scope="kpi"');
+      assert.ok(bannerZoneIdx !== -1, 'mp-banner-zone marker must be present in HTML');
+      assert.ok(kpiScopeIdx !== -1, 'data-channel-scope="kpi" marker must be present in HTML');
+      assert.ok(
+        bannerZoneIdx < kpiScopeIdx,
+        'mp-banner-zone must appear BEFORE data-channel-scope="kpi" in source order — banner zone is NOT nested inside the toggle scope (AC#1)',
+      );
     } finally {
       await app.close();
     }
@@ -212,17 +242,24 @@ describe('channel-toggle-persistence', () => {
       const res = await app.inject({ method: 'GET', url: '/' });
       assert.equal(res.statusCode, 200);
       const html = res.body;
-      // Server-side default: PT button active
-      // Find the PT button aria-selected attribute — it must be "true"
-      // We verify the PT button's active state by checking the ordering:
-      // PT button with aria-selected="true" must appear before ES button with aria-selected="false"
+      // Server-side default: PT button MUST be active (strict — not a fallback OR).
+      // The PT button must have aria-selected="true" AND ES must have aria-selected="false".
+      // Either attribute order on the button is acceptable.
       const ptAriaTrue = /data-channel="pt"[^>]*aria-selected="true"|aria-selected="true"[^>]*data-channel="pt"/.test(html);
       const esAriaFalse = /data-channel="es"[^>]*aria-selected="false"|aria-selected="false"[^>]*data-channel="es"/.test(html);
-      assert.ok(ptAriaTrue || html.includes('>PT<'),
-        'PT toggle button must be rendered as active by default (server-side: activeChannel = "pt")');
-      // Verify ES is present and not the active one
-      assert.ok(esAriaFalse || html.includes('>ES<'),
-        'ES toggle button must be rendered as inactive by default');
+      assert.ok(
+        ptAriaTrue,
+        'PT toggle button must have aria-selected="true" by default (server-side: activeChannel = "pt") per AC#2',
+      );
+      assert.ok(
+        esAriaFalse,
+        'ES toggle button must have aria-selected="false" by default (PT is the default channel) per AC#2',
+      );
+      // PT button must also carry the --active CSS modifier on first load (highlighted styling per AC#1)
+      assert.ok(
+        /data-channel="pt"[^>]*mp-toggle-btn--active|mp-toggle-btn--active[^>]*data-channel="pt"|class="[^"]*mp-toggle-btn--active[^"]*"[^>]*data-channel="pt"/.test(html),
+        'PT toggle button must carry mp-toggle-btn--active modifier class on first load (AC#1 highlighted state)',
+      );
     } finally {
       await app.close();
     }
