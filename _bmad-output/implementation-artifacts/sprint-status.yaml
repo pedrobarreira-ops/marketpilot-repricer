@@ -292,6 +292,12 @@ calendar_early_overrides:
   7-1-shared-money-index-js-no-float-price-eslint-rule:
     after_epic: 1   # 04-epic-7-engine-safety.md:38 — "Depends on Story 1.1 (eslint config)" — only Epic 1's eslint config required (per Bob 2026-05-10 sprint-planning ruling). Resolves Bundle C deadlock: 7.1 is 7.2's per-story dep but standard epic-ordering blocked it on Epic 6 not-complete; Bundle C cannot complete because 7.8 needs 7.6 needs 7.2 needs 7.1, and 7.1 was waiting for Bundle C to merge. Calendar-early treatment matches the 9.0/9.1 precedent — pure utility module (shared/money + ESLint rule), no actual code dep on Epic 5/6 cron-dispatcher/writer/poller/parser. 7.4/7.5/7.7 are NOT calendar-early because they have per-story Bundle C deps (7.4 → 7.3, 7.5 → 7.2, 7.7 → 7.5) that calendar-early wouldn't unblock; they go Ready naturally after 7.8 gate clears.
     test_design_epic: 7
+  9-2-daily-kpi-snapshots-cycle-summaries-schemas-daily-aggregate-cron-5-min-today-partial-refresh:
+    after_epic: 7   # 06-epics-9-10-audit-deletion.md:80 — spec deps (9.0, 9.1, 5.2, 4.1, 4.2) all done; no actual code dep on Epic 8 surfaces. Dependency-graph's "epic-ordering: epic 8 must be complete" was a heuristic over-block, not a spec dep. Calendar-early treatment matches 9.0/9.1/7.1 precedent — pure foundation work (2 migrations + worker cron + cycle-end hook into Story 5.2). Resolves 8.2↔9.2 deadlock surfaced by /bad 8.2 (SCP-2026-05-15).
+    test_design_epic: 9
+  9-3-5-surface-query-endpoints-audit-root-with-daily-summary-atencao-feed-notavel-feed:
+    after_epic: 7   # 06-epics-9-10-audit-deletion.md:92 — spec deps (8.1, 9.0, 9.1, 9.2) — 8.1 done, foundation done, 9.2 now calendar-early. No actual code dep on other Epic 8 surfaces. Unblocks Story 8.10 (admin /status reuses 9.3's audit-log UI via ?as_admin=) and lets Story 8.7's "Ver histórico" link target render natively. SCP-2026-05-15.
+    test_design_epic: 9
 
 # =============================================================================
 # MERGE BLOCKS — atomicity-bundle gates (BAD customization)

@@ -190,9 +190,15 @@ Reason: audit-log infrastructure (event_types lookup, partitioned `audit_log` ta
 
 Sprint-status.yaml reflects this; the markers `[CALENDAR-EARLY — Story 1.x sibling]` annotate Stories 9.0 and 9.1 in their epics-distillate definitions.
 
+**Additional calendar-early overrides** (per `sprint-status.yaml` `calendar_early_overrides:` block — the authoritative source for what's exempt from the default lowest-incomplete-epic Ready-cell filter):
+
+- **Story 7.1** (`after_epic: 1`, added 2026-05-10) — `shared/money/index.js` + `no-float-price` ESLint rule. Pure utility module; only Epic 1's eslint config required. Calendar-early treatment resolved the Bundle C deadlock (7.8 → 7.6 → 7.2 → 7.1, with 7.1 waiting on Epic 6 not-complete).
+- **Story 9.2** (`after_epic: 7`, added 2026-05-15 per `sprint-change-proposal-2026-05-15.md`) — `daily_kpi_snapshots` + `cycle_summaries` schemas + daily-aggregate cron. Required by Story 8.2 KPI cards. Spec deps (9.0/9.1/5.2/4.1/4.2) all done by start of Epic 8. Marked `[CALENDAR-EARLY — Story 8.x sibling]` in `epics-distillate/06-epics-9-10-audit-deletion.md`.
+- **Story 9.3** (`after_epic: 7`, added 2026-05-15 per same SCP) — 5-surface audit query endpoints. Required by Story 8.10 admin reuse and Story 8.7 "Ver histórico" link target. Marked `[CALENDAR-EARLY — Story 8.x sibling]`.
+
 **Story 5.1 retrofit pragma for Story 9.1 cron**: Story 9.1's `worker/src/jobs/monthly-partition-create.js` cron uses Story 5.1 cron dispatcher with the literal `// safe: cross-customer cron` comment opt-out from the `worker-must-filter-by-customer` ESLint rule. This is preserved verbatim on Story 5.1 AND cross-referenced on Story 9.1.
 
-**Loading consequence**: when Bob shards Story 9.0 or 9.1, load `epics-distillate/06-epics-9-10-audit-deletion.md` (where the story bodies live) — calendar-early refers to *shipping order*, not *file location*.
+**Loading consequence**: when Bob shards a calendar-early story, load `epics-distillate/06-epics-9-10-audit-deletion.md` (where the 9.x story bodies live) — calendar-early refers to *shipping order*, not *file location*.
 
 ---
 

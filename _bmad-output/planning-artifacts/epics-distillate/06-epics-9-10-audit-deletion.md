@@ -77,8 +77,9 @@ This section covers Epic 9 Audit Log (Stories 9.0–9.6, 7 stories) and Epic 10 
 
 ---
 
-### Story 9.2: `daily_kpi_snapshots` + `cycle_summaries` schemas + daily-aggregate cron + 5-min "today" partial refresh
+### Story 9.2: `daily_kpi_snapshots` + `cycle_summaries` schemas + daily-aggregate cron + 5-min "today" partial refresh [CALENDAR-EARLY — Story 8.x sibling]
 - **Trace:** Implements AD19 (precomputed aggregates), Story 8.2 KPI cards' data source; FRs FR34 partial (data); NFRs NFR-P8 (≤2s on 90-day window — aggregates make this feasible). Size M.
+- **Notes:** [CALENDAR-EARLY — Story 8.x sibling] SHIPS DURING Epic 8 calendar window per SCP-2026-05-15. Spec deps (9.0, 9.1, 5.2, 4.1, 4.2) all done by start of Epic 8; no actual code dep on Epic 8 surfaces. Required for Story 8.2 (KPI cards) and Story 9.3 (5-surface audit query endpoints, which 8.10 reuses). `sprint-status.yaml` `calendar_early_overrides:` entry has `after_epic: 7` and `test_design_epic: 9` (Epic 9 test design already `done` from 9.0/9.1 calendar-early pass).
 - **Bob-trace:** SSoT: `worker/src/jobs/daily-kpi-aggregate.js`, `worker/src/engine/kpi-derive.js` (cycle-end aggregation → cycle_summaries; consumed by Story 5.2's cycle-end hook). Migrations: `supabase/migrations/202604301209_create_daily_kpi_snapshots.sql`, `supabase/migrations/202604301210_create_cycle_summaries.sql`. Depends on Story 9.0 + Story 9.1 (audit_log foundation), Story 5.2 (cycle-end hook), Story 4.1 (customer_marketplace), Story 4.2 (sku_channels for tier-derived counts). Enables Story 8.2 KPI cards consume `daily_kpi_snapshots`; Story 9.5 firehose consumes `cycle_summaries`.
 - **Acceptance Criteria:**
   1. **Given** the migration `202604301209_create_daily_kpi_snapshots.sql` **When** applied **Then** `daily_kpi_snapshots` table exists per architecture: composite PK `(customer_marketplace_id, channel_code, date)`, columns for skus_in_first_count, skus_losing_count, skus_exclusive_count, catalog_value_at_risk_cents, undercut_count, ceiling_raise_count, hold_count, external_change_absorbed_count, anomaly_freeze_count, refreshed_at **And** index `idx_daily_kpi_snapshots_date ON daily_kpi_snapshots(date)` **And** RLS policy for customer-own access via customer_marketplace_id chain **And** RLS regression suite extended.
@@ -89,8 +90,9 @@ This section covers Epic 9 Audit Log (Stories 9.0–9.6, 7 stories) and Epic 10 
 
 ---
 
-### Story 9.3: 5-surface query endpoints — `/audit` root with Daily summary + Atenção feed + Notável feed
+### Story 9.3: 5-surface query endpoints — `/audit` root with Daily summary + Atenção feed + Notável feed [CALENDAR-EARLY — Story 8.x sibling]
 - **Trace:** Implements UX-DR7 (daily summary), UX-DR8 (Atenção feed expanded by default), UX-DR9 (Notável feed collapsed-by-default), UX-DR12 (every event accessible via search/firehose); FRs FR37, FR38, FR38b, FR38d; NFRs NFR-P8, NFR-A3, NFR-L1. Size L.
+- **Notes:** [CALENDAR-EARLY — Story 8.x sibling] SHIPS DURING Epic 8 calendar window per SCP-2026-05-15. Spec deps (8.1, 9.0, 9.1, 9.2) — 8.1 done, foundation done, 9.2 also calendar-early. No actual code dep on other Epic 8 surfaces. Required for Story 8.10 (admin /status reuses 9.3 via `?as_admin=`) and Story 8.7's "Ver histórico" link target. `sprint-status.yaml` `calendar_early_overrides:` entry has `after_epic: 7` and `test_design_epic: 9`.
 - **Bob-trace:** SSoT: `app/src/routes/audit/index.js` (`GET /audit`), `app/src/routes/audit/_fragments/atencao-feed.js`, `app/src/routes/audit/_fragments/notavel-feed.js`, `app/src/views/pages/audit.eta`, `app/src/views/components/audit-feeds.eta`, `shared/audit/readers.js` (query helpers for the 5 surfaces — single-source-of-truth for audit reads). Depends on Story 8.1 (chrome), Story 9.0 + Story 9.1 (audit foundation), Story 9.2 (daily_kpi_snapshots for the summary card). Enables Story 9.4 (search), Story 9.5 (firehose), Story 8.10 admin reuse via `?as_admin=`.
 - **Pattern A/B/C contract:**
   - Behavior: FR37, FR38, FR38b, FR38d; UX-DR7, UX-DR8, UX-DR9, UX-DR12

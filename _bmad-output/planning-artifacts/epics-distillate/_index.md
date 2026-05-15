@@ -37,7 +37,7 @@ parts: 8
 ## Cross-Cutting: Calendar-Early Sequencing
 
 - **Stories 9.0 + 9.1 ship between Epic 2 and Epic 3 — NOT in Epic 9 timeline.** Reason: audit-log infrastructure (event_types lookup, partitioned `audit_log` table, priority-derivation trigger, `writeAuditEvent` SSoT, `no-raw-INSERT-audit-log` ESLint rule, monthly partition cron) is needed before Epic 3+ events fire. Epics 5, 7, 10, 11, 12 all emit audit events; the foundation must exist when those epics ship.
-- Markers: `[CALENDAR-EARLY — Story 1.x sibling]` annotations on Stories 9.0 and 9.1.
+- Markers: `[CALENDAR-EARLY — Story 1.x sibling]` annotations on Stories 9.0 and 9.1; `[CALENDAR-EARLY — Story 8.x sibling]` annotations on Stories 9.2 and 9.3 (added 2026-05-15 per `sprint-change-proposal-2026-05-15.md`). Story 7.1 ships calendar-early via `sprint-status.yaml` override only (no in-distillate marker).
 - **Story 5.1 BAD-subagent retrofit pragma:** Story 9.1's `monthly-partition-create.js` cron uses Story 5.1 cron dispatcher with the literal `// safe: cross-customer cron` comment opt-out from the `worker-must-filter-by-customer` ESLint rule. This is preserved verbatim on Story 5.1 AND cross-referenced on Story 9.1.
 
 ## Cross-Cutting: 17 P11 Fixtures
@@ -327,7 +327,7 @@ UX-DR38 → Story 8.11
 
 ### Story-dependency check
 
-Verified: every story's `Depends on:` line references only PRIOR-numbered stories (within the epic) OR stories from earlier epics (calendar-shipping order). Exception correctly documented: Story 9.0 + Story 9.1 ship calendar-early as Story 1.x siblings per Option A — this is the ONLY out-of-numerical-order shipping in the spec.
+Verified: every story's `Depends on:` line references only PRIOR-numbered stories (within the epic) OR stories from earlier epics (calendar-shipping order). Exceptions correctly documented via `sprint-status.yaml` `calendar_early_overrides:` block: Story 9.0 + Story 9.1 (Story 1.x siblings, `after_epic: 2`), Story 7.1 (`after_epic: 1`, added 2026-05-10 per Bob sprint-planning ruling), Story 9.2 + Story 9.3 (Story 8.x siblings, `after_epic: 7`, added 2026-05-15 per `sprint-change-proposal-2026-05-15.md`). All other stories follow numerical-order shipping.
 
 ## Architectural Constraints / Negative Assertions (27 items)
 

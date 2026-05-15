@@ -1,5 +1,5 @@
 # Story Dependency Graph
-_Last updated: 2026-05-15T00:00:00Z (Phase 0 pass 30 — Story 8.1 done via PR #98 (2026-05-14T20:10:20Z); Epic 8 in-progress; orphaned worktrees cleaned; story-8.1 remote branch deleted; Ready cells recomputed per STORY_FILTER=8.2)_
+_Last updated: 2026-05-15 (SCP amendment — Stories 9.2 and 9.3 added to calendar_early_overrides per sprint-change-proposal-2026-05-15.md, resolving 8.2↔9.2 deadlock; Phase 0 pass 30 baseline preserved for reference)_
 
 ## Stories
 
@@ -52,11 +52,11 @@ _Last updated: 2026-05-15T00:00:00Z (Phase 0 pass 30 — Story 8.1 done via PR #
 | 8.10 | 8 | /admin/status founder page (reuses customer audit-log UI) | backlog | #44 | — | — | 8.1, 1.5, 9.3 | ❌ No (9.3 not done) |
 | 8.11 | 8 | Settings sectioned navigation (5 pages) | backlog | #45 | — | — | 8.1 | ✅ Yes |
 | 8.12 | 8 | Mobile-focused critical-alert response surface | backlog | #46 | — | — | 8.1 | ✅ Yes |
-| 9.2 | 9 | daily_kpi_snapshots + cycle_summaries schemas + daily-aggregate cron + 5-min today partial refresh | backlog | #47 | — | — | 9.1, 7.8 | ❌ No (epic 8 not complete) |
-| 9.3 | 9 | 5-surface query endpoints — audit root + daily summary + Atenção feed + Notável feed | backlog | #48 | — | — | 9.2 | ❌ No (epic 8 not complete) |
-| 9.4 | 9 | Search by SKU/EAN endpoint — primary investigation primitive | backlog | #49 | — | — | 9.3 | ❌ No (epic 8 not complete) |
-| 9.5 | 9 | Firehose /audit/firehose — cycle-aggregated view with lazy-loaded SKU expansion | backlog | #50 | — | — | 9.3 | ❌ No (epic 8 not complete) |
-| 9.6 | 9 | Audit-log archive job — detach old partitions per AD19 retention semantics | backlog | #51 | — | — | 9.1 | ❌ No (epic 8 not complete) |
+| 9.2 | 9 | daily_kpi_snapshots + cycle_summaries schemas + daily-aggregate cron + 5-min today partial refresh (CALENDAR-EARLY) | backlog | #47 | — | — | 9.1, 7.8 (calendar-early: after_epic=7 per SCP-2026-05-15) | ✅ Yes |
+| 9.3 | 9 | 5-surface query endpoints — audit root + daily summary + Atenção feed + Notável feed (CALENDAR-EARLY) | backlog | #48 | — | — | 9.2, 8.1 (calendar-early: after_epic=7 per SCP-2026-05-15) | ❌ No (9.2 not done) |
+| 9.4 | 9 | Search by SKU/EAN endpoint — primary investigation primitive | backlog | #49 | — | — | 9.3 | ❌ No (9.3 not done) |
+| 9.5 | 9 | Firehose /audit/firehose — cycle-aggregated view with lazy-loaded SKU expansion | backlog | #50 | — | — | 9.3 | ❌ No (9.3 not done) |
+| 9.6 | 9 | Audit-log archive job — detach old partitions per AD19 retention semantics | backlog | #51 | — | — | 9.1, 10.1 | ❌ No (10.1 not done — itself blocked on 8.11) |
 | 10.1 | 10 | /settings/delete multi-step initiation + ELIMINAR phrase + key destruction + Stripe cancel_at_period_end | backlog | #52 | — | — | 8.11, 9.0, 1.2 | ❌ No (epic 9 not complete) |
 | 10.2 | 10 | Cancel-mid-grace flow (magic link in email + dashboard Cancelar eliminação banner button) | backlog | #53 | — | — | 10.1 | ❌ No (epic 9 not complete) |
 | 10.3 | 10 | Daily deletion-grace cron (day-5 reminder email + T+7d hard-delete + audit-log archive coordination) | backlog | #54 | — | — | 10.1, 9.6 | ❌ No (epic 9 not complete) |
@@ -112,11 +112,11 @@ _Last updated: 2026-05-15T00:00:00Z (Phase 0 pass 30 — Story 8.1 done via PR #
 - **8.10** depends on: 8.1, 1.5, 9.3
 - **8.11** depends on: 8.1
 - **8.12** depends on: 8.1
-- **9.2** depends on: 9.1, 7.8 (epic-ordering: epic 8 must be complete)
-- **9.3** depends on: 9.2
+- **9.2** depends on: 9.1, 7.8 (calendar-early: after_epic=7 per SCP-2026-05-15 — spec deps 9.0/9.1/5.2/4.1/4.2 all done; no Epic 8 surface dep)
+- **9.3** depends on: 9.2, 8.1 (calendar-early: after_epic=7 per SCP-2026-05-15)
 - **9.4** depends on: 9.3
 - **9.5** depends on: 9.3
-- **9.6** depends on: 9.1
+- **9.6** depends on: 9.1, 10.1 (10.1 is the substantive blocker — itself blocked on Story 8.11)
 - **10.1** depends on: 8.11, 9.0, 1.2
 - **10.2** depends on: 10.1
 - **10.3** depends on: 10.1, 9.6
@@ -137,6 +137,7 @@ _Last updated: 2026-05-15T00:00:00Z (Phase 0 pass 30 — Story 8.1 done via PR #
 - **EPIC 7 COMPLETE** (9/9 stories done: 7.1+7.2+7.3+7.4+7.5+7.6+7.7+7.8+7.9). Epic 7 retrospective done (epic-7-retro-2026-05-14.md).
 - **Story 8.1 DONE**: PR #98 (story-8.1-dashboard-root-state-aware-view-sticky-header-chrome) merged 2026-05-14T20:10:20Z. Pattern A state-aware dashboard chrome. Remote branch deleted this pass. Issue #35 closed.
 - **EPIC 8 IN-PROGRESS**: 1/12 stories done (8.1). 8 stories now Ready to Work (8.3, 8.4, 8.5, 8.7, 8.8, 8.9, 8.11, 8.12 — all depend only on 8.1 which is done). 8.2 blocked on 9.2; 8.6 blocked on 11.1; 8.10 blocked on 9.3.
+- **SCP-2026-05-15 applied**: Stories 9.2 + 9.3 added to `calendar_early_overrides` (`after_epic: 7`) per `sprint-change-proposal-2026-05-15.md`. Resolves the 8.2↔9.2 phantom deadlock surfaced when /bad 8.2 ran earlier today. 9.2 immediately Ready; 9.3 Ready once 9.2 ships; 8.2 Ready once 9.2 ships; 8.10 Ready once 9.3 ships. No story-spec content amendments.
 - Epic 1 complete (5/5 stories done — pre-BAD direct commits to main, no PRs). Epic 1 retrospective complete (2026-05-03).
 - Epic 2 complete (2/2 stories done). Epic 2 retrospective complete (2026-05-04).
 - Calendar-early: Story 9.0 merged (PR #66). Story 9.1 merged (PR #67). epic-9: in-progress (9.0 + 9.1 done; 9.2-9.6 backlog).
@@ -150,7 +151,7 @@ _Last updated: 2026-05-15T00:00:00Z (Phase 0 pass 30 — Story 8.1 done via PR #
 
 ### Ready-to-Work Analysis (Pass 30)
 
-**Ready to dispatch (all from `main`, not in merge_blocks, not calendar-early):**
+**Ready to dispatch (all from `main`, not in merge_blocks):**
 - **8.3** — PT/ES channel toggle pill in sticky header. Depends on 8.1 (done). Epics 1-7 all done. ✅ Yes.
 - **8.4** — Margin editor inline panel. Depends on 8.1 (done). ✅ Yes.
 - **8.5** — Pause/Resume buttons + cron_state transitions. Depends on 8.1 (done) + 4.1 (done). ✅ Yes.
@@ -159,18 +160,21 @@ _Last updated: 2026-05-15T00:00:00Z (Phase 0 pass 30 — Story 8.1 done via PR #
 - **8.9** — Interception pages /key-revoked + /payment-failed. Depends on 8.1 (done). ✅ Yes.
 - **8.11** — Settings sectioned navigation (5 pages). Depends on 8.1 (done). ✅ Yes.
 - **8.12** — Mobile-focused critical-alert response surface. Depends on 8.1 (done). ✅ Yes.
+- **9.2** (CALENDAR-EARLY per SCP-2026-05-15) — daily_kpi_snapshots + cycle_summaries + daily aggregate cron. All spec deps done (9.0, 9.1, 5.2, 4.1, 4.2). ✅ Yes.
 
 **STORY_FILTER=8.2 — Assessment:**
-- **8.2** — KPI cards row (3 status cards + secondary catalog-value lines). Depends on 8.1 (done ✅) AND 9.2 (backlog ❌). Story 9.2 is itself blocked by the epic-ordering rule (requires epic 8 complete before 9.2 can be Ready). So 9.2 cannot be done before epic 8 completes. ❌ No (9.2 not done).
+- **8.2** — KPI cards row (3 status cards + secondary catalog-value lines). Depends on 8.1 (done ✅) AND 9.2 (now calendar-early and Ready ✅, but still backlog). ❌ No (9.2 must ship first; 8.2 will Ready on next pass once 9.2 done).
 
 **Done this pass:**
 - **8.1** — PR #98 merged 2026-05-14T20:10:20Z. ✅ Yes (done).
 
-**Blocked:**
-- **8.2** — depends on 9.2 which is blocked on epic 8 not complete. ❌ No.
+**Blocked (post-SCP-2026-05-15):**
+- **8.2** — depends on 9.2 (Ready but not yet done). ❌ No (will Ready once 9.2 ships).
 - **8.6** — depends on 11.1 (epic 11, not started). ❌ No.
-- **8.10** — depends on 9.3 (epic 9 remaining stories, require epic 8 complete). ❌ No.
-- **9.2-9.6** — require epic 8 complete. ❌ No.
+- **8.10** — depends on 9.3 (Ready blocker is 9.2 not done — same chain as 8.2). ❌ No.
+- **9.3** — depends on 9.2 (Ready but not yet done). ❌ No.
+- **9.4, 9.5** — depend on 9.3. ❌ No.
+- **9.6** — depends on 10.1 (which depends on 8.11). ❌ No.
 - **10.x, 11.x, 12.x** — blocked further downstream.
 
 ### Parallelization Opportunities
